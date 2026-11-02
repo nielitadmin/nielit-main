@@ -173,7 +173,7 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
     <button type="button" class="hub-receipt-print-btn" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
 </div>
 <?php endif; ?>
-<article class="hub-invoice-sheet hub-money-receipt-sheet">
+<article class="hub-invoice-sheet hub-money-receipt-sheet hub-a4-page">
     <div class="hub-receipt-ribbon"><?php echo htmlspecialchars($docTitle); ?></div>
     <header class="hub-invoice-head">
         <div class="hub-invoice-brand">
@@ -256,8 +256,8 @@ function hub_invoice_render_html(mysqli $conn, array $payment, bool $allowPrint 
             <dt>Portal reference</dt>
             <dd class="mono"><?php echo htmlspecialchars((string) ($payment['source_reference'] ?? '—')); ?></dd>
             <?php if ($checkout): ?>
-            <dt>Checkout token</dt>
-            <dd class="mono small"><?php echo htmlspecialchars((string) ($checkout['token'] ?? '')); ?></dd>
+            <dt class="hub-receipt-print-hide">Checkout token</dt>
+            <dd class="mono small hub-receipt-print-hide"><?php echo htmlspecialchars((string) ($checkout['token'] ?? '')); ?></dd>
             <?php endif; ?>
             <?php if ($showGst): ?>
             <dt>GST note</dt>

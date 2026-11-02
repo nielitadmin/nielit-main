@@ -2,25 +2,38 @@
 
 function hub_invoice_layout_page(): array
 {
-    return ['width' => 794, 'height' => 1123, 'padding' => 36];
+    return ['width' => 794, 'height' => 1123, 'padding' => 36, 'format' => 'A4'];
 }
 
 function hub_invoice_layout_default_blocks(): array
 {
     return [
-        ['id' => 'b_logo', 'type' => 'logo', 'x' => 36, 'y' => 36, 'w' => 72, 'h' => 72, 'visible' => true],
-        ['id' => 'b_org', 'type' => 'data', 'key' => 'org_header', 'x' => 120, 'y' => 40, 'w' => 420, 'h' => 56, 'fontSize' => 13, 'align' => 'left', 'bold' => true, 'visible' => true],
-        ['id' => 'b_title', 'type' => 'data', 'key' => 'title', 'x' => 520, 'y' => 36, 'w' => 238, 'h' => 32, 'fontSize' => 16, 'align' => 'right', 'bold' => true, 'visible' => true],
-        ['id' => 'b_invno', 'type' => 'data', 'key' => 'invoice_number', 'x' => 520, 'y' => 72, 'w' => 238, 'h' => 28, 'fontSize' => 12, 'align' => 'right', 'bold' => true, 'visible' => true],
-        ['id' => 'b_bill', 'type' => 'data', 'key' => 'payer_block', 'x' => 36, 'y' => 130, 'w' => 340, 'h' => 120, 'fontSize' => 11, 'align' => 'left', 'bold' => false, 'visible' => true],
-        ['id' => 'b_issuer', 'type' => 'data', 'key' => 'issuer_block', 'x' => 400, 'y' => 130, 'w' => 358, 'h' => 120, 'fontSize' => 11, 'align' => 'left', 'bold' => false, 'visible' => true],
-        ['id' => 'b_lines', 'type' => 'data', 'key' => 'line_items', 'x' => 36, 'y' => 270, 'w' => 722, 'h' => 160, 'fontSize' => 11, 'align' => 'left', 'bold' => false, 'visible' => true],
-        ['id' => 'b_ctx', 'type' => 'data', 'key' => 'context_block', 'x' => 36, 'y' => 450, 'w' => 360, 'h' => 140, 'fontSize' => 11, 'align' => 'left', 'bold' => false, 'visible' => true],
-        ['id' => 'b_pay', 'type' => 'data', 'key' => 'payment_meta', 'x' => 410, 'y' => 450, 'w' => 348, 'h' => 140, 'fontSize' => 10, 'align' => 'left', 'bold' => false, 'visible' => true],
-        ['id' => 'b_qr', 'type' => 'data', 'key' => 'qr_code', 'x' => 36, 'y' => 620, 'w' => 160, 'h' => 150, 'fontSize' => 10, 'align' => 'center', 'bold' => false, 'visible' => true],
-        ['id' => 'b_notice', 'type' => 'data', 'key' => 'system_notice', 'x' => 210, 'y' => 640, 'w' => 548, 'h' => 80, 'fontSize' => 11, 'align' => 'left', 'bold' => true, 'visible' => true],
-        ['id' => 'b_foot', 'type' => 'data', 'key' => 'footer', 'x' => 36, 'y' => 1020, 'w' => 722, 'h' => 60, 'fontSize' => 10, 'align' => 'center', 'bold' => false, 'visible' => true],
+        ['id' => 'b_logo', 'type' => 'logo', 'x' => 36, 'y' => 28, 'w' => 64, 'h' => 64, 'visible' => true],
+        ['id' => 'b_org', 'type' => 'data', 'key' => 'org_header', 'x' => 108, 'y' => 30, 'w' => 380, 'h' => 52, 'fontSize' => 12, 'align' => 'left', 'bold' => true, 'visible' => true],
+        ['id' => 'b_title', 'type' => 'data', 'key' => 'title', 'x' => 500, 'y' => 28, 'w' => 258, 'h' => 26, 'fontSize' => 14, 'align' => 'right', 'bold' => true, 'visible' => true],
+        ['id' => 'b_invno', 'type' => 'data', 'key' => 'invoice_number', 'x' => 500, 'y' => 56, 'w' => 258, 'h' => 24, 'fontSize' => 11, 'align' => 'right', 'bold' => true, 'visible' => true],
+        ['id' => 'b_bill', 'type' => 'data', 'key' => 'payer_block', 'x' => 36, 'y' => 96, 'w' => 350, 'h' => 82, 'fontSize' => 10, 'align' => 'left', 'bold' => false, 'visible' => true],
+        ['id' => 'b_issuer', 'type' => 'data', 'key' => 'issuer_block', 'x' => 396, 'y' => 96, 'w' => 362, 'h' => 82, 'fontSize' => 10, 'align' => 'left', 'bold' => false, 'visible' => true],
+        ['id' => 'b_lines', 'type' => 'data', 'key' => 'line_items', 'x' => 36, 'y' => 188, 'w' => 722, 'h' => 118, 'fontSize' => 10, 'align' => 'left', 'bold' => false, 'visible' => true],
+        ['id' => 'b_ctx', 'type' => 'data', 'key' => 'context_block', 'x' => 36, 'y' => 314, 'w' => 350, 'h' => 96, 'fontSize' => 10, 'align' => 'left', 'bold' => false, 'visible' => true],
+        ['id' => 'b_pay', 'type' => 'data', 'key' => 'payment_meta', 'x' => 396, 'y' => 314, 'w' => 362, 'h' => 96, 'fontSize' => 9, 'align' => 'left', 'bold' => false, 'visible' => true],
+        ['id' => 'b_qr', 'type' => 'data', 'key' => 'qr_code', 'x' => 36, 'y' => 418, 'w' => 128, 'h' => 132, 'fontSize' => 10, 'align' => 'center', 'bold' => false, 'visible' => true],
+        ['id' => 'b_notice', 'type' => 'data', 'key' => 'system_notice', 'x' => 172, 'y' => 432, 'w' => 586, 'h' => 64, 'fontSize' => 10, 'align' => 'left', 'bold' => true, 'visible' => true],
+        ['id' => 'b_foot', 'type' => 'data', 'key' => 'footer', 'x' => 36, 'y' => 1040, 'w' => 722, 'h' => 48, 'fontSize' => 9, 'align' => 'center', 'bold' => false, 'visible' => true],
     ];
+}
+
+function hub_invoice_layout_has_visible_block(array $layout, string $key): bool
+{
+    foreach ($layout['blocks'] ?? [] as $block) {
+        if (empty($block['visible'])) {
+            continue;
+        }
+        if ((string) ($block['key'] ?? '') === $key) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function hub_invoice_layout_default(): array
@@ -63,7 +76,13 @@ function hub_invoice_layout_save(mysqli $conn, string $json): bool
     if (!is_array($data) || !isset($data['blocks']) || !is_array($data['blocks'])) {
         return false;
     }
-    return hub_setting_set($conn, 'invoice_layout_json', $json);
+    $data['page'] = hub_invoice_layout_page();
+    $data['version'] = (int) ($data['version'] ?? 1);
+    $encoded = json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($encoded === false) {
+        return false;
+    }
+    return hub_setting_set($conn, 'invoice_layout_json', $encoded);
 }
 
 function hub_invoice_render_data(mysqli $conn, array $payment, array $tpl, ?array $checkout): array
@@ -212,7 +231,7 @@ function hub_invoice_render_layout_html(mysqli $conn, array $payment, array $lay
     <button type="button" class="hub-receipt-print-btn" onclick="window.print()"><i class="bi bi-printer"></i> Print / Save PDF</button>
 </div>
 <?php endif; ?>
-<article class="hub-invoice-sheet hub-invoice-sheet-layout hub-money-receipt-sheet" style="width:<?php echo $w; ?>px;min-height:<?php echo $h; ?>px;height:auto;">
+<article class="hub-invoice-sheet hub-invoice-sheet-layout hub-money-receipt-sheet hub-a4-page" style="width:<?php echo $w; ?>px;height:<?php echo $h; ?>px;">
     <?php foreach ($layout['blocks'] as $block): ?>
         <?php if (empty($block['visible'])) {
             continue;
@@ -221,15 +240,29 @@ function hub_invoice_render_layout_html(mysqli $conn, array $payment, array $lay
             <div class="hub-inv-block-inner"><?php echo hub_invoice_layout_block_inner($block, $data, false); ?></div>
         </div>
     <?php endforeach; ?>
-    <div class="hub-receipt-layout-append">
-        <?php echo hub_receipt_qr_system_html($conn, $payment, $publicSig); ?>
-        <footer class="hub-invoice-foot hub-invoice-foot--layout">
-            <p class="hub-receipt-legal-note">This is a computer-generated <strong>money receipt</strong> for payment received. It is not a tax invoice.</p>
-            <?php if (trim((string) $tpl['invoice_footer']) !== ''): ?>
-            <p><?php echo htmlspecialchars((string) $tpl['invoice_footer']); ?></p>
+    <?php
+    $hasQr = hub_invoice_layout_has_visible_block($layout, 'qr_code');
+    $hasNotice = hub_invoice_layout_has_visible_block($layout, 'system_notice');
+    $needQrStrip = !$hasQr || !$hasNotice;
+    ?>
+    <?php if ($needQrStrip): ?>
+    <div class="hub-receipt-layout-append hub-receipt-layout-append--a4">
+        <div class="hub-receipt-qr-system">
+            <?php if (!$hasQr): ?>
+                <?php echo hub_receipt_qr_block_html($conn, $payment, $publicSig); ?>
             <?php endif; ?>
-        </footer>
+            <?php if (!$hasNotice): ?>
+                <p class="hub-receipt-system-notice"><?php echo htmlspecialchars(hub_receipt_system_notice()); ?></p>
+            <?php endif; ?>
+        </div>
     </div>
+    <?php endif; ?>
+    <footer class="hub-invoice-foot hub-invoice-foot--layout hub-a4-foot">
+        <p class="hub-receipt-legal-note">This is a computer-generated <strong>money receipt</strong> for payment received. It is not a tax invoice.</p>
+        <?php if (trim((string) $tpl['invoice_footer']) !== '' && !hub_invoice_layout_has_visible_block($layout, 'footer')): ?>
+        <p><?php echo htmlspecialchars((string) $tpl['invoice_footer']); ?></p>
+        <?php endif; ?>
+    </footer>
 </article>
 </body>
 </html>

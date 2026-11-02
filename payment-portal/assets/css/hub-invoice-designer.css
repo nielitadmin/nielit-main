@@ -35,6 +35,31 @@
     background: #fff;
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.2);
     transform-origin: top center;
+    box-sizing: border-box;
+}
+
+.hub-des-a4-badge {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    z-index: 0;
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    background: rgba(248, 250, 252, 0.92);
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid #cbd5e1;
+    pointer-events: none;
+}
+
+.hub-des-page-edge {
+    position: absolute;
+    inset: 0;
+    border: 2px solid #0c2340;
+    pointer-events: none;
+    z-index: 0;
+    box-sizing: border-box;
 }
 
 .hub-des-block {

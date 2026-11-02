@@ -34,9 +34,10 @@ hub_admin_layout_start('Money receipt designer', 'invoices', 'Optional custom la
 <link href="<?php echo hub_asset('assets/css/hub-invoice-designer.css'); ?>" rel="stylesheet">
     <div class="alert alert-warning py-2 small mb-3">
     <i class="bi bi-exclamation-triangle me-1"></i>
-    <strong>Advanced:</strong> Optional custom canvas layout. <strong>Live payer receipts always use the standard blue template</strong> (QR code + system notice below the amount) — not this canvas, even if you save blocks here.
-    Custom canvas is <?php echo $useDesigner ? '<strong class="text-success">enabled</strong> for receipts' : '<strong class="text-secondary">disabled</strong>'; ?> — control that on
+    <strong>Advanced:</strong> One <strong>A4 page</strong> (794 × 1123 px). Optional custom canvas layout.
+    <strong>Live payer receipts use the standard blue template</strong> (single A4 with QR + system notice) unless you enable custom layout on
     <a href="<?php echo hub_asset('admin/money_receipt_template.php'); ?>">Money receipt letterhead</a>.
+    Custom canvas is <?php echo $useDesigner ? '<strong class="text-success">enabled</strong> for receipts' : '<strong class="text-secondary">disabled</strong>'; ?>.
 </div>
 <?php if ($msg !== ''): ?><div class="alert alert-success"><?php echo htmlspecialchars($msg); ?></div><?php endif; ?>
 <?php if ($error !== ''): ?><div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
@@ -45,6 +46,7 @@ hub_admin_layout_start('Money receipt designer', 'invoices', 'Optional custom la
     <a class="btn btn-outline-secondary btn-sm" href="<?php echo hub_asset('admin/money_receipt_template.php'); ?>"><i class="bi bi-text-left me-1"></i> Money receipt letterhead</a>
     <?php if ($samplePaymentId > 0): ?>
         <a class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/receipt.php?id=' . $samplePaymentId . '&sig=' . urlencode(hub_invoice_public_signature($samplePaymentId, (string) $tpl['invoice_public_secret']))); ?>"><i class="bi bi-eye me-1"></i> Preview live receipt</a>
+        <a class="btn btn-outline-primary btn-sm" target="_blank" rel="noopener" href="<?php echo hub_asset('pay/receipt.php?id=' . $samplePaymentId . '&preview=custom'); ?>"><i class="bi bi-layout-text-window-reverse me-1"></i> Preview custom canvas</a>
     <?php endif; ?>
 </div>
 
@@ -61,7 +63,7 @@ hub_admin_layout_start('Money receipt designer', 'invoices', 'Optional custom la
     >
         <div class="hub-card-panel hub-designer-palette">
             <h2 class="h6 fw-bold mb-2">Add blocks</h2>
-            <p class="small text-secondary">Drag on the page; resize from bottom-right corner. Add <strong>QR code</strong> and <strong>System generated notice</strong> blocks for custom layouts.</p>
+            <p class="small text-secondary">Drag blocks inside the A4 page; resize from the bottom-right corner. Include <strong>QR code</strong> and <strong>System generated notice</strong> on the canvas (or they are added automatically when missing).</p>
             <div id="hubPalette">
                 <?php foreach ($palette as $i => $item): ?>
                     <button type="button" class="btn btn-sm btn-outline-primary" data-add="<?php echo (int) $i; ?>">
@@ -72,7 +74,9 @@ hub_admin_layout_start('Money receipt designer', 'invoices', 'Optional custom la
             <hr>
             <label class="form-label small">Zoom</label>
             <input type="range" class="form-range hub-designer-scale" id="hubDesScale" min="40" max="100" value="72">
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" id="hubDesFitA4">Fit one A4 page (default layout)</button>
             <button type="button" class="btn btn-sm btn-outline-secondary w-100 mt-2" id="hubDesReset">Reset to default layout</button>
+            <p id="hubDesPageHint" class="small text-secondary mt-2 mb-0"></p>
         </div>
         <div class="hub-designer-canvas-outer">
             <div id="hubDesignerCanvas" class="hub-designer-canvas hub-designer-canvas--receipt"></div>

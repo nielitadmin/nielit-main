@@ -12,12 +12,46 @@
     var selectedId = null;
     var scale = 0.72;
 
+    if (!layout.page) {
+        layout.page = { width: 794, height: 1123, padding: 36, format: 'A4' };
+    }
+
+    function pageW() {
+        return layout.page.width || 794;
+    }
+
+    function pageH() {
+        return layout.page.height || 1123;
+    }
+
     function uid() {
         return 'b_' + Math.random().toString(36).slice(2, 9);
     }
 
     function getBlock(id) {
         return layout.blocks.find(function (b) { return b.id === id; });
+    }
+
+    function clampBlock(block) {
+        var pw = pageW();
+        var ph = pageH();
+        block.w = Math.max(40, Math.min(block.w, pw));
+        block.h = Math.max(24, Math.min(block.h, ph));
+        block.x = Math.max(0, Math.min(block.x, pw - block.w));
+        block.y = Math.max(0, Math.min(block.y, ph - block.h));
+    }
+
+    function blockBottom(block) {
+        return block.y + block.h;
+    }
+
+    function layoutOverflowPx() {
+        var maxBottom = 0;
+        layout.blocks.forEach(function (block) {
+            if (block.visible === false) return;
+            maxBottom = Math.max(maxBottom, blockBottom(block));
+        });
+        return Math.max(0, maxBottom - pageH());
     }
 
     function blockLabel(block) {
@@ -43,14 +77,32 @@
         return '{' + (block.key || 'field') + '}';
     }
 
+    function updatePageHint() {
+        var hint = document.getElementById('hubDesPageHint');
+        if (!hint) return;
+        var over = layoutOverflowPx();
+        if (over > 0) {
+            hint.className = 'small text-danger fw-semibold mt-2 mb-0';
+            hint.textContent = 'Content extends ' + over + 'px past the A4 bottom — move blocks up or use “Fit one A4 page”.';
+        } else {
+            hint.className = 'small text-success mt-2 mb-0';
+            hint.textContent = 'All blocks fit on one A4 page (794 × 1123 px).';
+        }
+    }
+
     function renderCanvas() {
         if (!canvas || !layout.page) return;
-        canvas.style.width = layout.page.width + 'px';
-        canvas.style.height = layout.page.height + 'px';
+        layout.page.width = 794;
+        layout.page.height = 1123;
+        canvas.style.width = pageW() + 'px';
+        canvas.style.height = pageH() + 'px';
         canvas.style.transform = 'scale(' + scale + ')';
-        canvas.innerHTML = '';
+        canvas.innerHTML =
+            '<div class="hub-des-a4-badge" aria-hidden="true">A4 · 210 × 297 mm</div>' +
+            '<div class="hub-des-page-edge" aria-hidden="true"></div>';
         layout.blocks.forEach(function (block) {
             if (block.visible === false) return;
+            clampBlock(block);
             var el = document.createElement('div');
             el.className = 'hub-des-block' + (block.id === selectedId ? ' selected' : '');
             el.dataset.id = block.id;
@@ -69,6 +121,7 @@
             canvas.appendChild(el);
         });
         syncJson();
+        updatePageHint();
         initInteract();
     }
 
@@ -82,7 +135,7 @@
         if (!propsPanel) return;
         var block = selectedId ? getBlock(selectedId) : null;
         if (!block) {
-            propsPanel.innerHTML = '<p class="small text-secondary">Click a block on the canvas to edit position, size, and text.</p>';
+            propsPanel.innerHTML = '<p class="small text-secondary">Click a block on the canvas to edit position, size, and text. Everything must stay inside the A4 page.</p>';
             return;
         }
         propsPanel.innerHTML =
@@ -117,6 +170,7 @@
             if (block.type === 'static' && propsPanel.querySelector('.prop-text')) {
                 block.text = propsPanel.querySelector('.prop-text').value;
             }
+            clampBlock(block);
             renderCanvas();
         }
 
@@ -141,9 +195,11 @@
     function addBlock(spec) {
         var w = 200;
         var h = 48;
-        if (spec.type === 'logo') { w = 72; h = 72; }
-        if (spec.key === 'line_items') { w = 500; h = 140; }
-        if (spec.key === 'payer_block' || spec.key === 'issuer_block') { w = 320; h = 100; }
+        if (spec.type === 'logo') { w = 64; h = 64; }
+        if (spec.key === 'line_items') { w = 500; h = 118; }
+        if (spec.key === 'payer_block' || spec.key === 'issuer_block') { w = 320; h = 82; }
+        if (spec.key === 'qr_code') { w = 128; h = 132; }
+        if (spec.key === 'system_notice') { w = 400; h = 64; }
         var block = {
             id: uid(),
             type: spec.type,
@@ -158,6 +214,7 @@
             bold: false,
             visible: true
         };
+        clampBlock(block);
         layout.blocks.push(block);
         selectBlock(block.id);
     }
@@ -171,11 +228,13 @@
                     move: function (event) {
                         var block = getBlock(event.target.dataset.id);
                         if (!block) return;
-                        block.x = Math.max(0, Math.round(block.x + event.dx / scale));
-                        block.y = Math.max(0, Math.round(block.y + event.dy / scale));
+                        block.x = Math.round(block.x + event.dx / scale);
+                        block.y = Math.round(block.y + event.dy / scale);
+                        clampBlock(block);
                         event.target.style.left = block.x + 'px';
                         event.target.style.top = block.y + 'px';
                         syncJson();
+                        updatePageHint();
                         if (selectedId === block.id && propsPanel && propsPanel.querySelector('.prop-x')) {
                             propsPanel.querySelector('.prop-x').value = block.x;
                             propsPanel.querySelector('.prop-y').value = block.y;
@@ -191,9 +250,11 @@
                         if (!block) return;
                         block.w = Math.max(40, Math.round(event.rect.width / scale));
                         block.h = Math.max(24, Math.round(event.rect.height / scale));
+                        clampBlock(block);
                         event.target.style.width = block.w + 'px';
                         event.target.style.height = block.h + 'px';
                         syncJson();
+                        updatePageHint();
                     }
                 },
                 modifiers: [
@@ -218,11 +279,26 @@
     document.getElementById('hubDesReset').addEventListener('click', function () {
         if (confirm('Reset layout to default? Unsaved changes will be lost.')) {
             layout = JSON.parse(root.getAttribute('data-default') || '{}');
+            if (!layout.page) {
+                layout.page = { width: 794, height: 1123, padding: 36, format: 'A4' };
+            }
             selectedId = null;
             renderCanvas();
             renderProps();
         }
     });
+
+    var fitBtn = document.getElementById('hubDesFitA4');
+    if (fitBtn) {
+        fitBtn.addEventListener('click', function () {
+            if (confirm('Apply the compact one-page A4 default layout? Unsaved changes will be lost.')) {
+                layout = JSON.parse(root.getAttribute('data-default') || '{}');
+                selectedId = null;
+                renderCanvas();
+                renderProps();
+            }
+        });
+    }
 
     var scaleInput = document.getElementById('hubDesScale');
     if (scaleInput) {
@@ -239,6 +315,7 @@
     var form = document.getElementById('hubDesignerForm');
     if (form) {
         form.addEventListener('submit', function () {
+            layout.blocks.forEach(clampBlock);
             syncJson();
         });
     }

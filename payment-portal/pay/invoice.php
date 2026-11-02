@@ -35,4 +35,5 @@ if (!$adminOk) {
     }
 }
 
-hub_invoice_render_html($hub_conn, $payment, true);
+$forceDesigner = $adminOk && isset($_GET['preview']) && (string) $_GET['preview'] === 'custom';
+hub_invoice_render_html($hub_conn, $payment, true, $forceDesigner ? true : null);
