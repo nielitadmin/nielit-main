@@ -8,17 +8,6 @@ $sources = hub_source_list($hub_conn);
 $statuses = hub_payment_statuses();
 $rows = hub_payments_search($hub_conn, $filters, 200, 0);
 $total = hub_payments_count($hub_conn, $filters);
-foreach ($rows as $idx => $row) {
-    if ($idx >= 25) {
-        break;
-    }
-    if ((int) ($row['razorpay_fee_paise'] ?? 0) === 0 && trim((string) ($row['razorpay_payment_id'] ?? '')) !== '') {
-        hub_payment_refresh_razorpay_fees($hub_conn, (int) $row['id']);
-    }
-}
-if ($rows !== []) {
-    $rows = hub_payments_search($hub_conn, $filters, 200, 0);
-}
 
 $query = $_GET;
 $query['export'] = '1';
@@ -71,7 +60,7 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
         </div>
         <div class="col-md-3">
             <label class="form-label small mb-0">Search</label>
-            <input class="form-control form-control-sm" name="q" placeholder="Name, student id, receipt no., Razorpay id, reference…" value="<?php echo htmlspecialchars($filters['q']); ?>">
+            <input class="form-control form-control-sm" name="q" placeholder="Name, student id, receipt no., reference…" value="<?php echo htmlspecialchars($filters['q']); ?>">
         </div>
         <div class="col-md-3 d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-sm btn-primary">Apply filters</button>
@@ -80,7 +69,7 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
         </div>
     </form>
     <p class="small text-secondary mb-0 mt-2">Showing <?php echo count($rows); ?> of <?php echo (int) $total; ?> matching rows (max 200 on screen; export includes up to 5000).</p>
-    <p class="small text-secondary mb-0"><strong>Collected</strong> = round rupees the student paid · <strong>Institute</strong> = course/centre fee (whole ₹, e.g. ₹10) · <strong>Platform</strong> = NIELIT 2.4% rounded to whole rupees on top · <strong>Bank (est.)</strong> = same as institute for accounts · <strong>Razorpay</strong> column = gateway fee + GST (~1.5%+GST on collected, not 2.4%) · Details shows Razorpay net settlement.</p>
+    <p class="small text-secondary mb-0"><strong>Collected</strong> = round rupees the student paid · <strong>Institute</strong> = course/centre fee credited to accounts · <strong>Bank (est.)</strong> = same as institute fee for bank books.</p>
 </div>
 
 <div class="hub-card-panel">
@@ -96,8 +85,6 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
                     <th>Centre</th>
                     <th class="text-end">Collected</th>
                     <th class="text-end">Institute</th>
-                    <th class="text-end">Platform</th>
-                    <th class="text-end">Razorpay</th>
                     <th class="text-end">Bank (est.)</th>
                     <th>Mode</th>
                     <th>Receipt</th>
@@ -127,17 +114,6 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
                     <td class="small"><?php echo htmlspecialchars(hub_payment_centre_label($r)); ?></td>
                     <td class="text-end fw-semibold"><?php echo hub_money_paise($bd['collected_paise']); ?></td>
                     <td class="text-end small"><?php echo hub_money_paise($bd['fee_receive_paise']); ?></td>
-                    <td class="text-end small" title="NIELIT online platform fee"><?php echo hub_money_paise($bd['platform_fee_paise']); ?></td>
-                    <td class="text-end small">
-                        <?php if ($bd['has_razorpay_fees']): ?>
-                            <?php echo hub_money_paise($bd['razorpay_fee_paise']); ?>
-                            <?php if ($bd['razorpay_tax_paise'] > 0): ?>
-                                <br><span class="text-secondary">+GST <?php echo hub_money_paise($bd['razorpay_tax_paise']); ?></span>
-                            <?php endif; ?>
-                        <?php else: ?>
-                            <span class="text-secondary">—</span>
-                        <?php endif; ?>
-                    </td>
                     <td class="text-end small" title="Institute/centre course fee for accounts">
                         <?php echo hub_money_paise($bd['centre_bank_paise']); ?>
                     </td>
@@ -156,7 +132,7 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
                 </tr>
             <?php endforeach; ?>
             <?php if ($rows === []): ?>
-                <tr><td colspan="15" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
+                <tr><td colspan="13" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>

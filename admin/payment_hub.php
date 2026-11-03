@@ -74,7 +74,7 @@ $ready = payment_hub_is_ready();
 <div class="payment-hub-page">
     <div class="page-header">
         <h1><i class="fas fa-university"></i> Central Payment Portal</h1>
-        <p class="text-muted mb-0">Connect MIS course fees to <strong>payment.nielitbhubaneswar.in</strong>. Razorpay keys live only on the payment hub.</p>
+        <p class="text-muted mb-0">Connect MIS course fees to <strong>payment.nielitbhubaneswar.in</strong>. Students pay on the hub; gateway keys are managed centrally on the payment portal.</p>
     </div>
 
     <?php if ($success_message !== ''): ?><div class="alert alert-success mt-3"><?php echo htmlspecialchars($success_message); ?></div><?php endif; ?>
@@ -84,9 +84,9 @@ $ready = payment_hub_is_ready();
 
     <div class="hub-link-card mt-3">
         <h2 class="h6 fw-bold">Payment hub (staff register)</h2>
-        <p class="small text-muted mb-2">Open the hub admin to copy the MIS shared secret and view payments. Configure Razorpay under <strong>Gateway</strong> on the hub (single place for all API keys).</p>
+        <p class="small text-muted mb-2">Open the hub admin to copy the MIS shared secret and view payments. Configure the payment gateway under <strong>Gateway</strong> on the hub (single place for all API keys).</p>
         <a class="btn btn-outline-primary btn-sm me-2" href="<?php echo htmlspecialchars(payment_hub_admin_url('admin/dashboard.php')); ?>" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Open payment hub admin</a>
-        <a class="btn btn-outline-primary btn-sm me-2" href="<?php echo htmlspecialchars(payment_hub_admin_url('admin/gateway.php')); ?>" target="_blank" rel="noopener"><i class="fas fa-key"></i> Hub Razorpay Gateway</a>
+        <a class="btn btn-outline-primary btn-sm me-2" href="<?php echo htmlspecialchars(payment_hub_admin_url('admin/gateway.php')); ?>" target="_blank" rel="noopener"><i class="fas fa-key"></i> Hub Payment Gateway</a>
         <a class="btn btn-outline-secondary btn-sm" href="<?php echo htmlspecialchars($portalPublic . '/'); ?>" target="_blank" rel="noopener">Public landing page</a>
         <?php if ($ready): ?>
             <span class="badge bg-success ms-2">MIS integration active</span>
@@ -110,7 +110,7 @@ $ready = payment_hub_is_ready();
         <div class="form-check form-switch mb-3">
             <input class="form-check-input" type="checkbox" name="enabled" value="1" id="hub_enabled" <?php echo !empty($cfg['enabled']) ? 'checked' : ''; ?>>
             <label class="form-check-label" for="hub_enabled"><strong>Use central portal for online course fees</strong></label>
-            <div class="small text-muted">When on, students pay on the hub; local Razorpay keys on Payment Gateways are not used for course checkout.</div>
+            <div class="small text-muted">When on, students pay on the central payment hub. Local payment gateway keys on this MIS are not used for course checkout.</div>
         </div>
         <div class="mb-3">
             <label class="form-label">Portal base URL</label>
@@ -141,7 +141,7 @@ $ready = payment_hub_is_ready();
     </form>
 
     <div class="alert alert-light border mt-4 small">
-        <strong>Online course fee model:</strong> Enter the <em>centre course fee</em> in whole rupees on each course (e.g. 100). Students pay a round total (e.g. ₹103 = ₹100 course + ₹3 platform; 2.4% rounded up). Razorpay gateway charges reduce net bank settlement slightly — see the payment hub register.
+        <strong>Online course fee model:</strong> Enter the <em>centre course fee</em> in whole rupees on each course (e.g. 100). Students pay a round total that includes the platform fee (2.4% rounded up). After payment, the student sees a money receipt on the hub.
         <br><strong>Test:</strong> Enable online payment on a course, log in as a student → Fee Details → Pay via Payment Portal. After payment, the student sees a money receipt on the hub.
     </div>
 </div>

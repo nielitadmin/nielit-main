@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 function hub_payments_filters_from_request(array $input): array
 {
@@ -142,13 +142,8 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
         'centre',
         'collected_inr',
         'institute_fee_inr',
-        'platform_fee_inr',
-        'razorpay_fee_inr',
-        'razorpay_gst_inr',
         'centre_bank_inr',
-        'razorpay_net_settlement_inr',
         'mode_of_transaction',
-        'razorpay_payment_id',
         'status',
         'legacy',
     ]);
@@ -171,13 +166,8 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
             hub_payment_centre_label($r),
             number_format($bd['collected_paise'] / 100, 2, '.', ''),
             number_format($bd['fee_receive_paise'] / 100, 2, '.', ''),
-            number_format($bd['platform_fee_paise'] / 100, 2, '.', ''),
-            number_format($bd['razorpay_fee_paise'] / 100, 2, '.', ''),
-            number_format($bd['razorpay_tax_paise'] / 100, 2, '.', ''),
             number_format($bd['centre_bank_paise'] / 100, 2, '.', ''),
-            number_format($bd['razorpay_net_settlement_paise'] / 100, 2, '.', ''),
             hub_payment_method_label((string) ($r['payment_method'] ?? '')),
-            (string) ($r['razorpay_payment_id'] ?? ''),
             (string) ($r['status'] ?? ''),
             !empty($r['is_legacy']) ? 'yes' : 'no',
         ]);
