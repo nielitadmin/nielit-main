@@ -47,7 +47,19 @@ function hub_source_return_allowed(array $source, string $returnUrl): bool
 function hub_source_prefixes_array(array $source): array
 {
     $prefixes = json_decode((string) ($source['allowed_return_prefixes'] ?? '[]'), true);
-    return is_array($prefixes) ? array_values(array_filter(array_map('strval', $prefixes))) : [];
+    $arr = is_array($prefixes) ? array_values(array_filter(array_map('strval', $prefixes))) : [];
+    if (($source['code'] ?? '') === 'mock') {
+        if (!in_array('https://test.nielitbhubaneswar.in/', $arr, true)) {
+            $arr[] = 'https://test.nielitbhubaneswar.in/';
+        }
+        if (!in_array('http://test.nielitbhubaneswar.in/', $arr, true)) {
+            $arr[] = 'http://test.nielitbhubaneswar.in/';
+        }
+        if (!in_array('http://localhost/', $arr, true)) {
+            $arr[] = 'http://localhost/';
+        }
+    }
+    return $arr;
 }
 
 function hub_source_prefixes_from_text(string $text): array

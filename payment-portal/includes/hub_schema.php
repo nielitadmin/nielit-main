@@ -251,7 +251,7 @@ function hub_schema_seed_defaults(mysqli $conn): void
         $misSecret = bin2hex(random_bytes(24));
         $mockSecret = bin2hex(random_bytes(24));
         $prefixesMis = json_encode(['https://nielitbhubaneswar.in/', 'http://localhost/public_html/']);
-        $prefixesMock = json_encode(['https://mock.nielitbhubaneswar.in/', 'http://localhost/']);
+        $prefixesMock = json_encode(['https://test.nielitbhubaneswar.in/', 'https://mock.nielitbhubaneswar.in/', 'http://localhost/']);
         $stmt = $conn->prepare('INSERT INTO hub_sources (code, display_name, allowed_return_prefixes, shared_secret) VALUES (?, ?, ?, ?), (?, ?, ?, ?)');
         if ($stmt) {
             $mis = 'mis';
