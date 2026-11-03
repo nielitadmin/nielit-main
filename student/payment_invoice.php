@@ -33,14 +33,29 @@ if (!$row) {
 require_once __DIR__ . '/../includes/payment_hub_helper.php';
 if (($row['gateway'] ?? '') === 'payment_hub' && (int) ($row['hub_payment_id'] ?? 0) > 0) {
     $hubCfg = payment_hub_config();
+    $hubPayId = (int) $row['hub_payment_id'];
     $invSecret = trim((string) ($hubCfg['invoice_public_secret'] ?? ''));
+    if ($invSecret === '') {
+        $dbCfg = __DIR__ . '/../payment-portal/config/database.php';
+        if (is_file($dbCfg)) {
+            try {
+                $hp = @new mysqli('localhost', 'root', '', 'nielit_payments');
+                if (!$hp->connect_error) {
+                    $s = $hp->query("SELECT setting_value FROM hub_settings WHERE setting_key = 'invoice_public_secret' LIMIT 1");
+                    if ($s && ($sr = $s->fetch_assoc())) {
+                        $invSecret = trim((string) $sr['setting_value']);
+                    }
+                    $hp->close();
+                }
+            } catch (\Throwable $e) {}
+        }
+    }
     if ($invSecret !== '') {
-        $hubPayId = (int) $row['hub_payment_id'];
         $sig = hash_hmac('sha256', 'hub-invoice:' . $hubPayId, $invSecret);
-        $url = rtrim((string) $hubCfg['api_base'], '/') . '/pay/invoice.php?id=' . $hubPayId . '&sig=' . rawurlencode($sig);
+        $url = rtrim((string) $hubCfg['api_base'], '/') . '/pay/receipt.php?id=' . $hubPayId . '&sig=' . rawurlencode($sig);
         header('Location: ' . $url);
         exit;
     }
 }
 
-payment_render_invoice_page($row, $studentCode);
+payment_render_invoice_page($row, $studentCode, $conn);

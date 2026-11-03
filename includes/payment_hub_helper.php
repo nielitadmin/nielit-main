@@ -264,15 +264,33 @@ if (!function_exists('payment_hub_config')) {
         ], null);
     }
 
-    function payment_hub_checkout_centre_name(string $studentCode = ''): string
+    function payment_hub_checkout_centre_name(mysqli $conn, int $courseId = 0, string $studentCode = ''): string
     {
-        if ($studentCode !== '' && preg_match('/NIELIT\/\d{4}\/([A-Za-z]+)\//', $studentCode, $m)) {
-            $code = strtoupper((string) $m[1]);
-            if ($code === 'BBSR' || $code === 'BBS') {
-                return 'Bhubaneswar';
-            }
-            if ($code !== '') {
-                return $code;
+        if ($courseId > 0) {
+            $stmt = $conn->prepare("SELECT c.training_center, ct.name AS centre_name, ct.code AS centre_code
+                FROM courses c
+                LEFT JOIN centres ct ON c.centre_id = ct.id
+                WHERE c.id = ? LIMIT 1");
+            if ($stmt) {
+                $stmt->bind_param('i', $courseId);
+                $stmt->execute();
+                $row = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($row) {
+                    if (!empty($row['centre_name'])) {
+                        return trim((string) $row['centre_name']);
+                    }
+                    if (!empty($row['training_center'])) {
+                        if (function_exists('nielit_location_centre_label')) {
+                            return nielit_location_centre_label($row['training_center']);
+                        }
+                        $tc = trim((string) $row['training_center']);
+                        $tcClean = preg_replace('/^NIELIT\s+/i', '', $tc);
+                        if ($tcClean !== '' && strcasecmp($tcClean, 'PPI') !== 0) {
+                            return $tcClean;
+                        }
+                    }
+                }
             }
         }
         if (function_exists('getDefaultCentreCode')) {
@@ -328,7 +346,7 @@ if (!function_exists('payment_hub_config')) {
                 'external_id' => $studentCode,
             ],
             'context' => [
-                'centre' => payment_hub_checkout_centre_name($studentCode),
+                'centre' => payment_hub_checkout_centre_name($conn, $courseId, $studentCode),
                 'course' => $courseName,
                 'course_id' => $courseId,
                 'scheme' => '',

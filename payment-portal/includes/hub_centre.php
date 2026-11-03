@@ -8,14 +8,15 @@ function hub_default_centre_name(): string
 function hub_centre_code_to_name(string $code): string
 {
     $code = strtoupper(trim($code));
-    if ($code === '') {
-        return '';
+    if ($code === '' || $code === 'PPI') {
+        return hub_default_centre_name();
     }
     $map = [
         'BBSR' => 'Bhubaneswar',
         'BBS' => 'Bhubaneswar',
+        'BLS' => 'Baleshwar',
     ];
-    return $map[$code] ?? $code;
+    return $map[$code] ?? (strlen($code) > 4 ? $code : hub_default_centre_name());
 }
 
 function hub_infer_centre_from_external_id(string $externalId): string
@@ -25,7 +26,11 @@ function hub_infer_centre_from_external_id(string $externalId): string
         return '';
     }
     if (preg_match('/NIELIT\/\d{4}\/([A-Za-z]+)\//', $externalId, $m)) {
-        return hub_centre_code_to_name((string) $m[1]);
+        $code = strtoupper((string) $m[1]);
+        if ($code === 'PPI') {
+            return hub_default_centre_name();
+        }
+        return hub_centre_code_to_name($code);
     }
     return '';
 }
@@ -33,10 +38,10 @@ function hub_infer_centre_from_external_id(string $externalId): string
 function hub_checkout_normalize_context(array $context, array $payer): array
 {
     $centre = trim((string) ($context['centre'] ?? $context['center'] ?? ''));
-    if ($centre === '') {
+    if ($centre === '' || strcasecmp($centre, 'PPI') === 0) {
         $centre = hub_infer_centre_from_external_id((string) ($payer['external_id'] ?? $payer['student_id'] ?? ''));
     }
-    if ($centre === '') {
+    if ($centre === '' || strcasecmp($centre, 'PPI') === 0) {
         $centre = hub_default_centre_name();
     }
     $context['centre'] = $centre;
@@ -51,7 +56,7 @@ function hub_payment_centre_label(array $row): string
         $ctx = [];
     }
     $centre = trim((string) ($ctx['centre'] ?? $ctx['center'] ?? ''));
-    if ($centre !== '') {
+    if ($centre !== '' && strcasecmp($centre, 'PPI') !== 0) {
         return $centre;
     }
     $payer = json_decode((string) ($row['payer_json'] ?? '{}'), true);
@@ -59,7 +64,7 @@ function hub_payment_centre_label(array $row): string
         $payer = [];
     }
     $inferred = hub_infer_centre_from_external_id((string) ($payer['external_id'] ?? $payer['student_id'] ?? ''));
-    if ($inferred !== '') {
+    if ($inferred !== '' && strcasecmp($inferred, 'PPI') !== 0) {
         return $inferred;
     }
     return hub_default_centre_name();

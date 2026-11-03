@@ -457,43 +457,318 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return $rows ?: [];
     }
 
-    function payment_render_invoice_page(array $row, string $studentCode): void
+    function payment_money_in_words(float $amount): string
     {
-        $gateway = trim((string) ($row['gateway'] ?? ''));
-        $gatewayLabel = $gateway !== '' ? ucfirst($gateway) : 'Online';
+        $rupees = (int) floor($amount);
+        $paise = (int) round(($amount - $rupees) * 100);
+        $ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        $tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        $two = static function (int $n) use ($ones, $tens): string {
+            if ($n < 20) return $ones[$n];
+            $t = intdiv($n, 10);
+            $o = $n % 10;
+            return trim($tens[$t] . ($o ? ' ' . $ones[$o] : ''));
+        };
+        $three = static function (int $n) use ($two): string {
+            $h = intdiv($n, 100);
+            $r = $n % 100;
+            $p = $h ? $two($h) . ' Hundred' : '';
+            $s = $r ? $two($r) : '';
+            return trim($p . ($p && $s ? ' ' : '') . $s);
+        };
+        if ($rupees === 0) {
+            $words = 'Zero';
+        } else {
+            $parts = [];
+            $crore = intdiv($rupees, 10000000);
+            $rupees %= 10000000;
+            $lakh = intdiv($rupees, 100000);
+            $rupees %= 100000;
+            $thousand = intdiv($rupees, 1000);
+            $rupees %= 1000;
+            if ($crore) $parts[] = $three($crore) . ' Crore';
+            if ($lakh) $parts[] = $three($lakh) . ' Lakh';
+            if ($thousand) $parts[] = $three($thousand) . ' Thousand';
+            if ($rupees) $parts[] = $three($rupees);
+            $words = implode(' ', $parts);
+        }
+        $out = $words . ' Rupees';
+        if ($paise > 0) {
+            $out .= ' and ' . $two($paise) . ' Paise';
+        }
+        return $out . ' Only';
+    }
+
+    function payment_render_invoice_page(array $row, string $studentCode, $conn = null): void
+    {
         $paidAt = (string) ($row['paid_at'] ?? '');
-        $paidLabel = $paidAt !== '' ? date('d M Y, h:i A', strtotime($paidAt)) : '';
+        $paidLabel = $paidAt !== '' ? date('d M Y, h:i A', strtotime($paidAt)) : date('d M Y');
+        $paidDateOnly = $paidAt !== '' ? date('d M Y', strtotime($paidAt)) : date('d M Y');
+        $amount = (float) ($row['amount'] ?? 0);
+        $amountWords = payment_money_in_words($amount);
+        $invoiceNo = (string) ($row['invoice_number'] ?? $row['hub_invoice_number'] ?? '');
+        if ($invoiceNo === '') {
+            $invoiceNo = 'NIELIT-BBSR-' . date('Y') . '-' . str_pad((string)($row['id'] ?? '1'), 6, '0', STR_PAD_LEFT);
+        }
+        $studentName = (string) ($row['name'] ?? $studentCode);
+        $courseName = (string) ($row['course_name'] ?? 'Course Fee');
+        
+        // Resolve centre from course
+        $centreName = 'Bhubaneswar';
+        $courseId = (int) ($row['course_id'] ?? 0);
+        if ($conn instanceof mysqli && $courseId > 0) {
+            $cStmt = $conn->prepare("SELECT c.training_center, ct.name AS centre_name FROM courses c LEFT JOIN centres ct ON c.centre_id = ct.id WHERE c.id = ? LIMIT 1");
+            if ($cStmt) {
+                $cStmt->bind_param('i', $courseId);
+                $cStmt->execute();
+                $cRes = $cStmt->get_result()->fetch_assoc();
+                $cStmt->close();
+                if ($cRes) {
+                    if (!empty($cRes['centre_name'])) {
+                        $centreName = trim((string) $cRes['centre_name']);
+                    } elseif (!empty($cRes['training_center'])) {
+                        $tc = preg_replace('/^NIELIT\s+/i', '', trim((string) $cRes['training_center']));
+                        if ($tc !== '' && strcasecmp($tc, 'PPI') !== 0) {
+                            $centreName = $tc;
+                        }
+                    }
+                }
+            }
+        }
+        $logoUrl = defined('APP_URL') ? rtrim(APP_URL, '/') . '/assets/images/nielit-logo.png' : '../assets/images/nielit-logo.png';
         ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Money Receipt <?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Money Receipt - <?php echo htmlspecialchars($invoiceNo); ?></title>
     <style>
-        body { font-family: Arial, sans-serif; color: #0f172a; margin: 32px; }
-        h1 { margin-bottom: 0; }
-        table { width: 100%; border-collapse: collapse; margin-top: 24px; }
-        td { padding: 8px 0; vertical-align: top; }
-        td:first-child { width: 160px; color: #64748b; }
-        .box { border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; }
-        @media print { .no-print { display: none; } }
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f8fafc;
+            color: #0f172a;
+            margin: 0;
+            padding: 32px 16px;
+        }
+        .receipt-container {
+            max-width: 660px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+            border: 1px solid #e2e8f0;
+            overflow: hidden;
+            position: relative;
+        }
+        .receipt-ribbon-bar {
+            height: 6px;
+            background: linear-gradient(90deg, #003366, #0284c7, #f59e0b);
+        }
+        .receipt-header {
+            padding: 24px 28px 16px;
+            border-bottom: 1px solid #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+        }
+        .brand-wrap {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .brand-logo {
+            width: 54px;
+            height: auto;
+        }
+        .brand-text h2 {
+            margin: 0;
+            font-size: 1.05rem;
+            color: #003366;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+        .brand-text p {
+            margin: 2px 0 0;
+            font-size: 0.78rem;
+            color: #64748b;
+        }
+        .ribbon-badge {
+            background: #003366;
+            color: #ffffff;
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 4px 10px;
+            border-radius: 6px;
+            white-space: nowrap;
+        }
+        .amount-panel {
+            margin: 20px 28px;
+            padding: 16px 20px;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .amount-panel .label {
+            font-size: 0.78rem;
+            color: #166534;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+            margin: 0;
+        }
+        .amount-panel .val {
+            font-size: 1.6rem;
+            color: #15803d;
+            font-weight: 800;
+            margin: 4px 0 0;
+        }
+        .amount-panel .words {
+            font-size: 0.82rem;
+            color: #166534;
+            margin: 2px 0 0;
+            font-style: italic;
+        }
+        .receipt-body {
+            padding: 0 28px 24px;
+        }
+        .receipt-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .receipt-table tr {
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .receipt-table tr:last-child {
+            border-bottom: none;
+        }
+        .receipt-table td {
+            padding: 10px 0;
+            font-size: 0.9rem;
+            vertical-align: top;
+        }
+        .receipt-table td.k {
+            width: 150px;
+            color: #64748b;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
+        }
+        .receipt-table td.v {
+            color: #0f172a;
+            font-weight: 500;
+        }
+        .badge-paid {
+            display: inline-block;
+            background: #dcfce7;
+            color: #15803d;
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 4px;
+            text-transform: uppercase;
+        }
+        .receipt-footer {
+            padding: 14px 28px;
+            background: #f8fafc;
+            border-top: 1px solid #f1f5f9;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            text-align: center;
+        }
+        .toolbar {
+            max-width: 660px;
+            margin: 0 auto 16px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        .btn-print {
+            background: #003366;
+            color: #ffffff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-print:hover { background: #002244; }
+        @media print {
+            body { background: #fff; padding: 0; }
+            .receipt-container { box-shadow: none; border: none; max-width: 100%; }
+            .toolbar { display: none; }
+        }
     </style>
 </head>
 <body>
-    <button class="no-print" onclick="window.print()">Print money receipt</button>
-    <div class="box">
-        <h1>Money receipt</h1>
-        <p style="color:#64748b;">NIELIT Bhubaneswar</p>
-        <table>
-            <tr><td>Receipt no.</td><td><strong><?php echo htmlspecialchars((string) ($row['invoice_number'] ?? '')); ?></strong></td></tr>
-            <tr><td>Student</td><td><?php echo htmlspecialchars((string) ($row['name'] ?? $studentCode)); ?> (<?php echo htmlspecialchars($studentCode); ?>)</td></tr>
-            <tr><td>Course</td><td><?php echo htmlspecialchars((string) ($row['course_name'] ?? '')); ?></td></tr>
-            <tr><td>Amount paid</td><td><strong>₹<?php echo number_format((float) ($row['amount'] ?? 0), 2); ?></strong></td></tr>
-            <tr><td>Paid on</td><td><?php echo htmlspecialchars($paidLabel); ?></td></tr>
-            <tr><td>Gateway</td><td><?php echo htmlspecialchars($gatewayLabel); ?></td></tr>
-            <tr><td>Payment ID</td><td><?php echo htmlspecialchars((string) ($row['gateway_payment_id'] ?? '')); ?></td></tr>
-            <tr><td>Status</td><td>Paid</td></tr>
-        </table>
+    <div class="toolbar no-print">
+        <button class="btn-print" onclick="window.print()">Print Money Receipt</button>
+    </div>
+    <div class="receipt-container">
+        <div class="receipt-ribbon-bar"></div>
+        <div class="receipt-header">
+            <div class="brand-wrap">
+                <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="NIELIT Logo">
+                <div class="brand-text">
+                    <h2>NIELIT <?php echo htmlspecialchars($centreName); ?></h2>
+                    <p>National Institute of Electronics and Information Technology</p>
+                </div>
+            </div>
+            <div class="ribbon-badge">Money Receipt</div>
+        </div>
+        <div class="amount-panel">
+            <div>
+                <p class="label">Amount Received</p>
+                <div class="val">₹ <?php echo number_format($amount, 2); ?></div>
+                <div class="words"><?php echo htmlspecialchars($amountWords); ?></div>
+            </div>
+            <div style="text-align:right;">
+                <span class="badge-paid">Paid</span>
+            </div>
+        </div>
+        <div class="receipt-body">
+            <table class="receipt-table">
+                <tr>
+                    <td class="k">Receipt No.</td>
+                    <td class="v"><strong><?php echo htmlspecialchars($invoiceNo); ?></strong></td>
+                </tr>
+                <tr>
+                    <td class="k">Date</td>
+                    <td class="v"><?php echo htmlspecialchars($paidLabel); ?></td>
+                </tr>
+                <tr>
+                    <td class="k">Received From</td>
+                    <td class="v">
+                        <strong><?php echo htmlspecialchars($studentName); ?></strong>
+                        <br><span style="color:#64748b; font-size:0.85rem;">Roll No / Student ID: <?php echo htmlspecialchars($studentCode); ?></span>
+                    </td>
+                </tr>
+                <tr>
+                    <td class="k">Course / Purpose</td>
+                    <td class="v"><?php echo htmlspecialchars($courseName); ?></td>
+                </tr>
+                <tr>
+                    <td class="k">Centre</td>
+                    <td class="v"><?php echo htmlspecialchars($centreName); ?></td>
+                </tr>
+                <tr>
+                    <td class="k">Mode</td>
+                    <td class="v">Online Payment</td>
+                </tr>
+            </table>
+        </div>
+        <div class="receipt-footer">
+            This is a computer-generated official money receipt. No physical signature is required.
+        </div>
     </div>
 </body>
 </html>
