@@ -2653,13 +2653,9 @@ $dashboard_payload = [
                             <label class="form-label">Campus <span class="required">*</span></label>
                             <select class="form-select" name="campus_type" id="add_campus_type_dash" required onchange="toggleAddCourseMode()">
                                 <option value="">Select campus</option>
-                                <option value="on_campus">On campus (run by NIELIT)</option>
-                                <option value="off_campus">Off campus (run by a partner)</option>
+                                <option value="on_campus">On campus</option>
+                                <option value="off_campus">Off campus</option>
                             </select>
-                            <div class="form-help">
-                                <i class="fas fa-info-circle"></i>
-                                On campus means the course is run by NIELIT. Off campus means the course is run by a training partner.
-                            </div>
                         </div>
 
                         <div class="form-group" id="add_delivery_mode_wrap" style="display:none;">

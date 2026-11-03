@@ -693,10 +693,9 @@ $active_theme = loadActiveTheme($conn);
                             <label class="form-label">Campus *</label>
                             <select class="form-select" name="campus_type" id="edit_campus_type" required onchange="toggleEditCourseMode()">
                                 <option value="">Select campus</option>
-                                <option value="on_campus" <?php echo $savedCampus === 'on_campus' ? 'selected' : ''; ?>>On campus (run by NIELIT)</option>
-                                <option value="off_campus" <?php echo $savedCampus === 'off_campus' ? 'selected' : ''; ?>>Off campus (run by a partner)</option>
+                                <option value="on_campus" <?php echo $savedCampus === 'on_campus' ? 'selected' : ''; ?>>On campus</option>
+                                <option value="off_campus" <?php echo $savedCampus === 'off_campus' ? 'selected' : ''; ?>>Off campus</option>
                             </select>
-                            <small class="text-muted">On campus means the course is run by NIELIT. Off campus means the course is run by a training partner.</small>
                         </div>
                         <div class="form-group" id="edit_delivery_mode_wrap" style="<?php echo $savedCampus === '' ? 'display:none;' : ''; ?>">
                             <label class="form-label">Mode *</label>
