@@ -7,6 +7,8 @@ function hub_dashboard_stats(mysqli $conn): array
         'today_amount' => 0,
         'month_count' => 0,
         'month_amount' => 0,
+        'all_count' => 0,
+        'all_amount' => 0,
         'failed_today' => 0,
         'refunded_month' => 0,
         'open_checkouts' => 0,
@@ -22,6 +24,12 @@ function hub_dashboard_stats(mysqli $conn): array
     if ($q && ($r = $q->fetch_assoc())) {
         $stats['month_count'] = (int) $r['c'];
         $stats['month_amount'] = (int) $r['s'];
+    }
+
+    $q = $conn->query("SELECT COUNT(*) AS c, COALESCE(SUM(amount_paise),0) AS s FROM hub_payments WHERE status IN ('paid','partial_refund')");
+    if ($q && ($r = $q->fetch_assoc())) {
+        $stats['all_count'] = (int) $r['c'];
+        $stats['all_amount'] = (int) $r['s'];
     }
 
     $q = $conn->query("SELECT COUNT(*) AS c FROM hub_payments WHERE status = 'failed' AND DATE(created_at) = CURDATE()");
@@ -46,8 +54,10 @@ function hub_dashboard_today_by_source(mysqli $conn): array
 {
     $rows = [];
     $sql = "SELECT s.code, s.display_name,
-        COALESCE(SUM(CASE WHEN p.status IN ('paid','partial_refund') AND DATE(p.paid_at) = CURDATE() THEN p.amount_paise ELSE 0 END), 0) AS paid_amount,
-        COALESCE(SUM(CASE WHEN p.status IN ('paid','partial_refund') AND DATE(p.paid_at) = CURDATE() THEN 1 ELSE 0 END), 0) AS paid_count,
+        COALESCE(SUM(CASE WHEN p.status IN ('paid','partial_refund') THEN 1 ELSE 0 END), 0) AS paid_count,
+        COALESCE(SUM(CASE WHEN p.status IN ('paid','partial_refund') THEN p.amount_paise ELSE 0 END), 0) AS paid_amount,
+        COALESCE(SUM(CASE WHEN p.status IN ('paid','partial_refund') AND DATE(p.paid_at) = CURDATE() THEN 1 ELSE 0 END), 0) AS today_count,
+        COALESCE(SUM(CASE WHEN p.status IN ('paid','partial_refund') AND DATE(p.paid_at) = CURDATE() THEN p.amount_paise ELSE 0 END), 0) AS today_amount,
         COALESCE(SUM(CASE WHEN p.status = 'failed' AND DATE(p.created_at) = CURDATE() THEN 1 ELSE 0 END), 0) AS failed_count
         FROM hub_sources s
         LEFT JOIN hub_payments p ON p.source_id = s.id

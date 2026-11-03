@@ -56,10 +56,10 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
     </div>
     <div class="col-sm-6 col-xl-3">
         <div class="hub-card-panel hub-kpi">
-            <div class="hub-kpi-icon bg-primary-subtle text-primary"><i class="bi bi-calendar-month"></i></div>
-            <div class="hub-kpi-label">This month</div>
-            <div class="hub-kpi-value"><?php echo hub_money_paise((int) $stats['month_amount']); ?></div>
-            <small class="text-secondary"><?php echo (int) $stats['month_count']; ?> successful</small>
+            <div class="hub-kpi-icon bg-primary-subtle text-primary"><i class="bi bi-wallet2"></i></div>
+            <div class="hub-kpi-label">Total collected</div>
+            <div class="hub-kpi-value"><?php echo hub_money_paise((int) $stats['all_amount']); ?></div>
+            <small class="text-secondary"><?php echo (int) $stats['all_count']; ?> successful · <?php echo hub_money_paise((int) $stats['month_amount']); ?> this month</small>
         </div>
     </div>
     <div class="col-sm-6 col-xl-3">
@@ -81,7 +81,10 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
 </div>
 
 <div class="hub-card-panel mb-4">
-    <h2 class="h5 mb-3">Today by website</h2>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h5 mb-0">Collections by website</h2>
+        <span class="text-secondary small">Total payments &amp; today's activity</span>
+    </div>
     <div class="hub-table-wrap">
         <table class="table table-sm align-middle mb-0">
             <thead>
@@ -89,6 +92,7 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
                     <th>Source</th>
                     <th class="text-end">Paid (count)</th>
                     <th class="text-end">Paid amount</th>
+                    <th class="text-end">Today</th>
                     <th class="text-end">Failed today</th>
                     <th class="text-end">Pending checkouts</th>
                 </tr>
@@ -100,14 +104,21 @@ hub_admin_layout_start('Dashboard', 'dashboard', 'Collections, checkouts, and ga
                         <strong><?php echo htmlspecialchars((string) $row['display_name']); ?></strong>
                         <code class="ms-1 small"><?php echo htmlspecialchars((string) $row['code']); ?></code>
                     </td>
-                    <td class="text-end"><?php echo (int) $row['paid_count']; ?></td>
-                    <td class="text-end"><?php echo hub_money_paise((int) $row['paid_amount']); ?></td>
+                    <td class="text-end fw-semibold"><?php echo (int) $row['paid_count']; ?></td>
+                    <td class="text-end fw-semibold"><?php echo hub_money_paise((int) $row['paid_amount']); ?></td>
+                    <td class="text-end text-secondary small">
+                        <?php if ((int) ($row['today_count'] ?? 0) > 0): ?>
+                            <span class="text-success fw-semibold"><?php echo (int) $row['today_count']; ?></span> (<?php echo hub_money_paise((int) $row['today_amount']); ?>)
+                        <?php else: ?>
+                            —
+                        <?php endif; ?>
+                    </td>
                     <td class="text-end"><?php echo (int) $row['failed_count']; ?></td>
                     <td class="text-end"><?php echo (int) $row['pending_count']; ?> <?php if ((int) $row['pending_amount'] > 0): ?><span class="text-secondary">(<?php echo hub_money_paise((int) $row['pending_amount']); ?>)</span><?php endif; ?></td>
                 </tr>
             <?php endforeach; ?>
             <?php if ($bySource === []): ?>
-                <tr><td colspan="5" class="text-secondary text-center py-3">Register a source under Sources to see splits here.</td></tr>
+                <tr><td colspan="6" class="text-secondary text-center py-3">Register a source under Sources to see splits here.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
