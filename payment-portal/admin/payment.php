@@ -59,8 +59,6 @@ hub_admin_layout_start('Payment #' . $paymentId, 'payments', (string) $payment['
                 <li class="list-group-item px-0"><span class="text-secondary small">Purpose</span><br><strong><?php echo htmlspecialchars($breakdown['purpose_label']); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Source</span><strong><?php echo htmlspecialchars((string) $payment['source_code']); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Collected from payer</span><strong><?php echo hub_money_paise($breakdown['collected_paise']); ?></strong></li>
-                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Institute / course fee</span><?php echo hub_money_paise($breakdown['fee_receive_paise']); ?></li>
-                <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Centre fee (bank books)</span><strong><?php echo hub_money_paise($breakdown['centre_bank_paise']); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refunded</span><?php echo hub_money_paise((int) $payment['refunded_amount_paise']); ?></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Refundable</span><strong class="text-primary"><?php echo hub_money_paise($refundable); ?></strong></li>
                 <li class="list-group-item d-flex justify-content-between px-0"><span class="text-secondary">Mode of transaction</span><strong><?php echo htmlspecialchars(hub_receipt_payment_mode_label($payment)); ?></strong></li>

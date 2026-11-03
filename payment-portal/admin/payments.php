@@ -69,7 +69,6 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
         </div>
     </form>
     <p class="small text-secondary mb-0 mt-2">Showing <?php echo count($rows); ?> of <?php echo (int) $total; ?> matching rows (max 200 on screen; export includes up to 5000).</p>
-    <p class="small text-secondary mb-0"><strong>Collected</strong> = round rupees the student paid · <strong>Institute</strong> = course/centre fee credited to accounts · <strong>Bank (est.)</strong> = same as institute fee for bank books.</p>
 </div>
 
 <div class="hub-card-panel">
@@ -84,8 +83,6 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
                     <th>Payer</th>
                     <th>Centre</th>
                     <th class="text-end">Collected</th>
-                    <th class="text-end">Institute</th>
-                    <th class="text-end">Bank (est.)</th>
                     <th>Mode</th>
                     <th>Receipt</th>
                     <th>Status</th>
@@ -113,10 +110,6 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
                     </td>
                     <td class="small"><?php echo htmlspecialchars(hub_payment_centre_label($r)); ?></td>
                     <td class="text-end fw-semibold"><?php echo hub_money_paise($bd['collected_paise']); ?></td>
-                    <td class="text-end small"><?php echo hub_money_paise($bd['fee_receive_paise']); ?></td>
-                    <td class="text-end small" title="Institute/centre course fee for accounts">
-                        <?php echo hub_money_paise($bd['centre_bank_paise']); ?>
-                    </td>
                     <td class="small" title="<?php echo htmlspecialchars((string) ($r['payment_method'] ?? '')); ?>">
                         <?php echo htmlspecialchars(hub_payment_method_label((string) ($r['payment_method'] ?? ''))); ?>
                     </td>
@@ -132,7 +125,7 @@ $methodOptions = hub_payment_methods_distinct($hub_conn);
                 </tr>
             <?php endforeach; ?>
             <?php if ($rows === []): ?>
-                <tr><td colspan="13" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
+                <tr><td colspan="11" class="text-center text-secondary py-5">No payments match these filters.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>

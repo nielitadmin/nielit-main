@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 function hub_payments_filters_from_request(array $input): array
 {
@@ -141,8 +141,6 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
         'description',
         'centre',
         'collected_inr',
-        'institute_fee_inr',
-        'centre_bank_inr',
         'mode_of_transaction',
         'status',
         'legacy',
@@ -165,8 +163,6 @@ function hub_payments_export_csv(mysqli $conn, array $filters): void
             (string) ($r['description'] ?? ''),
             hub_payment_centre_label($r),
             number_format($bd['collected_paise'] / 100, 2, '.', ''),
-            number_format($bd['fee_receive_paise'] / 100, 2, '.', ''),
-            number_format($bd['centre_bank_paise'] / 100, 2, '.', ''),
             hub_payment_method_label((string) ($r['payment_method'] ?? '')),
             (string) ($r['status'] ?? ''),
             !empty($r['is_legacy']) ? 'yes' : 'no',
