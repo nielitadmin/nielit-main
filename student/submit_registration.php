@@ -615,7 +615,7 @@ if (!empty($course_schemes) && $scheme_id === null) {
     $validationErrors[] = 'Please select a scheme/project for this course.';
 }
 
-$paymentRequired = (($cRow['payment_details_required'] ?? 'optional') === 'required');
+$paymentRequired = isset($_POST['utr_number']) && (($cRow['payment_details_required'] ?? 'optional') === 'required');
 if ($paymentRequired) {
     if ($utr_number === '') {
         $missingFields[] = 'utr_number';

@@ -1847,7 +1847,7 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="level-header">
                 <span class="level-badge level-3">LEVEL 3</span>
                 <h2 class="level-title">Academic Details & Document Upload</h2>
-                <p class="level-subtitle">Educational qualifications, payment details, and required documents</p>
+                <p class="level-subtitle">Educational qualifications and required documents</p>
             </div>
 
             <div class="mobile-upload-tip" role="note">
@@ -2035,71 +2035,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </div>
             </div>
 
-            <!-- Payment Details Section (Conditional) -->
-            <?php 
-            $payment_required = ($course_details['payment_details_required'] ?? 'optional') === 'required';
-            $payment_badge_class = $payment_required ? 'bg-warning' : 'bg-secondary';
-            $payment_badge_text = $payment_required ? 'Required' : 'Optional';
-            ?>
-            <div class="form-section">
-                <div class="section-header">
-                    <div class="section-icon">
-                        <i class="fas fa-credit-card"></i>
-                    </div>
-                    <div>
-                        <h3 class="section-title">Payment Details <span class="badge <?php echo $payment_badge_class; ?> ms-2" style="font-size: 0.7rem;"><?php echo $payment_badge_text; ?></span></h3>
-                        <p class="section-subtitle">Transaction information <?php echo $payment_required ? '(required for registration)' : '(if payment already made)'; ?></p>
-                    </div>
-                </div>
-                
-                <div class="alert <?php echo $payment_required ? 'alert-warning' : 'alert-info'; ?> mb-3" style="font-size: 0.9rem;">
-                    <i class="fas fa-<?php echo $payment_required ? 'exclamation-triangle' : 'info-circle'; ?> me-2"></i>
-                    <strong><?php echo $payment_required ? 'Required:' : 'Note:'; ?></strong> 
-                    <?php if ($payment_required): ?>
-                        You must provide payment details to complete registration for this course.
-                    <?php else: ?>
-                        This section is optional. Fill only if you have already made the payment.
-                    <?php endif; ?>
-                </div>
-                
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">UTR/Transaction ID <?php echo $payment_required ? '<span class="text-danger">*</span>' : ''; ?></label>
-                        <input type="text" class="form-control" name="utr_number" 
-                               placeholder="Enter UTR or Transaction ID<?php echo $payment_required ? '' : ' (Optional)'; ?>"
-                               <?php echo $payment_required ? 'required' : ''; ?>>
-                        <small class="text-muted"><?php echo $payment_required ? 'Transaction ID is required' : 'Leave blank if payment not yet made'; ?></small>
-                    </div>
 
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Payment Receipt <?php echo $payment_required ? '<span class="text-danger">*</span>' : ''; ?></label>
-                        <input type="file" class="form-control" name="payment_receipt" accept="image/*,.pdf"
-                               <?php echo $payment_required ? 'required' : ''; ?>>
-                        <small class="text-muted"><?php echo $payment_required ? 'Receipt is required' : 'Upload receipt if available'; ?></small>
-                    </div>
-
-                    <div class="col-md-4 mb-3">
-                        <label class="form-label">Payment Date <?php echo $payment_required ? '<span class="text-danger">*</span>' : ''; ?></label>
-                        <input type="date" class="form-control" name="payment_date" placeholder="YYYY-MM-DD"
-                               <?php echo $payment_required ? 'required' : ''; ?>>
-                        <small class="text-muted"><?php echo $payment_required ? 'Payment date is required' : 'Select payment date (if paid)'; ?></small>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-12 text-center">
-                        <?php
-                        $qrFile = __DIR__ . '/../uploads/payment_qr.png';
-                        if (file_exists($qrFile)):
-                        ?>
-                        <div class="mb-3">
-                            <p class="mb-1"><strong>Scan to Pay</strong></p>
-                            <img src="<?php echo APP_URL; ?>/uploads/payment_qr.png" alt="Payment QR Code" class="img-fluid" style="max-width:220px;">
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
 
             <!-- Document Upload Section -->
             <div class="form-section">
