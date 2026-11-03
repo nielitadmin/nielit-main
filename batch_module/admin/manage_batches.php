@@ -313,6 +313,25 @@ $active_theme = loadActiveTheme($conn);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Batches - NIELIT Bhubaneswar</title>
     <?php adminEmitHeadAssets($active_theme, ['toast' => true]); ?>
+    <style>
+        /* Prevent course dropdown from painting as a clipped white box inside the card */
+        .content-card.manage-batches-card {
+            overflow: visible;
+        }
+        .manage-batches-card .card-body {
+            overflow: visible;
+            padding: 1.5rem;
+        }
+        select[name="course_id"] {
+            width: 100%;
+        }
+        select[name="course_id"] option,
+        select[name="status"] option {
+            color: #0f172a !important;
+            background-color: #ffffff !important;
+            white-space: normal;
+        }
+    </style>
 </head>
 <body class="admin-body <?php echo htmlspecialchars(adminBodySidebarClass($conn)); ?>">
 
@@ -383,38 +402,49 @@ $active_theme = loadActiveTheme($conn);
 
             <!-- Create New Batch -->
             <?php if (!$is_placement_coordinator): ?>
-            <div class="content-card">
+            <div class="content-card manage-batches-card" style="overflow: visible;">
                 <div class="card-header">
                     <h5 class="card-title">
                         <i class="fas fa-plus-circle"></i> Create New Batch
                     </h5>
                 </div>
                 
-                <form method="POST" action="">
-                    <input type="hidden" name="action" value="create_batch">
-                    
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div class="form-group">
-                            <label class="form-label">Course *</label>
-                            <select class="form-control" name="course_id" required>
-                                <option value="">Select Course</option>
-                                <?php foreach ($courses as $course): ?>
-                                    <option value="<?php echo $course['id']; ?>">
-                                        <?php 
-                                        echo htmlspecialchars($course['course_name']); 
-                                        if (!empty($course['course_description'])) {
-                                            echo ' (' . htmlspecialchars($course['course_description']) . ')';
-                                        } else {
-                                            echo ' (' . $course['course_code'] . ')';
+                <div class="card-body">
+                    <form method="POST" action="">
+                        <input type="hidden" name="action" value="create_batch">
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="form-group" style="position: relative; z-index: 20;">
+                                <label class="form-label">Course *</label>
+                                <select class="form-control" name="course_id" required style="width: 100%;">
+                                    <option value="">Select Course</option>
+                                    <?php foreach ($courses as $course): ?>
+                                        <?php
+                                        $cname = trim((string)($course['course_name'] ?? ''));
+                                        $cdesc = trim((string)($course['course_description'] ?? ''));
+                                        $ccode = trim((string)($course['course_code'] ?? ''));
+                                        $fullLabel = $cname;
+                                        if ($cdesc !== '') {
+                                            $fullLabel .= ' (' . $cdesc . ')';
+                                        } elseif ($ccode !== '') {
+                                            $fullLabel .= ' (' . $ccode . ')';
+                                        }
+                                        $shortLabel = $fullLabel;
+                                        if (function_exists('mb_strlen') && mb_strlen($shortLabel) > 110) {
+                                            $shortLabel = mb_substr($shortLabel, 0, 107) . '…';
+                                        } elseif (strlen($shortLabel) > 110) {
+                                            $shortLabel = substr($shortLabel, 0, 107) . '…';
                                         }
                                         ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <?php if (!$is_master_admin && empty($courses)): ?>
-                                <small class="text-danger"><i class="fas fa-exclamation-circle"></i> No courses assigned to you yet. Contact Master Admin to assign courses.</small>
-                            <?php endif; ?>
-                        </div>
+                                        <option value="<?php echo (int)$course['id']; ?>" title="<?php echo htmlspecialchars($fullLabel, ENT_QUOTES, 'UTF-8'); ?>">
+                                            <?php echo htmlspecialchars($shortLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <?php if (!$is_master_admin && empty($courses)): ?>
+                                    <small class="text-danger"><i class="fas fa-exclamation-circle"></i> No courses assigned to you yet. Contact Master Admin to assign courses.</small>
+                                <?php endif; ?>
+                            </div>
                         
                         <div class="form-group">
                             <label class="form-label">Batch Name *</label>
@@ -468,6 +498,7 @@ $active_theme = loadActiveTheme($conn);
                         </button>
                     </div>
                 </form>
+                </div>
             </div>
             <?php endif; ?>
 

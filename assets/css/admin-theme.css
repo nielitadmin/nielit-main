@@ -818,8 +818,16 @@ html[data-mode="night"] .otp-empty-state {
 }
 
 /* Native <select> lists render incorrectly (blank white panel) when clipped by overflow:hidden */
-.content-card:has(.filter-grid) {
+.content-card:has(.filter-grid),
+.content-card:has(select),
+.content-card:has(form) {
     overflow: visible;
+}
+
+select.form-control option,
+select.form-select option {
+    color: #0f172a;
+    background-color: #ffffff;
 }
 
 .content-card:hover {
