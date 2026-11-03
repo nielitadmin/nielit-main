@@ -36,10 +36,18 @@ function hub_notify_source(mysqli $conn, array $checkout, string $eventStatus, a
 
 function hub_notify_payment_event(mysqli $conn, array $payment, array $checkout, string $eventStatus, array $extra = []): void
 {
+    $receiptUrl = '';
+    if (!empty($payment['id']) && !empty($payment['invoice_number'])) {
+        $tpl = hub_invoice_template_get($conn);
+        $secret = (string) ($tpl['invoice_public_secret'] ?? '');
+        $sig = hub_invoice_public_signature((int) $payment['id'], $secret);
+        $receiptUrl = hub_url('pay/receipt.php?id=' . (int) $payment['id'] . '&sig=' . rawurlencode($sig));
+    }
     hub_notify_source($conn, $checkout, $eventStatus, array_merge([
         'invoice_number' => $payment['invoice_number'] ?? '',
         'razorpay_payment_id' => $payment['razorpay_payment_id'] ?? '',
         'payment_id' => (int) ($payment['id'] ?? 0),
+        'receipt_url' => $receiptUrl,
         'refunded_amount' => (int) ($payment['refunded_amount_paise'] ?? 0),
     ], $extra));
 }

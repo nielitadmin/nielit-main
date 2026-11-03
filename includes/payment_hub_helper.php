@@ -503,4 +503,78 @@ if (!function_exists('payment_hub_config')) {
             }
         }
     }
+
+    function payment_hub_receipt_url_for_row(mysqli $conn, array $row): string
+    {
+        $cfg = payment_hub_config();
+        $apiBase = rtrim((string) ($cfg['api_base'] ?: payment_hub_default_api_base()), '/');
+        $hubPayId = (int) ($row['hub_payment_id'] ?? 0);
+        $invSecret = trim((string) ($cfg['invoice_public_secret'] ?? ''));
+
+        if ($invSecret === '') {
+            $dbCfg = __DIR__ . '/../payment-portal/config/database.php';
+            if (is_file($dbCfg)) {
+                try {
+                    $hp = @new mysqli('localhost', 'root', '', 'nielit_payments');
+                    if (!$hp->connect_error) {
+                        $s = $hp->query("SELECT setting_value FROM hub_settings WHERE setting_key = 'invoice_public_secret' LIMIT 1");
+                        if ($s && ($sr = $s->fetch_assoc())) {
+                            $invSecret = trim((string) $sr['setting_value']);
+                        }
+                        $hp->close();
+                    }
+                } catch (\Throwable $e) {}
+            }
+        }
+
+        if ($hubPayId > 0 && $invSecret !== '') {
+            $sig = hash_hmac('sha256', 'hub-invoice:' . $hubPayId, $invSecret);
+            return $apiBase . '/pay/receipt.php?id=' . $hubPayId . '&sig=' . rawurlencode($sig);
+        }
+
+        // Try status check API to get receipt_url or hub_payment_id
+        $token = trim((string) ($row['gateway_order_id'] ?? ''));
+        $ref = payment_hub_reference((int) ($row['id'] ?? 0));
+        $statusUrl = '';
+        if ($token !== '' && strlen($token) === 64) {
+            $statusUrl = payment_hub_status_url($apiBase, $token);
+        } else {
+            $src = (string) ($cfg['source'] ?? 'mis');
+            $statusUrl = $apiBase . '/api/v1/payment_status.php?' . http_build_query(['source' => $src, 'reference' => $ref]);
+        }
+
+        if ($statusUrl !== '') {
+            $response = payment_http('GET', $statusUrl, [], null);
+            $st = $response['body']['status'] ?? null;
+            if (is_array($st)) {
+                if (!empty($st['receipt_url'])) {
+                    if (!empty($st['hub_payment_id']) && $hubPayId <= 0) {
+                        $newPayId = (int) $st['hub_payment_id'];
+                        $up = $conn->prepare("UPDATE online_course_payments SET hub_payment_id = ? WHERE id = ?");
+                        if ($up) {
+                            $rId = (int) $row['id'];
+                            $up->bind_param('ii', $newPayId, $rId);
+                            $up->execute();
+                            $up->close();
+                        }
+                    }
+                    return (string) $st['receipt_url'];
+                }
+                if (!empty($st['hub_payment_id'])) {
+                    $hubPayId = (int) $st['hub_payment_id'];
+                    if ($invSecret !== '') {
+                        $sig = hash_hmac('sha256', 'hub-invoice:' . $hubPayId, $invSecret);
+                        return $apiBase . '/pay/receipt.php?id=' . $hubPayId . '&sig=' . rawurlencode($sig);
+                    }
+                    return $apiBase . '/pay/receipt.php?id=' . $hubPayId;
+                }
+            }
+        }
+
+        if ($hubPayId > 0) {
+            return $apiBase . '/pay/receipt.php?id=' . $hubPayId;
+        }
+
+        return $apiBase . '/';
+    }
 }

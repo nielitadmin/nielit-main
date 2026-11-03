@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/payment_gateway_helper.php';
+require_once __DIR__ . '/../includes/payment_hub_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');
@@ -29,4 +30,6 @@ if (!$row) {
     exit;
 }
 
-payment_render_invoice_page($row, (string) ($row['student_code'] ?? ''));
+$receiptUrl = payment_hub_receipt_url_for_row($conn, $row);
+header('Location: ' . $receiptUrl);
+exit;

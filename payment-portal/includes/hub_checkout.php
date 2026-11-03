@@ -155,6 +155,13 @@ function hub_payment_status_payload(mysqli $conn, array $checkout): array
         hub_checkout_mark($conn, (int) $checkout['id'], 'expired');
         $checkout['status'] = 'expired';
     }
+    $receiptUrl = null;
+    if ($paid && !empty($paid['invoice_number'])) {
+        $tpl = hub_invoice_template_get($conn);
+        $secret = (string) ($tpl['invoice_public_secret'] ?? '');
+        $sig = hub_invoice_public_signature((int) $paid['id'], $secret);
+        $receiptUrl = hub_url('pay/receipt.php?id=' . (int) $paid['id'] . '&sig=' . rawurlencode($sig));
+    }
     return [
         'token' => $checkout['token'],
         'source' => $checkout['source_code'] ?? '',
@@ -167,6 +174,7 @@ function hub_payment_status_payload(mysqli $conn, array $checkout): array
         'payment_status_label' => $paid ? hub_payment_status_label((string) $paid['status']) : null,
         'hub_payment_id' => $paid ? (int) ($paid['id'] ?? 0) : null,
         'invoice_number' => $paid['invoice_number'] ?? null,
+        'receipt_url' => $receiptUrl,
         'razorpay_payment_id' => $paid['razorpay_payment_id'] ?? null,
         'razorpay_order_id' => $checkout['razorpay_order_id'] ?? null,
         'paid_at' => $paid['paid_at'] ?? null,

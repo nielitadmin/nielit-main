@@ -129,7 +129,7 @@ include 'includes/header.php';
         <div class="alert alert-success">
             Payment received successfully.
             <?php if (!empty($_GET['invoice_id'])): ?>
-                <a class="alert-link" href="payment_invoice.php?id=<?php echo (int) $_GET['invoice_id']; ?>">View your money receipt</a>
+                <a class="alert-link" target="_blank" rel="noopener" href="payment_invoice.php?id=<?php echo (int) $_GET['invoice_id']; ?>">View your money receipt</a>
             <?php else: ?>
                 Your money receipt appears in the list below.
             <?php endif; ?>
@@ -211,7 +211,7 @@ include 'includes/header.php';
                                     <td class="small"><?php echo !empty($inv['paid_at']) ? htmlspecialchars(date('d M Y, h:i A', strtotime((string) $inv['paid_at']))) : '—'; ?></td>
                                     <td><strong>₹<?php echo number_format((float) ($inv['amount'] ?? 0), 2); ?></strong></td>
                                     <td>
-                                        <a class="btn btn-sm btn-success" href="payment_invoice.php?id=<?php echo (int) $inv['id']; ?>">
+                                        <a class="btn btn-sm btn-success" target="_blank" rel="noopener" href="payment_invoice.php?id=<?php echo (int) $inv['id']; ?>">
                                             <i class="fas fa-external-link-alt"></i> View receipt
                                         </a>
                                     </td>
@@ -355,7 +355,7 @@ include 'includes/header.php';
                                         <?php
                                         $paidInv = payment_student_latest_paid_invoice_row($conn, (string) $student_id, (int) $onlineCourse['course_id']);
                                         if ($paidInv): ?>
-                                            <a class="btn btn-sm btn-outline-success ms-2 mt-2" href="payment_invoice.php?id=<?php echo (int) $paidInv['id']; ?>">
+                                            <a class="btn btn-sm btn-outline-success ms-2 mt-2" target="_blank" rel="noopener" href="payment_invoice.php?id=<?php echo (int) $paidInv['id']; ?>">
                                                 <i class="fas fa-file-invoice"></i> View receipt
                                             </a>
                                         <?php endif; ?>
@@ -452,7 +452,7 @@ include 'includes/header.php';
                                         </td>
                                         <td>
                                             <?php if (($op['status'] ?? '') === 'paid'): ?>
-                                                <a class="btn btn-sm btn-outline-primary" href="payment_invoice.php?id=<?php echo (int) $op['id']; ?>">View receipt</a>
+                                                <a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="payment_invoice.php?id=<?php echo (int) $op['id']; ?>">View receipt</a>
                                             <?php elseif ($canResume): ?>
                                                 <a class="btn btn-sm btn-warning" href="<?php echo htmlspecialchars(payment_hub_pay_url($hubCfg, $token)); ?>">Continue payment</a>
                                             <?php else: ?>
