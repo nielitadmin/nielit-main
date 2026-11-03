@@ -291,7 +291,7 @@ if (!function_exists('payment_gateway_ensure_schema')) {
 
     function payment_online_fee_settlement_note(): string
     {
-        return 'After payment, Razorpay deducts a small gateway fee and GST from the total. Net settlement in the bank is slightly lower than the amount you pay here; your money receipt shows the full amount paid.';
+        return '';
     }
 
     function payment_save_course_online_flag(mysqli $conn, int $courseId, int $enabled, $receiveAmount): void
@@ -322,10 +322,10 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             <label class="form-check-label" for="<?php echo htmlspecialchars($checkboxId); ?>">Accept online payment for this course</label>
         </div>
         <div id="<?php echo htmlspecialchars($panelId); ?>" class="online-pay-panel" style="display:<?php echo $checked ? 'block' : 'none'; ?>; margin-top:10px; padding:12px 14px; border:1px solid #c9d7ea; border-radius:8px; background:#f4f8fc;">
-            <label class="form-label" for="<?php echo htmlspecialchars($panelId); ?>_amount">Course fee for the centre (whole rupees you want to receive)</label>
+            <label class="form-label" for="<?php echo htmlspecialchars($panelId); ?>_amount">Online course fee (amount student will pay, whole rupees)</label>
             <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control online-receive-input" name="online_receive_amount" id="<?php echo htmlspecialchars($panelId); ?>_amount" value="<?php echo htmlspecialchars($value); ?>" placeholder="100" autocomplete="off" style="max-width:220px;">
             <div class="online-pay-preview text-muted" data-percent="<?php echo htmlspecialchars((string) $percent); ?>" style="margin-top:8px; font-size:13px;">
-                Example: enter 100 → student pays ₹103 (course ₹100 + platform ₹3; 2.4% rounded up to whole rupees).
+                Example: enter 100 → student pays exactly ₹100.
             </div>
             <p class="text-muted small mb-0 mt-2"><?php echo htmlspecialchars(payment_online_fee_settlement_note()); ?></p>
         </div>
@@ -364,13 +364,13 @@ if (!function_exists('payment_gateway_ensure_schema')) {
                 var percent = parseFloat(preview.getAttribute('data-percent') || '2.4');
                 var receive = parseInt(digits, 10);
                 if (!receive) {
-                    preview.textContent = 'Example: enter 100 → student pays ₹103 (course ₹100 + platform ₹3).';
+                    preview.textContent = 'Example: enter 100 → student pays exactly ₹100.';
                     return;
                 }
                 var totalExact = receive * (1 + percent / 100);
                 var total = Math.ceil(totalExact - 1e-9);
                 var fee = total - receive;
-                preview.textContent = 'Centre receives ₹' + receive + '. Student pays ₹' + total + ' (platform ₹' + fee + ', ' + percent + '% rounded to whole rupees).';
+                preview.textContent = 'Student pays exactly ₹' + receive + '.';
             }
             document.querySelectorAll('.online-pay-toggle').forEach(function (checkbox) {
                 checkbox.addEventListener('change', function () { refresh(checkbox); });
@@ -408,13 +408,14 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if (!$row) {
             return $empty;
         }
-        $receive = (int) ($row['online_receive_amount'] ?? 0);
-        $charge = payment_charge_from_receive($receive);
-        $enabled = (int) ($row['online_payment_enabled'] ?? 0) === 1 && $receive > 0;
+        $total = (int) ($row['online_receive_amount'] ?? 0);
+        // Admin enters final total; no platform markup
+        $charge = ['receive' => $total, 'platform_fee' => 0.0, 'total' => (float) $total, 'platform_percent' => payment_platform_percent()];
+        $enabled = (int) ($row['online_payment_enabled'] ?? 0) === 1 && $total > 0;
         return [
             'enabled' => $enabled,
             'amount' => $charge['total'],
-            'receive_amount' => $receive,
+            'receive_amount' => $total,
             'platform_fee' => $charge['platform_fee'],
             'platform_percent' => $charge['platform_percent'],
             'course_name' => (string) ($row['course_name'] ?? ''),

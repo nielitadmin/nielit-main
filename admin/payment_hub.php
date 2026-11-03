@@ -141,7 +141,7 @@ $ready = payment_hub_is_ready();
     </form>
 
     <div class="alert alert-light border mt-4 small">
-        <strong>Online course fee model:</strong> Enter the <em>centre course fee</em> in whole rupees on each course (e.g. 100). Students pay a round total that includes the platform fee (2.4% rounded up). After payment, the student sees a money receipt on the hub.
+        <strong>Online course fee model:</strong> Enter the <em>centre course fee</em> in whole rupees on each course (e.g. 100). Students pay the exact fee you enter on the course. After payment, the student sees a money receipt on the hub.
         <br><strong>Test:</strong> Enable online payment on a course, log in as a student → Fee Details → Pay via Payment Portal. After payment, the student sees a money receipt on the hub.
     </div>
 </div>

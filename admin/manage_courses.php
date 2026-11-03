@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
         $online_receive_amount = payment_round_rupees($_POST['online_receive_amount'] ?? '');
         if ($online_payment_enabled === 1 && $online_receive_amount < 1) {
-            $error = 'Enter the whole-rupee amount you want to receive before turning on online payment.';
+            $error = 'Enter the course fee (whole rupees) before turning on online payment.';
             goto skip_add;
         }
         $description = $_POST['description'];
@@ -230,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $online_payment_enabled = isset($_POST['online_payment_enabled']) ? 1 : 0;
         $online_receive_amount = payment_round_rupees($_POST['online_receive_amount'] ?? '');
         if ($online_payment_enabled === 1 && $online_receive_amount < 1) {
-            $error = 'Enter the whole-rupee amount you want to receive before turning on online payment.';
+            $error = 'Enter the course fee (whole rupees) before turning on online payment.';
             goto skip_edit;
         }
         $description = $_POST['description'];
