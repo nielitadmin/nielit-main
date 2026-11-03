@@ -501,8 +501,7 @@ unset(
                         <p style="color:#78350f;">
                             <strong>Online fee:</strong>
                             <?php echo htmlspecialchars($online_payment_course !== '' ? $online_payment_course : 'This course'); ?>
-                            has an online fee of <strong>₹<?php echo payment_money_display($online_payment_amount); ?></strong>
-                            (₹<?php echo payment_money_display((float) $online_payment_receive); ?> course fee + ₹<?php echo payment_money_display($online_payment_platform_fee); ?> platform fee).
+                            has an online fee of <strong>₹<?php echo payment_money_display($online_payment_amount); ?></strong>.
                             Log in to the student portal and open Fee Details to pay. Your money receipt appears there after the payment succeeds.
                         </p>
                     </div>

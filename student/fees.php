@@ -340,10 +340,9 @@ include 'includes/header.php';
                         <?php endif; ?>
                             <?php if ($onlineHubReady): ?>
                                 <div class="alert alert-info text-start small mb-3">
-                                    Online course fees are collected on the
-                                    <a href="<?php echo htmlspecialchars(payment_hub_public_url($hubCfg)); ?>" target="_blank" rel="noopener">NIELIT Payment Portal</a>
-                                    (secure Razorpay checkout). You will return here after payment.
-                                    <br><span class="text-muted"><?php echo htmlspecialchars(payment_online_fee_settlement_note()); ?></span>
+                                    Online course fees are collected securely on the
+                                    <a href="<?php echo htmlspecialchars(payment_hub_public_url($hubCfg)); ?>" target="_blank" rel="noopener">NIELIT Payment Portal</a>.
+                                    You will return here after payment.
                                 </div>
                             <?php endif; ?>
                             <?php foreach ($onlineFeeCourses as $onlineCourse): ?>

@@ -86,7 +86,7 @@ hub_public_layout_start('Pay — ' . (string) $checkout['purpose'], 'hero');
                 </div>
             <?php else: ?>
                 <button type="button" class="btn btn-primary btn-lg w-100" id="payBtn">
-                    <i class="bi bi-shield-lock me-2"></i>Proceed to Razorpay
+                    <i class="bi bi-shield-lock me-2"></i>Proceed to Payment
                 </button>
                 <p class="text-center text-secondary small mt-3 mb-0">UPI · Cards · Netbanking</p>
                 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>

@@ -241,23 +241,19 @@ if (!function_exists('payment_gateway_ensure_schema')) {
      */
     function payment_charge_from_receive(int $receive): array
     {
-        $percent = payment_platform_percent();
         if ($receive <= 0) {
             return [
                 'receive' => 0,
-                'platform_percent' => $percent,
+                'platform_percent' => 0.0,
                 'platform_fee' => 0.0,
                 'total' => 0.0,
             ];
         }
-        $totalExact = $receive * (1 + $percent / 100);
-        $total = (int) ceil($totalExact - 1e-9);
-        $fee = $total - $receive;
         return [
             'receive' => $receive,
-            'platform_percent' => $percent,
-            'platform_fee' => (float) $fee,
-            'total' => (float) $total,
+            'platform_percent' => 0.0,
+            'platform_fee' => 0.0,
+            'total' => (float) $receive,
         ];
     }
 
@@ -273,20 +269,11 @@ if (!function_exists('payment_gateway_ensure_schema')) {
     /** One-line breakdown for students (whole-rupee checkout). */
     function payment_online_fee_breakdown_text(array $row): string
     {
-        $receive = (int) ($row['receive_amount'] ?? 0);
-        $platform = (float) ($row['platform_fee'] ?? 0);
         $total = (float) ($row['amount'] ?? 0);
-        if ($total <= 0 && $receive > 0) {
-            $charge = payment_charge_from_receive($receive);
-            $total = (float) $charge['total'];
-            $platform = (float) $charge['platform_fee'];
-            $receive = (int) $charge['receive'];
+        if ($total <= 0) {
+            $total = (float) ($row['receive_amount'] ?? 0);
         }
-        $pct = rtrim(rtrim(number_format(payment_platform_percent(), 1), '0'), '.');
-        return 'Pay ₹' . payment_money_display($total)
-            . ' (course fee ₹' . payment_money_display((float) $receive)
-            . ' + platform ₹' . payment_money_display($platform)
-            . ', ' . $pct . '% rounded to whole rupees)';
+        return 'Course fee: ₹' . payment_money_display($total);
     }
 
     function payment_online_fee_settlement_note(): string

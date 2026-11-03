@@ -215,6 +215,20 @@ hub_admin_layout_start('Razorpay gateway', 'gateway', 'Single place for API keys
         </div>
     </div>
     <div class="col-lg-5">
+        <div class="hub-card-panel mb-4">
+            <h2 class="h6 text-uppercase text-secondary">Customer fee bearer (Razorpay convenience fee)</h2>
+            <p class="small mb-2">Razorpay can add <strong>gateway processing charges</strong> on top of the order at checkout (fee breakup screen). This is <strong>not</strong> configured in the payment hub API — only in the <strong>Razorpay Dashboard</strong>, and Razorpay Support must enable it for many accounts.</p>
+            <ul class="small text-secondary mb-3">
+                <li>Dashboard: <strong>Account &amp; Settings → Configurations → Fee bearer</strong> → choose <em>Convenience fee model</em> (customer pays Razorpay fees).</li>
+                <li>If the option is missing, email/chat <a href="https://razorpay.com/support/" target="_blank" rel="noopener">Razorpay Support</a> and request <strong>Customer Fee Bearer / Convenience Fee</strong> for your MID (education / government fee collection).</li>
+                <li><strong>Note:</strong> The payment hub charges the exact course fee entered in the MIS. With customer fee bearer enabled in Razorpay, gateway processing fees are added by Razorpay directly at checkout.</li>
+                <li>Razorpay docs: test-mode fee bearer changes can apply to live — review carefully before saving.</li>
+            </ul>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-sm btn-outline-primary" href="https://dashboard.razorpay.com/app/account-settings/configurations/fee-bearer" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i> Open Fee bearer (Razorpay)</a>
+                <a class="btn btn-sm btn-outline-secondary" href="https://razorpay.com/docs/payments/dashboard/settings/configuration/" target="_blank" rel="noopener">Configuration docs</a>
+            </div>
+        </div>
         <div class="hub-card-panel">
             <h2 class="h6 text-uppercase text-secondary">Webhook URL (Razorpay Dashboard)</h2>
             <code class="hub-secret-box d-block mb-3 user-select-all"><?php echo htmlspecialchars($webhookUrl); ?></code>

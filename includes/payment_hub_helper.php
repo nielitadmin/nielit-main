@@ -311,13 +311,8 @@ if (!function_exists('payment_hub_config')) {
         }
         $reference = payment_hub_reference($attemptId);
         $paise = (int) round($due * 100);
-        $receivePaise = (int) round((float) ($offer['receive_amount'] ?? 0) * 100);
-        $platformPaise = (int) round((float) ($offer['platform_fee'] ?? 0) * 100);
-        if ($receivePaise <= 0 && $platformPaise <= 0 && $paise > 0) {
-            $inferred = payment_charge_from_receive((int) ($offer['receive_amount'] ?? 0));
-            $receivePaise = (int) round((float) $inferred['receive'] * 100);
-            $platformPaise = (int) round((float) $inferred['platform_fee'] * 100);
-        }
+        $receivePaise = $paise;
+        $platformPaise = 0;
         $base = payment_public_base();
         $payload = [
             'source' => (string) $cfg['source'],
