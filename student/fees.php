@@ -137,6 +137,10 @@ if ($isStudentCategoryExempt && empty($onlineFeeCourses)) {
     $structureFeeLabel = $usesOnlineFeePanel ? 'Online course fee (Payment Portal)' : 'Course Fee';
 }
 
+$feeMoney = static function (float $amount) use ($usesOnlineFeePanel): string {
+    return $usesOnlineFeePanel ? payment_money_display($amount) : number_format($amount, 2);
+};
+
 $page_title = "Fee Details";
 include 'includes/header.php';
 ?>
