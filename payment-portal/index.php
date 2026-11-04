@@ -31,7 +31,7 @@ hub_public_layout_start(HUB_APP_NAME, 'hero', true);
                     <span class="hub-pay-chip"><i class="bi bi-phone text-primary"></i> UPI</span>
                     <span class="hub-pay-chip"><i class="bi bi-credit-card text-primary"></i> Cards</span>
                     <span class="hub-pay-chip"><i class="bi bi-bank text-primary"></i> Netbanking</span>
-                    <span class="hub-pay-chip"><i class="bi bi-file-earmark-pdf text-primary"></i> Invoices</span>
+                    <span class="hub-pay-chip"><i class="bi bi-receipt text-primary"></i> Money receipts</span>
                     <span class="hub-pay-chip"><i class="bi bi-arrow-counterclockwise text-primary"></i> Refunds</span>
                 </div>
             </div>
@@ -55,7 +55,7 @@ hub_public_layout_start(HUB_APP_NAME, 'hero', true);
             </div>
             <div class="hub-feature-tile hub-animate">
                 <div class="icon-wrap"><i class="bi bi-receipt-cutoff"></i></div>
-                <h2 class="h6 fw-bold mb-1">One invoice register</h2>
+                <h2 class="h6 fw-bold mb-1">Money receipt register</h2>
                 <p class="small text-secondary mb-0">Numbered <?php echo htmlspecialchars(HUB_INVOICE_PREFIX); ?> series for every successful payment.</p>
             </div>
             <div class="hub-feature-tile hub-animate">
@@ -88,7 +88,7 @@ hub_public_layout_start(HUB_APP_NAME, 'hero', true);
                             <span class="step-num">3</span>
                             <div>
                                 <strong class="d-block">Receipt &amp; notify</strong>
-                                <span class="small text-secondary">Invoice is issued; the source site gets a signed status callback.</span>
+                                <span class="small text-secondary">Money receipt is issued; the source site gets a signed status callback.</span>
                             </div>
                         </div>
                     </div>
@@ -113,7 +113,7 @@ hub_public_layout_start(HUB_APP_NAME, 'hero', true);
 
     <footer class="hub-landing-footer text-center text-secondary small py-4 mt-auto">
         <div class="container">
-            <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?> · NIELIT Bhubaneswar · <?php echo htmlspecialchars(HUB_INVOICE_PREFIX); ?> invoices
+            <?php echo htmlspecialchars(HUB_BRAND_SHORT); ?> · NIELIT Bhubaneswar · <?php echo htmlspecialchars(HUB_INVOICE_PREFIX); ?> money receipts
         </div>
     </footer>
 </div>
