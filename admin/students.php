@@ -2282,8 +2282,9 @@ if ($other_gender_count > 0) {
                             </td>
                             <td>
                                 <?php
+                                $rowCategory = (string)($row['category'] ?? '');
                                 $feeState = $row_course_id > 0
-                                    ? payment_student_status_label($conn, (string) $row['student_id'], $row_course_id)
+                                    ? payment_student_status_label($conn, (string) $row['student_id'], $row_course_id, $rowCategory)
                                     : 'not_required';
                                 $feeInvoices = $row_course_id > 0
                                     ? payment_student_course_invoices($conn, (string) $row['student_id'], $row_course_id)
@@ -2294,6 +2295,8 @@ if ($other_gender_count > 0) {
                                 <?php else: ?>
                                     <?php if ($feeState === 'paid'): ?>
                                         <span class="badge badge-success">Paid</span>
+                                    <?php elseif ($feeState === 'exempted'): ?>
+                                        <span class="badge" style="background:#0284c7;color:#fff;">Exempted</span>
                                     <?php elseif ($feeState === 'unpaid'): ?>
                                         <span class="badge badge-danger">Unpaid</span>
                                     <?php endif; ?>

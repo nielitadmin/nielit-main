@@ -98,6 +98,15 @@ if (payment_hub_is_ready()) {
 }
 $dashboardOnlineFees = payment_student_build_online_fee_courses($conn, $student_id, $dashboardEnrollmentRows, (string) ($student['category'] ?? ''));
 
+$isStudentCategoryExempt = false;
+foreach ($dashboardEnrollmentRows as $erow) {
+    $cid = (int) ($erow['course_id'] ?? 0);
+    if ($cid > 0 && payment_student_is_course_exempt($conn, $student_id, $cid, (string) ($student['category'] ?? ''))) {
+        $isStudentCategoryExempt = true;
+        break;
+    }
+}
+
 // Fetch announcements for this student (all + students + any enrolled course)
 $announcements_list = [];
 $course_codes = array_values(array_unique(array_filter(array_merge(
@@ -238,6 +247,23 @@ include 'includes/header.php';
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php elseif (!empty($isStudentCategoryExempt)): ?>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm" style="background:#f0fdf4; border-left: 4px solid #16a34a !important;">
+                <div class="card-body py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="d-flex align-items-center gap-3">
+                        <span class="fs-4 text-success"><i class="fas fa-check-circle"></i></span>
+                        <div>
+                            <div class="fw-bold text-success mb-0">Online Fee Exemption Applied (Category: <?php echo htmlspecialchars($student['category'] ?? 'SC/ST'); ?>)</div>
+                            <div class="text-muted small">You are exempted from paying the online course fee for this course.</div>
+                        </div>
+                    </div>
+                    <a href="fees.php" class="btn btn-sm btn-outline-success">View Fee Details</a>
                 </div>
             </div>
         </div>

@@ -493,10 +493,25 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return (float) ($row['paid'] ?? 0);
     }
 
-    function payment_student_status_label(mysqli $conn, string $studentCode, int $courseId): string
+    function payment_student_status_label(mysqli $conn, string $studentCode, int $courseId, ?string $studentCategory = null): string
     {
-        $offer = payment_course_offer($conn, $courseId);
+        if ($studentCategory === null && $studentCode !== '') {
+            $catStmt = $conn->prepare("SELECT category FROM students WHERE student_id = ? OR id = ? LIMIT 1");
+            if ($catStmt) {
+                $catStmt->bind_param('ss', $studentCode, $studentCode);
+                $catStmt->execute();
+                $catRes = $catStmt->get_result()->fetch_assoc();
+                $catStmt->close();
+                if ($catRes && !empty($catRes['category'])) {
+                    $studentCategory = (string) $catRes['category'];
+                }
+            }
+        }
+        $offer = payment_course_offer($conn, $courseId, $studentCategory);
         if (!$offer['enabled']) {
+            if (!empty($offer['category_exempt'])) {
+                return 'exempted';
+            }
             return 'not_required';
         }
         return payment_student_paid_amount($conn, $studentCode, $courseId) + 0.009 >= $offer['amount']
