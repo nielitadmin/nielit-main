@@ -90,6 +90,7 @@ hostinger-deploy.log
 /nielit-bbsr-mock
 /tpms
 /Certificate
+/moodle
 
 # IDE & Editor
 .vscode/

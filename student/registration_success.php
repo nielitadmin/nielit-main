@@ -19,6 +19,8 @@ $is_returning_student = !empty($_SESSION['is_returning_student']);
 $email_sent           = !empty($_SESSION['registration_email_sent']);
 $email_queued         = !empty($_SESSION['registration_email_queued']);
 $online_payment_required = !empty($_SESSION['online_payment_required']);
+$online_payment_exempt   = !empty($_SESSION['online_payment_exempt']);
+$student_category_name   = (string) ($_SESSION['student_category'] ?? '');
 $online_payment_amount = (float) ($_SESSION['online_payment_amount'] ?? 0);
 $online_payment_receive = (int) ($_SESSION['online_payment_receive'] ?? 0);
 $online_payment_platform_fee = (float) ($_SESSION['online_payment_platform_fee'] ?? 0);
@@ -36,6 +38,8 @@ unset(
     $_SESSION['registration_email_sent'],
     $_SESSION['registration_email_queued'],
     $_SESSION['online_payment_required'],
+    $_SESSION['online_payment_exempt'],
+    $_SESSION['student_category'],
     $_SESSION['online_payment_amount'],
     $_SESSION['online_payment_receive'],
     $_SESSION['online_payment_platform_fee'],
@@ -503,6 +507,14 @@ unset(
                             <?php echo htmlspecialchars($online_payment_course !== '' ? $online_payment_course : 'This course'); ?>
                             has an online fee of <strong>₹<?php echo payment_money_display($online_payment_amount); ?></strong>.
                             Log in to the student portal and open Fee Details to pay. Your money receipt appears there after the payment succeeds.
+                        </p>
+                    </div>
+                    <?php elseif ($online_payment_exempt): ?>
+                    <div class="alert-box alert-success-box" style="background:#f0fdf4; border-color:#bbf7d0;">
+                        <i class="fas fa-check-circle" style="color:#16a34a;"></i>
+                        <p style="color:#14532d;">
+                            <strong>Online Fee Exemption:</strong>
+                            Candidates in category <strong><?php echo htmlspecialchars($student_category_name ?: 'SC/ST'); ?></strong> are exempted from paying the online fee for this course.
                         </p>
                     </div>
                     <?php endif; ?>

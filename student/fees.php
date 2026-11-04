@@ -87,17 +87,27 @@ if (payment_hub_is_ready()) {
 $total_paid = payment_student_total_paid_reconciled($conn, (string) $student_id, $payment_records);
 $balance = max(0, $course_fees - $total_paid);
 
+$student_category = (string) ($student['category'] ?? '');
 $onlineEnrollmentRows = payment_student_enrollment_rows_for_online_fees(
     $student_enrollments ?? [],
     $student_enrollment_rows
 );
-$onlineFeeCourses = payment_student_build_online_fee_courses($conn, (string) $student_id, $onlineEnrollmentRows);
+$onlineFeeCourses = payment_student_build_online_fee_courses($conn, (string) $student_id, $onlineEnrollmentRows, $student_category);
 $onlineInvoices = payment_student_invoices($conn, (string) $student_id);
 $onlinePaymentHistory = payment_student_online_payment_history($conn, (string) $student_id, 25);
 $onlineGateways = payment_gateway_active_list($conn);
 $onlineHubReady = payment_hub_is_ready();
 $hubCfg = payment_hub_config();
 $onlineGatewayReady = $onlineHubReady || !empty($onlineGateways);
+
+$isStudentCategoryExempt = false;
+foreach ($onlineEnrollmentRows as $erow) {
+    $cid = (int) ($erow['course_id'] ?? 0);
+    if ($cid > 0 && payment_student_is_course_exempt($conn, (string) $student_id, $cid, $student_category)) {
+        $isStudentCategoryExempt = true;
+        break;
+    }
+}
 
 $onlineDueTotal = 0;
 $onlinePaidTotal = 0;
@@ -108,17 +118,24 @@ foreach ($onlineFeeCourses as $oc) {
     $onlineFeeTotal += (float) $oc['amount'];
 }
 $usesOnlineFeePanel = $onlineFeeCourses !== [];
-$displayFeeTotal = $usesOnlineFeePanel ? $onlineFeeTotal : $course_fees;
-$displayPaid = $usesOnlineFeePanel ? $onlinePaidTotal : $total_paid;
-$displayBalance = $usesOnlineFeePanel ? $onlineDueTotal : $balance;
-$displayBalanceLabel = $usesOnlineFeePanel
-    ? ($onlineDueTotal > 0 ? 'Online fee due' : 'Online fees paid')
-    : ($balance > 0 ? 'Balance due' : 'Fully paid');
-$feeMoney = static function (float $amount) use ($usesOnlineFeePanel): string {
-    return $usesOnlineFeePanel ? payment_money_display($amount) : number_format($amount, 2);
-};
-$structureFeeTotal = $usesOnlineFeePanel ? $onlineFeeTotal : $course_fees;
-$structureFeeLabel = $usesOnlineFeePanel ? 'Online course fee (Payment Portal)' : 'Course Fee';
+if ($isStudentCategoryExempt && empty($onlineFeeCourses)) {
+    $usesOnlineFeePanel = true;
+    $displayFeeTotal = 0;
+    $displayPaid = 0;
+    $displayBalance = 0;
+    $displayBalanceLabel = 'Exempted';
+    $structureFeeTotal = 0;
+    $structureFeeLabel = 'Fee Exempted (Category: ' . htmlspecialchars($student_category ?: 'SC/ST') . ')';
+} else {
+    $displayFeeTotal = $usesOnlineFeePanel ? $onlineFeeTotal : $course_fees;
+    $displayPaid = $usesOnlineFeePanel ? $onlinePaidTotal : $total_paid;
+    $displayBalance = $usesOnlineFeePanel ? $onlineDueTotal : $balance;
+    $displayBalanceLabel = $usesOnlineFeePanel
+        ? ($onlineDueTotal > 0 ? 'Online fee due' : 'Online fees paid')
+        : ($balance > 0 ? 'Balance due' : 'Fully paid');
+    $structureFeeTotal = $usesOnlineFeePanel ? $onlineFeeTotal : $course_fees;
+    $structureFeeLabel = $usesOnlineFeePanel ? 'Online course fee (Payment Portal)' : 'Course Fee';
+}
 
 $page_title = "Fee Details";
 include 'includes/header.php';
@@ -389,6 +406,11 @@ include 'includes/header.php';
                                 </div>
                             <?php endforeach; ?>
                             <div id="coursePaymentMessage" class="small mt-2"></div>
+                    <?php elseif (!empty($isStudentCategoryExempt)): ?>
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i>
+                            <strong>Fee Exemption:</strong> You are exempted from paying the online course fee under candidate category <strong><?php echo htmlspecialchars($student_category ?: 'SC/ST'); ?></strong>.
+                        </div>
                     <?php elseif ($displayBalance > 0): ?>
                         <div class="alert alert-warning">
                             <i class="fas fa-info-circle"></i>

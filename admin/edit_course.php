@@ -416,7 +416,7 @@ if (isset($_POST['update_course'])) {
     }
 
     if ($stmt->execute()) {
-        payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $online_receive_amount);
+        payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $online_receive_amount, $_POST['online_payment_categories'] ?? null);
         saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
 
         // Handle scheme associations (only if table exists)
@@ -663,7 +663,7 @@ $active_theme = loadActiveTheme($conn);
                         <div class="form-group">
                             <label class="form-label">Training Fees *</label>
                             <input type="text" class="form-control" name="training_fees" value="<?php echo htmlspecialchars($course['training_fees']); ?>" placeholder="e.g., 15000" required>
-                            <?php payment_render_online_amount_fields('edit_online_payment', 'edit_online_panel', (int) ($course['online_payment_enabled'] ?? 0) === 1, (int) ($course['online_receive_amount'] ?? 0)); ?>
+                            <?php payment_render_online_amount_fields('edit_online_payment', 'edit_online_panel', (int) ($course['online_payment_enabled'] ?? 0) === 1, (int) ($course['online_receive_amount'] ?? 0), $course['online_payment_categories'] ?? 'General,OBC,SC,ST,EWS'); ?>
                             <?php payment_online_amount_script(); ?>
                         </div>
                         <div class="form-group">

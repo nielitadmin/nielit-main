@@ -96,7 +96,7 @@ payment_student_expire_stale_online_attempts($conn, $student_id);
 if (payment_hub_is_ready()) {
     payment_hub_sync_student_attempts($conn, $student_id);
 }
-$dashboardOnlineFees = payment_student_build_online_fee_courses($conn, $student_id, $dashboardEnrollmentRows);
+$dashboardOnlineFees = payment_student_build_online_fee_courses($conn, $student_id, $dashboardEnrollmentRows, (string) ($student['category'] ?? ''));
 
 // Fetch announcements for this student (all + students + any enrolled course)
 $announcements_list = [];

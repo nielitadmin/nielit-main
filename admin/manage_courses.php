@@ -116,7 +116,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($stmt->execute()) {
             $course_id = $conn->insert_id;
-            payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $online_receive_amount);
+            payment_save_course_online_flag($conn, (int) $course_id, $online_payment_enabled, $online_receive_amount, $_POST['online_payment_categories'] ?? null);
             saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
             
             // Auto-assign course to course coordinator who created it
@@ -250,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("issssssssdsssissii", $centre_id, $course_name, $course_code, $course_abbreviation, $course_type, $nsqf_type, $registration_form, $training_center, $duration, $fees, $description, $eligibility, $registration_link, $is_nsqf, $link_published, $enrollment_closing_date, $online_payment_enabled, $id);
         
         if ($stmt->execute()) {
-            payment_save_course_online_flag($conn, (int) $id, $online_payment_enabled, $online_receive_amount);
+            payment_save_course_online_flag($conn, (int) $id, $online_payment_enabled, $online_receive_amount, $_POST['online_payment_categories'] ?? null);
             saveCourseRequiredDocuments($conn, (int) $id, parseCourseRequiredDocumentsFromPost($_POST));
 
             // Regenerate QR code if registration link exists
@@ -1335,6 +1335,8 @@ if (!empty($params)) {
             }
             if (editOnlinePayment) {
                 editOnlinePayment.checked = course.online_payment_enabled == 1 || course.online_payment_enabled === '1';
+                const editCats = (course.online_payment_categories || "General,OBC,SC,ST,EWS").split(",").map(function(s) { return s.trim(); });
+                document.querySelectorAll("#edit_online_panel .online-category-cb").forEach(function(cb) { cb.checked = editCats.indexOf(cb.value) !== -1; });
                 if (window.paymentRefreshOnlinePanel) {
                     window.paymentRefreshOnlinePanel(editOnlinePayment);
                 }

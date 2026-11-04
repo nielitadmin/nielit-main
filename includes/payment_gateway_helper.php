@@ -68,6 +68,10 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if ($receiveCol && $receiveCol->num_rows === 0) {
             $conn->query("ALTER TABLE courses ADD COLUMN online_receive_amount INT NOT NULL DEFAULT 0");
         }
+        $catCol = $conn->query("SHOW COLUMNS FROM courses LIKE 'online_payment_categories'");
+        if ($catCol && $catCol->num_rows === 0) {
+            $conn->query("ALTER TABLE courses ADD COLUMN online_payment_categories VARCHAR(255) NULL DEFAULT 'General,OBC,SC,ST,EWS'");
+        }
 
         foreach (payment_gateway_catalog() as $provider => $meta) {
             $stmt = $conn->prepare('SELECT id FROM payment_gateway_accounts WHERE provider = ? LIMIT 1');
@@ -281,7 +285,26 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return '';
     }
 
-    function payment_save_course_online_flag(mysqli $conn, int $courseId, int $enabled, $receiveAmount): void
+    function payment_normalize_categories($categories): string
+    {
+        if (is_string($categories)) {
+            $categories = explode(',', $categories);
+        }
+        if (!is_array($categories)) {
+            return 'General,OBC,SC,ST,EWS';
+        }
+        $valid = ['General', 'OBC', 'SC', 'ST', 'EWS'];
+        $clean = [];
+        foreach ($categories as $c) {
+            $c = trim((string) $c);
+            if (in_array($c, $valid, true) && !in_array($c, $clean, true)) {
+                $clean[] = $c;
+            }
+        }
+        return !empty($clean) ? implode(',', $clean) : 'General,OBC,SC,ST,EWS';
+    }
+
+    function payment_save_course_online_flag(mysqli $conn, int $courseId, int $enabled, $receiveAmount, $categories = null): void
     {
         if ($courseId <= 0) {
             return;
@@ -291,29 +314,58 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         if ($enabled === 1 && $receive < 1) {
             $enabled = 0;
         }
-        $stmt = $conn->prepare('UPDATE courses SET online_payment_enabled = ?, online_receive_amount = ? WHERE id = ?');
+        if ($categories === null) {
+            $categories = $_POST['online_payment_categories'] ?? 'General,OBC,SC,ST,EWS';
+        }
+        $catString = payment_normalize_categories($categories);
+
+        $stmt = $conn->prepare('UPDATE courses SET online_payment_enabled = ?, online_receive_amount = ?, online_payment_categories = ? WHERE id = ?');
         if ($stmt) {
-            $stmt->bind_param('iii', $enabled, $receive, $courseId);
+            $stmt->bind_param('iisi', $enabled, $receive, $catString, $courseId);
             $stmt->execute();
             $stmt->close();
         }
     }
 
-    function payment_render_online_amount_fields(string $checkboxId, string $panelId, bool $checked, int $receiveAmount): void
+    function payment_render_online_amount_fields(string $checkboxId, string $panelId, bool $checked, int $receiveAmount, $selectedCategories = 'General,OBC,SC,ST,EWS'): void
     {
         $percent = payment_platform_percent();
         $value = $receiveAmount > 0 ? (string) $receiveAmount : '';
+        $catString = payment_normalize_categories($selectedCategories);
+        $catList = array_map('trim', explode(',', $catString));
         ?>
         <div class="form-check mt-2">
             <input class="form-check-input online-pay-toggle" type="checkbox" name="online_payment_enabled" id="<?php echo htmlspecialchars($checkboxId); ?>" value="1" data-panel="<?php echo htmlspecialchars($panelId); ?>" <?php echo $checked ? 'checked' : ''; ?>>
-            <label class="form-check-label" for="<?php echo htmlspecialchars($checkboxId); ?>">Accept online payment for this course</label>
+            <label class="form-check-label fw-semibold" for="<?php echo htmlspecialchars($checkboxId); ?>">Accept online payment for this course</label>
         </div>
-        <div id="<?php echo htmlspecialchars($panelId); ?>" class="online-pay-panel" style="display:<?php echo $checked ? 'block' : 'none'; ?>; margin-top:10px; padding:12px 14px; border:1px solid #c9d7ea; border-radius:8px; background:#f4f8fc;">
-            <label class="form-label" for="<?php echo htmlspecialchars($panelId); ?>_amount">Online course fee (amount student will pay, whole rupees)</label>
+        <div id="<?php echo htmlspecialchars($panelId); ?>" class="online-pay-panel" style="display:<?php echo $checked ? 'block' : 'none'; ?>; margin-top:10px; padding:14px; border:1px solid #c9d7ea; border-radius:8px; background:#f4f8fc;">
+            <label class="form-label fw-semibold" for="<?php echo htmlspecialchars($panelId); ?>_amount" style="font-size: 13px;">Online course fee (amount student will pay, whole rupees)</label>
             <input type="text" inputmode="numeric" pattern="[0-9]*" class="form-control online-receive-input" name="online_receive_amount" id="<?php echo htmlspecialchars($panelId); ?>_amount" value="<?php echo htmlspecialchars($value); ?>" placeholder="100" autocomplete="off" style="max-width:220px;">
-            <div class="online-pay-preview text-muted" data-percent="<?php echo htmlspecialchars((string) $percent); ?>" style="margin-top:8px; font-size:13px;">
-                Example: enter 100 → student pays exactly ₹100.
+            <div class="online-pay-preview text-muted" data-percent="<?php echo htmlspecialchars((string) $percent); ?>" style="margin-top:6px; font-size:12.5px;">
+                Example: enter 100 &rarr; student pays exactly ₹100.
             </div>
+
+            <div class="mt-3 pt-2" style="border-top:1px dashed #cbd5e1;">
+                <label class="form-label d-block fw-semibold mb-1" style="font-size: 13px; color: #1e293b;">
+                    <i class="fas fa-users me-1 text-primary"></i> Candidate Categories (Who will pay online):
+                </label>
+                <div class="d-flex flex-wrap align-items-center gap-3 mt-1">
+                    <?php
+                    $allCategories = ['General' => 'General', 'OBC' => 'OBC', 'SC' => 'SC', 'ST' => 'ST', 'EWS' => 'EWS'];
+                    foreach ($allCategories as $cVal => $cLabel):
+                        $isCatChecked = in_array($cVal, $catList, true);
+                    ?>
+                    <div class="form-check form-check-inline m-0">
+                        <input class="form-check-input online-category-cb" type="checkbox" name="online_payment_categories[]" id="<?php echo htmlspecialchars($panelId . '_cat_' . $cVal); ?>" value="<?php echo htmlspecialchars($cVal); ?>" <?php echo $isCatChecked ? 'checked' : ''; ?>>
+                        <label class="form-check-label fw-medium" for="<?php echo htmlspecialchars($panelId . '_cat_' . $cVal); ?>" style="font-size: 13px; cursor: pointer;"><?php echo htmlspecialchars($cLabel); ?></label>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="text-muted mt-1" style="font-size: 11.5px;">
+                    <i class="fas fa-info-circle me-1"></i> Check categories who must pay online. Unchecked categories (e.g. SC/ST) are exempted.
+                </div>
+            </div>
+
             <p class="text-muted small mb-0 mt-2"><?php echo htmlspecialchars(payment_online_fee_settlement_note()); ?></p>
         </div>
         <?php
@@ -376,14 +428,14 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         <?php
     }
 
-    function payment_course_offer(mysqli $conn, int $courseId): array
+    function payment_course_offer(mysqli $conn, int $courseId, ?string $studentCategory = null): array
     {
         payment_gateway_ensure_schema($conn);
-        $empty = ['enabled' => false, 'amount' => 0.0, 'course_name' => '', 'course_id' => $courseId];
+        $empty = ['enabled' => false, 'amount' => 0.0, 'course_name' => '', 'course_id' => $courseId, 'category_exempt' => false, 'categories' => []];
         if ($courseId <= 0) {
             return $empty;
         }
-        $sql = 'SELECT id, course_name, online_payment_enabled, online_receive_amount FROM courses WHERE id = ? LIMIT 1';
+        $sql = 'SELECT id, course_name, online_payment_enabled, online_receive_amount, online_payment_categories FROM courses WHERE id = ? LIMIT 1';
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return $empty;
@@ -396,9 +448,22 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             return $empty;
         }
         $total = (int) ($row['online_receive_amount'] ?? 0);
+        $catString = payment_normalize_categories($row['online_payment_categories'] ?? 'General,OBC,SC,ST,EWS');
+        $allowedCats = array_map('trim', explode(',', $catString));
+
+        $isCategoryEligible = true;
+        $categoryExempt = false;
+        if ($studentCategory !== null && trim($studentCategory) !== '') {
+            $trimmedCategory = trim($studentCategory);
+            $isCategoryEligible = in_array($trimmedCategory, $allowedCats, true);
+            if (!$isCategoryEligible && (int) ($row['online_payment_enabled'] ?? 0) === 1 && $total > 0) {
+                $categoryExempt = true;
+            }
+        }
+
         // Admin enters final total; no platform markup
         $charge = ['receive' => $total, 'platform_fee' => 0.0, 'total' => (float) $total, 'platform_percent' => payment_platform_percent()];
-        $enabled = (int) ($row['online_payment_enabled'] ?? 0) === 1 && $total > 0;
+        $enabled = (int) ($row['online_payment_enabled'] ?? 0) === 1 && $total > 0 && $isCategoryEligible;
         return [
             'enabled' => $enabled,
             'amount' => $charge['total'],
@@ -407,6 +472,8 @@ if (!function_exists('payment_gateway_ensure_schema')) {
             'platform_percent' => $charge['platform_percent'],
             'course_name' => (string) ($row['course_name'] ?? ''),
             'course_id' => (int) $row['id'],
+            'categories' => $allowedCats,
+            'category_exempt' => $categoryExempt,
         ];
     }
 
@@ -1329,17 +1396,31 @@ if (!function_exists('payment_gateway_ensure_schema')) {
         return ['ok' => false, 'error' => 'Payment could not be confirmed.'];
     }
 
-    function payment_student_build_online_fee_courses(mysqli $conn, string $studentCode, array $enrollmentRows): array
+    function payment_student_build_online_fee_courses(mysqli $conn, string $studentCode, array $enrollmentRows, ?string $studentCategory = null): array
     {
         payment_gateway_ensure_schema($conn);
         $onlineFeeCourses = [];
         $seenOnlineCourse = [];
+
+        if ($studentCategory === null && $studentCode !== '') {
+            $catStmt = $conn->prepare("SELECT category FROM students WHERE student_id = ? OR id = ? LIMIT 1");
+            if ($catStmt) {
+                $catStmt->bind_param('ss', $studentCode, $studentCode);
+                $catStmt->execute();
+                $catRes = $catStmt->get_result()->fetch_assoc();
+                $catStmt->close();
+                if ($catRes && !empty($catRes['category'])) {
+                    $studentCategory = (string) $catRes['category'];
+                }
+            }
+        }
+
         foreach ($enrollmentRows as $erow) {
             $onlineCourseId = (int) ($erow['course_id'] ?? 0);
             if ($onlineCourseId <= 0 || isset($seenOnlineCourse[$onlineCourseId])) {
                 continue;
             }
-            $offer = payment_course_offer($conn, $onlineCourseId);
+            $offer = payment_course_offer($conn, $onlineCourseId, $studentCategory);
             if (empty($offer['enabled'])) {
                 continue;
             }
@@ -1359,14 +1440,36 @@ if (!function_exists('payment_gateway_ensure_schema')) {
                 'platform_percent' => (float) ($offer['platform_percent'] ?? payment_platform_percent()),
                 'paid' => $alreadyPaid,
                 'due' => max(0, round($onlineAmount - $alreadyPaid, 2)),
-            'breakdown_text' => payment_online_fee_breakdown_text([
-                'amount' => $onlineAmount,
-                'receive_amount' => (int) ($offer['receive_amount'] ?? 0),
-                'platform_fee' => (float) ($offer['platform_fee'] ?? 0),
-            ]),
+                'breakdown_text' => payment_online_fee_breakdown_text([
+                    'amount' => $onlineAmount,
+                    'receive_amount' => (int) ($offer['receive_amount'] ?? 0),
+                    'platform_fee' => (float) ($offer['platform_fee'] ?? 0),
+                ]),
+                'categories' => $offer['categories'] ?? [],
             ];
         }
         return $onlineFeeCourses;
+    }
+
+    function payment_student_is_course_exempt(mysqli $conn, string $studentCode, int $courseId, ?string $studentCategory = null): bool
+    {
+        if ($courseId <= 0) {
+            return false;
+        }
+        if ($studentCategory === null && $studentCode !== '') {
+            $catStmt = $conn->prepare("SELECT category FROM students WHERE student_id = ? OR id = ? LIMIT 1");
+            if ($catStmt) {
+                $catStmt->bind_param('ss', $studentCode, $studentCode);
+                $catStmt->execute();
+                $catRes = $catStmt->get_result()->fetch_assoc();
+                $catStmt->close();
+                if ($catRes && !empty($catRes['category'])) {
+                    $studentCategory = (string) $catRes['category'];
+                }
+            }
+        }
+        $offer = payment_course_offer($conn, $courseId, $studentCategory);
+        return !empty($offer['category_exempt']);
     }
 
     function payment_student_total_paid_reconciled(mysqli $conn, string $studentCode, array $paymentRecords): float

@@ -322,7 +322,8 @@ if (isset($_POST['add_course'])) {
             $conn,
             (int) $course_id,
             isset($_POST['online_payment_enabled']) ? 1 : 0,
-            $_POST['online_receive_amount'] ?? ''
+            $_POST['online_receive_amount'] ?? '',
+            $_POST['online_payment_categories'] ?? null
         );
         saveCourseRequiredDocuments($conn, (int) $course_id, parseCourseRequiredDocumentsFromPost($_POST));
         

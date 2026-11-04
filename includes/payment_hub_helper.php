@@ -312,8 +312,22 @@ if (!function_exists('payment_hub_config')) {
         string $phone
     ): array {
         $cfg = payment_hub_config();
-        $offer = payment_course_offer($conn, $courseId);
+        $studentCategory = '';
+        $cStmt = $conn->prepare("SELECT category FROM students WHERE student_id = ? OR id = ? LIMIT 1");
+        if ($cStmt) {
+            $cStmt->bind_param('ss', $studentCode, $studentCode);
+            $cStmt->execute();
+            $cRow = $cStmt->get_result()->fetch_assoc();
+            $cStmt->close();
+            if ($cRow && !empty($cRow['category'])) {
+                $studentCategory = (string) $cRow['category'];
+            }
+        }
+        $offer = payment_course_offer($conn, $courseId, $studentCategory);
         if (!$offer['enabled']) {
+            if (!empty($offer['category_exempt'])) {
+                return ['ok' => false, 'error' => 'You are exempted from paying this online course fee under candidate category ' . htmlspecialchars($studentCategory) . '.'];
+            }
             return ['ok' => false, 'error' => 'This course does not collect fees online.'];
         }
         $paid = payment_student_paid_amount($conn, $studentCode, $courseId);
@@ -349,6 +363,7 @@ if (!function_exists('payment_hub_config')) {
                 'centre' => payment_hub_checkout_centre_name($conn, $courseId, $studentCode),
                 'course' => $courseName,
                 'course_id' => $courseId,
+                'category' => $studentCategory,
                 'scheme' => '',
                 'fee_receive_paise' => $receivePaise,
                 'platform_fee_paise' => $platformPaise,
