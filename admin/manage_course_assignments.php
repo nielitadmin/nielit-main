@@ -467,7 +467,7 @@ $stats = $stats_result->fetch_assoc();
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
-
+var HUB_COURSE_ASSIGN_AJAX = <?php echo json_encode(app_url('admin/ajax_course_assignments.php'), JSON_UNESCAPED_SLASHES); ?>;
 // ── Show flash toast on page load ─────────────────────────────────────────────
 <?php if ($message):
     switch ($message_type) {
@@ -534,27 +534,8 @@ function loadCoursesForCoordinator(adminId) {
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded, initializing...');
-    
-    // Test toast notifications on page load
-    setTimeout(function() {
-        console.log('Testing toast notifications...');
-        if (typeof ToastNotification !== 'undefined') {
-            console.log('ToastNotification class is available');
-            // Test with a subtle info message
-            var t = new ToastNotification();
-            t.info('Course Assignment system loaded successfully');
-        } else {
-            console.log('ToastNotification class is NOT available, using fallback');
-            // Test fallback system
-            showToast('success', 'Course Assignment system loaded successfully');
-        }
-    }, 1000);
-
-    // Load assignments table via AJAX on page load
     refreshAssignments();
 
-    // Dropdown change
     document.getElementById('coordinatorSelect').addEventListener('change', function() {
         loadCoursesForCoordinator(this.value);
     });
@@ -630,6 +611,21 @@ document.addEventListener('DOMContentLoaded', function() {
         // Submit via AJAX
         submitAssignmentForm(this);
     });
+
+    var assignmentsContainer = document.getElementById('assignments-table-container');
+    if (assignmentsContainer) {
+        assignmentsContainer.addEventListener('click', function (event) {
+            var btn = event.target.closest('.js-remove-course-assignment');
+            if (!btn) {
+                return;
+            }
+            removeAssignment(
+                parseInt(btn.getAttribute('data-id'), 10),
+                btn.getAttribute('data-admin') || '',
+                btn.getAttribute('data-course') || ''
+            );
+        });
+    }
 
 }); // end DOMContentLoaded
 
@@ -766,7 +762,7 @@ function submitAssignmentForm(form) {
     
     console.log('Button state changed, making fetch request'); // Debug log
     
-    fetch('ajax_course_assignments.php', {
+    fetch(HUB_COURSE_ASSIGN_AJAX, {
         method: 'POST',
         body: formData
     })
@@ -859,7 +855,7 @@ async function removeAssignmentAjax(assignmentId) {
     formData.append('assignment_id', assignmentId);
     
     try {
-        const response = await fetch('ajax_course_assignments.php', {
+        const response = await fetch(HUB_COURSE_ASSIGN_AJAX, {
             method: 'POST',
             body: formData
         });
@@ -916,7 +912,7 @@ function refreshAssignments() {
     if (loading) loading.style.display = 'block';
     if (container) container.style.opacity = '0.5';
     
-    fetch('ajax_course_assignments.php', {
+    fetch(HUB_COURSE_ASSIGN_AJAX, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -983,12 +979,11 @@ function updateAssignmentsTable(assignments) {
             <thead>
                 <tr>
                     <th>Coordinator</th>
-                    <th>Email</th>
                     <th>Course</th>
-                    <th>Course Code</th>
+                    <th>Batch code</th>
                     <th>Type</th>
-                    <th>Assigned By</th>
-                    <th>Assigned Date</th>
+                    <th>Assigned by</th>
+                    <th>Assigned date</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -1000,6 +995,9 @@ function updateAssignmentsTable(assignments) {
         var assignedDate = new Date(assignment.assigned_at);
         var formattedDate = assignedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         var formattedTime = assignedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        var batchBadge = assignment.batch_code
+            ? '<span class="badge bg-primary rounded-pill">' + escapeHtml(assignment.batch_code) + '</span>'
+            : '<span class="text-muted">—</span>';
         
         tableHTML += `
             <tr>
@@ -1011,13 +1009,8 @@ function updateAssignmentsTable(assignments) {
                         <div>
                             <strong>${escapeHtml(assignment.admin_name)}</strong>
                             <br><small class="text-muted">ID: ${assignment.admin_id}</small>
+                            <br><small class="text-muted"><i class="fas fa-envelope me-1"></i>${escapeHtml(assignment.admin_email)}</small>
                         </div>
-                    </div>
-                </td>
-                <td>
-                    <div class="text-break">
-                        <i class="fas fa-envelope text-muted me-1"></i>
-                        <span>${escapeHtml(assignment.admin_email)}</span>
                     </div>
                 </td>
                 <td>
@@ -1026,9 +1019,7 @@ function updateAssignmentsTable(assignments) {
                         <br><small class="text-muted">Course ID: ${assignment.course_id}</small>
                     </div>
                 </td>
-                <td>
-                    <span class="badge bg-primary rounded-pill">${escapeHtml(assignment.course_code)}</span>
-                </td>
+                <td>${batchBadge}</td>
                 <td>
                     <span class="badge-modern ${badgeClass}">${escapeHtml(assignment.assignment_type)}</span>
                 </td>
@@ -1049,8 +1040,10 @@ function updateAssignmentsTable(assignments) {
                     </div>
                 </td>
                 <td>
-                    <button type="button" class="modern-btn modern-btn-danger btn-sm"
-                        onclick="removeAssignment(${assignment.id}, '${escapeHtml(assignment.admin_name).replace(/'/g, "\\'")}', '${escapeHtml(assignment.course_name).replace(/'/g, "\\'")}')"
+                    <button type="button" class="modern-btn modern-btn-danger btn-sm js-remove-course-assignment"
+                        data-id="${parseInt(assignment.id, 10)}"
+                        data-admin="${escapeAttr(assignment.admin_name)}"
+                        data-course="${escapeAttr(assignment.course_name)}"
                         title="Remove Assignment">
                         <i class="fas fa-trash"></i> Remove
                     </button>
@@ -1071,7 +1064,7 @@ function updateAssignmentsTable(assignments) {
 function refreshStats() {
     console.log('Refreshing statistics...');
     
-    fetch('ajax_course_assignments.php', {
+    fetch(HUB_COURSE_ASSIGN_AJAX, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
@@ -1108,6 +1101,10 @@ function updateStats(stats) {
 
 // HTML escape function
 function escapeHtml(text) {
+    if (text == null) {
+        return '';
+    }
+    text = String(text);
     var map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -1118,15 +1115,28 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
-// ── Remove assignment (global scope — called from onclick in table) ────────────
+function escapeAttr(text) {
+    return escapeHtml(text);
+}
+
+// ── Remove assignment (global scope) ────────────
 async function removeAssignment(assignmentId, coordinatorName, courseName) {
-    var confirmed = await showConfirm({
-        title:       'Remove Course Assignment',
-        message:     'Are you sure you want to remove "' + courseName + '" from "' + coordinatorName + '"?',
-        type:        'danger',
-        confirmText: 'Remove Assignment',
-        cancelText:  'Keep Assignment'
-    });
+    if (!assignmentId || assignmentId <= 0) {
+        showToast('error', 'Invalid assignment.');
+        return;
+    }
+    var confirmed = false;
+    if (typeof showConfirm === 'function') {
+        confirmed = await showConfirm({
+            title:       'Remove Course Assignment',
+            message:     'Are you sure you want to remove "' + courseName + '" from "' + coordinatorName + '"?',
+            type:        'danger',
+            confirmText: 'Remove Assignment',
+            cancelText:  'Keep Assignment'
+        });
+    } else {
+        confirmed = window.confirm('Remove "' + courseName + '" from "' + coordinatorName + '"?');
+    }
     if (confirmed) {
         removeAssignmentAjax(assignmentId);
     }

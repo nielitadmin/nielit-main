@@ -22,7 +22,7 @@ if (!isset($_SESSION['admin_role']) || $_SESSION['admin_role'] !== 'master_admin
     exit();
 }
 
-require_once '../config/database.php';
+require_once __DIR__ . '/../config/config.php';
 
 $action = $_POST['action'] ?? '';
 error_log("AJAX: Processing action: " . $action);
@@ -225,7 +225,10 @@ function getAssignments() {
                             c.course_code, 
                             COALESCE(ma.username, 'System') AS assigned_by_name,
                             COALESCE(aca.assignment_type, 'Manual') AS assignment_type,
-                            aca.assigned_at
+                            aca.assigned_at,
+                            (SELECT b.batch_code FROM batches b
+                             WHERE b.course_id = c.id AND b.batch_code IS NOT NULL AND b.batch_code != ''
+                             ORDER BY b.id DESC LIMIT 1) AS batch_code
                             FROM admin_course_assignments aca
                             JOIN admin a ON aca.admin_id = a.id
                             JOIN courses c ON aca.course_id = c.id
