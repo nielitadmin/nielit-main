@@ -882,6 +882,58 @@ if (isset($_GET['export']) && (string) $_GET['export'] === 'excel') {
 
         }
 
+        #categoryQuarterTable,
+        #socialCategoryQuarterTable {
+            table-layout: fixed;
+            width: 100%;
+        }
+        #categoryQuarterTable th,
+        #categoryQuarterTable td,
+        #socialCategoryQuarterTable th,
+        #socialCategoryQuarterTable td {
+            vertical-align: top;
+        }
+        #categoryQuarterTable .report-col-course,
+        #socialCategoryQuarterTable .report-col-course {
+            width: 24%;
+        }
+        #categoryQuarterTable .report-col-schemes,
+        #socialCategoryQuarterTable .report-col-schemes {
+            width: 32%;
+        }
+        #categoryQuarterTable .report-col-faculty,
+        #socialCategoryQuarterTable .report-col-faculty {
+            width: 16%;
+        }
+        #categoryQuarterTable .report-col-dates,
+        #socialCategoryQuarterTable .report-col-dates {
+            width: 14%;
+        }
+        .report-course-block {
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.45;
+        }
+        .report-scheme-block {
+            display: block;
+            white-space: normal !important;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            line-height: 1.45;
+            text-align: left;
+            font-weight: 400;
+            padding: 0.45rem 0.6rem;
+            max-width: 100%;
+        }
+        .report-tp-partner-badge {
+            white-space: normal !important;
+            text-align: left;
+            line-height: 1.35;
+            max-width: 100%;
+            font-weight: 500;
+        }
+
         /* Keep FY day graph scrollable inside admin flex layout (min-width:0 is required). */
         .admin-content,
         .admin-main,
@@ -2486,10 +2538,10 @@ Q4 (Jan–Mar)
                 <thead class="table-light">
                 <tr>
                     <th class="text-center" style="width:70px;">Sl No.</th>
-                    <th>Category</th>
-                    <th>Schemes</th>
-                    <th>Faculty</th>
-                    <th>Start Date – End Date</th>
+                    <th class="report-col-course">Category</th>
+                    <th class="report-col-schemes">Schemes</th>
+                    <th class="report-col-faculty">Faculty</th>
+                    <th class="report-col-dates">Start Date – End Date</th>
                     <th class="text-end">Target</th>
                     <th class="text-end">Q1</th>
                     <th class="text-end">Q2</th>
@@ -2559,31 +2611,33 @@ Q4 (Jan–Mar)
                     <?php foreach ($categoryCourseRows as $courseRow): ?>
                     <tr class="category-detail-row d-none" data-category-group="<?php echo htmlspecialchars($categorySafeKey); ?>">
                         <td class="text-center text-muted">—</td>
-                        <td class="ps-4">
-                            <span class="text-muted me-1">↳</span>
-                            <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-warning text-dark me-1" title="Training Partner Course"><i class="fas fa-handshake me-1"></i>Training Partner</span>
-                            <?php endif; ?>
-                            <span class="<?php echo !empty($courseRow['is_training_partner']) ? 'fw-semibold text-primary' : ''; ?>"><?php echo htmlspecialchars($courseRow['course_name']); ?></span>
-                            <?php if (!empty($courseRow['course_code'])): ?>
-                                <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
-                            <?php endif; ?>
+                        <td class="ps-4 report-col-course">
+                            <div class="report-course-block">
+                                <span class="text-muted me-1">↳</span>
+                                <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                    <span class="badge bg-warning text-dark me-1 report-tp-partner-badge" title="Training Partner Course"><i class="fas fa-handshake me-1"></i>Training Partner</span>
+                                <?php endif; ?>
+                                <span class="<?php echo !empty($courseRow['is_training_partner']) ? 'fw-semibold text-primary' : ''; ?>"><?php echo htmlspecialchars($courseRow['course_name']); ?></span>
+                                <?php if (!empty($courseRow['course_code'])): ?>
+                                    <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
+                                <?php endif; ?>
+                            </div>
                         </td>
-                        <td>
+                        <td class="report-col-schemes">
                             <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
+                                <span class="badge bg-light text-dark border report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
                             <?php else: ?>
-                                <?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?>
+                                <span class="report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
                             <?php endif; ?>
                         </td>
-                        <td>
+                        <td class="report-col-faculty">
                             <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-info-subtle text-dark border" title="Training Partner Institute"><i class="fas fa-building me-1"></i><?php echo htmlspecialchars($courseRow['faculty_names'] ?? 'Training Partner'); ?></span>
+                                <span class="badge bg-info-subtle text-dark border report-tp-partner-badge" title="Training Partner Institute"><i class="fas fa-building me-1"></i><?php echo htmlspecialchars($courseRow['faculty_names'] ?? 'Training Partner'); ?></span>
                             <?php else: ?>
-                                <?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?>
+                                <span class="report-course-block"><?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?></span>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
+                        <td class="report-col-dates report-course-block"><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
                         <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
@@ -2665,10 +2719,10 @@ Q4 (Jan–Mar)
                 <thead class="table-light">
                 <tr>
                     <th class="text-center" style="width:70px;">Sl No.</th>
-                    <th>Social Category</th>
-                    <th>Schemes</th>
-                    <th>Faculty</th>
-                    <th>Start Date – End Date</th>
+                    <th class="report-col-course">Social Category</th>
+                    <th class="report-col-schemes">Schemes</th>
+                    <th class="report-col-faculty">Faculty</th>
+                    <th class="report-col-dates">Start Date – End Date</th>
                     <th class="text-end">Target</th>
                     <th class="text-end">Q1</th>
                     <th class="text-end">Q2</th>
@@ -2738,31 +2792,33 @@ Q4 (Jan–Mar)
                     <?php foreach ($socialCourseRows as $courseRow): ?>
                     <tr class="social-category-detail-row d-none" data-social-group="<?php echo htmlspecialchars($socialSafeKey); ?>">
                         <td class="text-center text-muted">—</td>
-                        <td class="ps-4">
-                            <span class="text-muted me-1">↳</span>
-                            <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-warning text-dark me-1" title="Training Partner Course"><i class="fas fa-handshake me-1"></i>Training Partner</span>
-                            <?php endif; ?>
-                            <span class="<?php echo !empty($courseRow['is_training_partner']) ? 'fw-semibold text-primary' : ''; ?>"><?php echo htmlspecialchars($courseRow['course_name']); ?></span>
-                            <?php if (!empty($courseRow['course_code'])): ?>
-                                <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
-                            <?php endif; ?>
+                        <td class="ps-4 report-col-course">
+                            <div class="report-course-block">
+                                <span class="text-muted me-1">↳</span>
+                                <?php if (!empty($courseRow['is_training_partner'])): ?>
+                                    <span class="badge bg-warning text-dark me-1 report-tp-partner-badge" title="Training Partner Course"><i class="fas fa-handshake me-1"></i>Training Partner</span>
+                                <?php endif; ?>
+                                <span class="<?php echo !empty($courseRow['is_training_partner']) ? 'fw-semibold text-primary' : ''; ?>"><?php echo htmlspecialchars($courseRow['course_name']); ?></span>
+                                <?php if (!empty($courseRow['course_code'])): ?>
+                                    <small class="text-muted">(<?php echo htmlspecialchars($courseRow['course_code']); ?>)</small>
+                                <?php endif; ?>
+                            </div>
                         </td>
-                        <td>
+                        <td class="report-col-schemes">
                             <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
+                                <span class="badge bg-light text-dark border report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
                             <?php else: ?>
-                                <?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?>
+                                <span class="report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
                             <?php endif; ?>
                         </td>
-                        <td>
+                        <td class="report-col-faculty">
                             <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-info-subtle text-dark border" title="Training Partner Institute"><i class="fas fa-building me-1"></i><?php echo htmlspecialchars($courseRow['faculty_names'] ?? 'Training Partner'); ?></span>
+                                <span class="badge bg-info-subtle text-dark border report-tp-partner-badge" title="Training Partner Institute"><i class="fas fa-building me-1"></i><?php echo htmlspecialchars($courseRow['faculty_names'] ?? 'Training Partner'); ?></span>
                             <?php else: ?>
-                                <?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?>
+                                <span class="report-course-block"><?php echo htmlspecialchars($courseRow['faculty_names'] ?? '—'); ?></span>
                             <?php endif; ?>
                         </td>
-                        <td><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
+                        <td class="report-col-dates report-course-block"><?php echo htmlspecialchars($courseRow['batch_period_label'] ?? '—'); ?></td>
                         <td class="text-end text-muted">—</td>
                         <td class="text-end"><?php echo number_format($courseRow['Q1']); ?></td>
                         <td class="text-end"><?php echo number_format($courseRow['Q2']); ?></td>
