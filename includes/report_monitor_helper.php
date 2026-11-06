@@ -1512,6 +1512,220 @@ if (!function_exists('get_report_monitor_category_groups')) {
         return $metaMap;
     }
 
+    function report_monitor_build_fy_month_filter(int $fyStartYear): array {
+        $fyRange = report_monitor_get_financial_quarter_range($fyStartYear, 'FY');
+
+        return [
+            'active' => true,
+            'start' => $fyRange['start_date'] . ' 00:00:00',
+            'end' => $fyRange['end_date'] . ' 23:59:59',
+        ];
+    }
+
+    function report_monitor_normalize_scheme_detail_row(array $row): array {
+        return [
+            'scheme_id' => (int) ($row['scheme_id'] ?? 0),
+            'scheme_name' => trim((string) ($row['scheme_name'] ?? '')),
+            'scheme_code' => trim((string) ($row['scheme_code'] ?? '')),
+            'description' => trim((string) ($row['description'] ?? '')),
+            'sponsor_agency' => trim((string) ($row['sponsor_agency'] ?? '')),
+            'project_incharge_name' => trim((string) ($row['project_incharge_name'] ?? '')),
+            'target_beneficiary' => trim((string) ($row['target_beneficiary'] ?? '')),
+            'physical_target' => isset($row['physical_target']) && $row['physical_target'] !== '' && $row['physical_target'] !== null
+                ? (int) $row['physical_target'] : null,
+            'start_date' => trim((string) ($row['start_date'] ?? '')),
+            'end_date' => trim((string) ($row['end_date'] ?? '')),
+            'status' => trim((string) ($row['status'] ?? '')),
+            'batch_count' => (int) ($row['batch_count'] ?? 0),
+            'batch_labels' => trim((string) ($row['batch_labels'] ?? '')),
+            'partner_name' => trim((string) ($row['partner_name'] ?? '')),
+        ];
+    }
+
+    function report_monitor_scheme_detail_from_name(string $schemeName): array {
+        $name = trim($schemeName);
+        if ($name === '' || $name === '—') {
+            return [];
+        }
+
+        return [report_monitor_normalize_scheme_detail_row(['scheme_name' => $name])];
+    }
+
+    function report_monitor_fetch_scheme_detail_by_id($conn, int $schemeId): ?array {
+        if ($schemeId <= 0 || !report_monitor_table_exists($conn, 'schemes')) {
+            return null;
+        }
+
+        static $cache = [];
+        if (isset($cache[$schemeId])) {
+            return $cache[$schemeId];
+        }
+
+        $columns = ['id AS scheme_id', 'scheme_name', 'scheme_code'];
+        $optional = [
+            'description', 'sponsor_agency', 'project_incharge_name', 'target_beneficiary',
+            'physical_target', 'start_date', 'end_date', 'status',
+        ];
+        foreach ($optional as $column) {
+            if (report_monitor_column_exists($conn, 'schemes', $column)) {
+                $columns[] = $column;
+            }
+        }
+
+        $sql = 'SELECT ' . implode(', ', $columns) . ' FROM schemes WHERE id = ? LIMIT 1';
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            $cache[$schemeId] = null;
+
+            return null;
+        }
+
+        $stmt->bind_param('i', $schemeId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $row = $result ? $result->fetch_assoc() : null;
+        $stmt->close();
+
+        if (!$row) {
+            $cache[$schemeId] = null;
+
+            return null;
+        }
+
+        $cache[$schemeId] = report_monitor_normalize_scheme_detail_row($row);
+
+        return $cache[$schemeId];
+    }
+
+    function report_monitor_scheme_details_for_reference($conn, int $schemeId, string $schemeName): array {
+        $detail = report_monitor_fetch_scheme_detail_by_id($conn, $schemeId);
+        if ($detail !== null) {
+            return [$detail];
+        }
+
+        return report_monitor_scheme_detail_from_name($schemeName);
+    }
+
+    function report_monitor_get_course_scheme_details_map($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []): array {
+        if (!report_monitor_table_exists($conn, 'batches') || !report_monitor_table_exists($conn, 'schemes')) {
+            return [];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
+        $optional = [
+            'description', 'sponsor_agency', 'project_incharge_name', 'target_beneficiary',
+            'physical_target', 'start_date', 'end_date', 'status',
+        ];
+
+        $sql = 'SELECT
+                    c.id AS course_id,
+                    s.id AS scheme_id,
+                    MAX(s.scheme_name) AS scheme_name,
+                    MAX(s.scheme_code) AS scheme_code';
+        foreach ($optional as $column) {
+            if (report_monitor_column_exists($conn, 'schemes', $column)) {
+                $sql .= ",\n                    MAX(s.{$column}) AS {$column}";
+            }
+        }
+        $sql .= ",
+                    COUNT(DISTINCT b.id) AS batch_count,
+                    GROUP_CONCAT(DISTINCT TRIM(b.batch_name) ORDER BY b.batch_name SEPARATOR ' · ') AS batch_labels
+                FROM batches b
+                INNER JOIN courses c ON c.id = b.course_id
+                INNER JOIN schemes s ON s.id = b.scheme_id
+                WHERE NULLIF(TRIM(s.scheme_name), '') IS NOT NULL{$scopeFilter['sql']}";
+
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+        report_monitor_append_batch_period_overlap($sql, $types, $values, 'b', $monthFilter);
+
+        $sql .= ' GROUP BY c.id, s.id';
+        $sql .= ' ORDER BY c.id ASC, s.scheme_name ASC';
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if (!$result) {
+            return [];
+        }
+
+        $map = [];
+        while ($row = $result->fetch_assoc()) {
+            $courseId = (int) ($row['course_id'] ?? 0);
+            if ($courseId <= 0) {
+                continue;
+            }
+            if (!isset($map[$courseId])) {
+                $map[$courseId] = [];
+            }
+            $map[$courseId][] = report_monitor_normalize_scheme_detail_row($row);
+        }
+
+        return $map;
+    }
+
+    function report_monitor_scheme_detail_merge_key(array $detail): string {
+        $schemeId = (int) ($detail['scheme_id'] ?? 0);
+        if ($schemeId > 0) {
+            return 'id:' . $schemeId;
+        }
+
+        return 'name:' . md5(strtolower(trim((string) ($detail['scheme_name'] ?? ''))));
+    }
+
+    function report_monitor_merge_scheme_details(array $detailLists): array {
+        $merged = [];
+        foreach ($detailLists as $list) {
+            if (!is_array($list)) {
+                continue;
+            }
+            foreach ($list as $detail) {
+                if (!is_array($detail)) {
+                    continue;
+                }
+                $normalized = report_monitor_normalize_scheme_detail_row($detail);
+                if ($normalized['scheme_name'] === '') {
+                    continue;
+                }
+                $key = report_monitor_scheme_detail_merge_key($normalized);
+                if (!isset($merged[$key])) {
+                    $merged[$key] = $normalized;
+                    continue;
+                }
+                $merged[$key]['batch_count'] += (int) $normalized['batch_count'];
+                if ($normalized['batch_labels'] !== '') {
+                    $existing = $merged[$key]['batch_labels'];
+                    $merged[$key]['batch_labels'] = $existing === ''
+                        ? $normalized['batch_labels']
+                        : $existing . ' · ' . $normalized['batch_labels'];
+                }
+            }
+        }
+
+        $rows = array_values($merged);
+        usort($rows, static function (array $a, array $b): int {
+            return strcasecmp((string) ($a['scheme_name'] ?? ''), (string) ($b['scheme_name'] ?? ''));
+        });
+
+        return $rows;
+    }
+
+    function report_monitor_collect_course_scheme_details(array $courseRows): array {
+        $lists = [];
+        foreach ($courseRows as $courseRow) {
+            if (!is_array($courseRow)) {
+                continue;
+            }
+            if (!empty($courseRow['scheme_details']) && is_array($courseRow['scheme_details'])) {
+                $lists[] = $courseRow['scheme_details'];
+                continue;
+            }
+            $lists[] = report_monitor_scheme_detail_from_name((string) ($courseRow['scheme_names'] ?? ''));
+        }
+
+        return report_monitor_merge_scheme_details($lists);
+    }
+
     function report_monitor_get_category_course_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
         if (!report_monitor_table_exists($conn, 'students')) {
             return [];
@@ -1623,6 +1837,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
 
         $courseBatchMeta = report_monitor_get_course_batch_meta_map($conn, $courseIds, $centreId, $fyStartYear);
+        $schemeDetailsMap = report_monitor_get_course_scheme_details_map(
+            $conn,
+            $courseIds,
+            $centreId,
+            report_monitor_build_fy_month_filter($fyStartYear)
+        );
         foreach ($grouped as $categoryKey => $courses) {
             foreach ($courses as $index => $courseRow) {
                 $courseId = (int) ($courseRow['course_id'] ?? 0);
@@ -1634,6 +1854,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 $grouped[$categoryKey][$index]['scheme_names'] = $meta['scheme_names'];
                 $grouped[$categoryKey][$index]['faculty_names'] = $meta['faculty_names'];
                 $grouped[$categoryKey][$index]['batch_period_label'] = $meta['batch_period_label'];
+                $details = $schemeDetailsMap[$courseId] ?? [];
+                if ($details === []) {
+                    $details = report_monitor_scheme_detail_from_name((string) $meta['scheme_names']);
+                }
+                $grouped[$categoryKey][$index]['scheme_details'] = $details;
             }
         }
 
@@ -3259,6 +3484,12 @@ if (!function_exists('get_report_monitor_category_groups')) {
         }
 
         $courseBatchMeta = report_monitor_get_course_batch_meta_map($conn, $courseIds, $centreId, $fyStartYear);
+        $schemeDetailsMap = report_monitor_get_course_scheme_details_map(
+            $conn,
+            $courseIds,
+            $centreId,
+            report_monitor_build_fy_month_filter($fyStartYear)
+        );
         foreach ($grouped as $socialKey => $courses) {
             foreach ($courses as $index => $courseRow) {
                 $courseId = (int) ($courseRow['course_id'] ?? 0);
@@ -3270,6 +3501,11 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 $grouped[$socialKey][$index]['scheme_names'] = $meta['scheme_names'];
                 $grouped[$socialKey][$index]['faculty_names'] = $meta['faculty_names'];
                 $grouped[$socialKey][$index]['batch_period_label'] = $meta['batch_period_label'];
+                $details = $schemeDetailsMap[$courseId] ?? [];
+                if ($details === []) {
+                    $details = report_monitor_scheme_detail_from_name((string) $meta['scheme_names']);
+                }
+                $grouped[$socialKey][$index]['scheme_details'] = $details;
             }
         }
 
@@ -4982,6 +5218,15 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                         'raw_category_group' => $catKey,
                         'report_category_group' => $catKey,
                         'scheme_names' => $r['scheme_name'],
+                        'scheme_details' => array_map(static function (array $detail) use ($r): array {
+                            $detail['partner_name'] = trim((string) ($r['partner_name'] ?? ''));
+
+                            return $detail;
+                        }, report_monitor_scheme_details_for_reference(
+                            $conn,
+                            (int) ($r['scheme_id'] ?? 0),
+                            (string) ($r['scheme_name'] ?? '')
+                        )),
                         'faculty_names' => $r['partner_name'],
                         'batch_period_label' => report_monitor_format_batch_period_label($r['min_start_date'], $r['max_end_date']),
                         'is_training_partner' => true,
@@ -5114,6 +5359,15 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                         'raw_category_group' => $socialKey,
                         'report_category_group' => $socialKey,
                         'scheme_names' => $r['scheme_name'],
+                        'scheme_details' => array_map(static function (array $detail) use ($r): array {
+                            $detail['partner_name'] = trim((string) ($r['partner_name'] ?? ''));
+
+                            return $detail;
+                        }, report_monitor_scheme_details_for_reference(
+                            $conn,
+                            (int) ($r['scheme_id'] ?? 0),
+                            (string) ($r['scheme_name'] ?? '')
+                        )),
                         'faculty_names' => $r['partner_name'],
                         'batch_period_label' => report_monitor_format_batch_period_label($r['min_start_date'], $r['max_end_date']),
                         'is_training_partner' => true,

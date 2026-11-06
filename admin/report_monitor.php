@@ -965,6 +965,12 @@ if (isset($_GET['export']) && (string) $_GET['export'] === 'excel') {
             max-width: 100%;
             font-weight: 500;
         }
+        .report-scheme-details > summary {
+            cursor: pointer;
+        }
+        .report-scheme-detail-list {
+            max-width: 100%;
+        }
 
         /* Keep FY day graph scrollable inside admin flex layout (min-width:0 is required). */
         .admin-content,
@@ -2527,7 +2533,7 @@ Q4 (Jan–Mar)
     <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
             <strong>Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
-            <div class="text-muted small">Internship / bootcamp courses are merged into skill categories by duration hours (no separate internship row).</div>
+            <div class="text-muted small">Internship / bootcamp courses are merged into skill categories by duration hours (no separate internship row). Click a scheme / project name in the <strong>Schemes</strong> column for full details.</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="button"
@@ -2601,6 +2607,7 @@ Q4 (Jan–Mar)
                     $categoryCourseRows = $categoryCourseQuarterSummary[$categoryKey] ?? [];
                     $categoryDetailCount = count($categoryCourseRows);
                     $categorySafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $categoryKey);
+                    $categorySchemeDetails = report_monitor_collect_course_scheme_details($categoryCourseRows);
                     ?>
                     <tr class="table-light category-summary-row">
                         <td class="text-center"><?php echo (int)$categoryIndex + 1; ?></td>
@@ -2619,7 +2626,14 @@ Q4 (Jan–Mar)
                                 <small class="text-muted fw-normal">(<?php echo number_format($categoryDetailCount); ?> courses)</small>
                             <?php endif; ?>
                         </td>
-                        <td class="text-muted">—</td>
+                        <td class="report-col-schemes">
+                            <?php
+                            $schemeDetails = $categorySchemeDetails;
+                            $schemeNames = '';
+                            $schemeDetailBadge = false;
+                            include __DIR__ . '/../includes/report_monitor_scheme_details_cell.php';
+                            ?>
+                        </td>
                         <td class="text-muted">—</td>
                         <td class="text-muted">—</td>
                         <td class="text-end">
@@ -2656,11 +2670,12 @@ Q4 (Jan–Mar)
                             </div>
                         </td>
                         <td class="report-col-schemes">
-                            <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-light text-dark border report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
-                            <?php else: ?>
-                                <span class="report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
-                            <?php endif; ?>
+                            <?php
+                            $schemeDetails = $courseRow['scheme_details'] ?? [];
+                            $schemeNames = (string) ($courseRow['scheme_names'] ?? '—');
+                            $schemeDetailBadge = !empty($courseRow['is_training_partner']);
+                            include __DIR__ . '/../includes/report_monitor_scheme_details_cell.php';
+                            ?>
                         </td>
                         <td class="report-col-faculty">
                             <?php if (!empty($courseRow['is_training_partner'])): ?>
@@ -2715,7 +2730,7 @@ Q4 (Jan–Mar)
         <div>
             <strong>Social Category Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
             <span class="badge bg-secondary ms-2">General / OBC / SC / ST / EWS / PWD</span>
-            <div class="text-muted small">PWD students are already counted in General, OBC, SC, ST, or EWS. The PWD row is a separate list and is not added again to the total.</div>
+            <div class="text-muted small">PWD students are already counted in General, OBC, SC, ST, or EWS. The PWD row is a separate list and is not added again to the total. Click scheme / project names in the <strong>Schemes</strong> column for full details.</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
             <button type="button"
@@ -2782,6 +2797,7 @@ Q4 (Jan–Mar)
                     $socialCourseRows = $socialCategoryCourseQuarterSummary[$socialKey] ?? [];
                     $socialDetailCount = count($socialCourseRows);
                     $socialSafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $socialKey);
+                    $socialSchemeDetails = report_monitor_collect_course_scheme_details($socialCourseRows);
                     ?>
                     <tr class="table-light social-category-summary-row">
                         <td class="text-center"><?php echo (int)$socialIndex + 1; ?></td>
@@ -2800,7 +2816,14 @@ Q4 (Jan–Mar)
                                 <small class="text-muted fw-normal">(<?php echo number_format($socialDetailCount); ?> courses)</small>
                             <?php endif; ?>
                         </td>
-                        <td class="text-muted">—</td>
+                        <td class="report-col-schemes">
+                            <?php
+                            $schemeDetails = $socialSchemeDetails;
+                            $schemeNames = '';
+                            $schemeDetailBadge = false;
+                            include __DIR__ . '/../includes/report_monitor_scheme_details_cell.php';
+                            ?>
+                        </td>
                         <td class="text-muted">—</td>
                         <td class="text-muted">—</td>
                         <td class="text-end">
@@ -2837,11 +2860,12 @@ Q4 (Jan–Mar)
                             </div>
                         </td>
                         <td class="report-col-schemes">
-                            <?php if (!empty($courseRow['is_training_partner'])): ?>
-                                <span class="badge bg-light text-dark border report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
-                            <?php else: ?>
-                                <span class="report-scheme-block"><?php echo htmlspecialchars($courseRow['scheme_names'] ?? '—'); ?></span>
-                            <?php endif; ?>
+                            <?php
+                            $schemeDetails = $courseRow['scheme_details'] ?? [];
+                            $schemeNames = (string) ($courseRow['scheme_names'] ?? '—');
+                            $schemeDetailBadge = !empty($courseRow['is_training_partner']);
+                            include __DIR__ . '/../includes/report_monitor_scheme_details_cell.php';
+                            ?>
                         </td>
                         <td class="report-col-faculty">
                             <?php if (!empty($courseRow['is_training_partner'])): ?>
