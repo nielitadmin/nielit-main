@@ -884,42 +884,74 @@ if (isset($_GET['export']) && (string) $_GET['export'] === 'excel') {
 
         #categoryQuarterTable,
         #socialCategoryQuarterTable {
-            table-layout: fixed;
             width: 100%;
         }
-        #categoryQuarterTable th,
-        #categoryQuarterTable td,
-        #socialCategoryQuarterTable th,
-        #socialCategoryQuarterTable td {
-            vertical-align: top;
+        #categoryQuarterTable th:nth-child(n+6),
+        #categoryQuarterTable td:nth-child(n+6),
+        #socialCategoryQuarterTable th:nth-child(n+6),
+        #socialCategoryQuarterTable td:nth-child(n+6) {
+            white-space: nowrap;
+            word-break: keep-all;
+            overflow-wrap: normal;
+            vertical-align: middle;
+            width: 1%;
+        }
+        #categoryQuarterTable th:nth-child(12),
+        #categoryQuarterTable td:nth-child(12),
+        #socialCategoryQuarterTable th:nth-child(12),
+        #socialCategoryQuarterTable td:nth-child(12) {
+            min-width: 4.75rem;
+        }
+        #categoryQuarterTable th:nth-child(1),
+        #categoryQuarterTable td:nth-child(1),
+        #socialCategoryQuarterTable th:nth-child(1),
+        #socialCategoryQuarterTable td:nth-child(1) {
+            white-space: nowrap;
+            vertical-align: middle;
         }
         #categoryQuarterTable .report-col-course,
-        #socialCategoryQuarterTable .report-col-course {
-            width: 24%;
+        #categoryQuarterTable td.report-col-course,
+        #socialCategoryQuarterTable .report-col-course,
+        #socialCategoryQuarterTable td.report-col-course {
+            vertical-align: top;
+            min-width: 200px;
+            max-width: 320px;
         }
         #categoryQuarterTable .report-col-schemes,
-        #socialCategoryQuarterTable .report-col-schemes {
-            width: 32%;
+        #categoryQuarterTable td.report-col-schemes,
+        #socialCategoryQuarterTable .report-col-schemes,
+        #socialCategoryQuarterTable td.report-col-schemes {
+            vertical-align: top;
+            min-width: 220px;
+            max-width: 420px;
         }
         #categoryQuarterTable .report-col-faculty,
-        #socialCategoryQuarterTable .report-col-faculty {
-            width: 16%;
+        #categoryQuarterTable td.report-col-faculty,
+        #socialCategoryQuarterTable .report-col-faculty,
+        #socialCategoryQuarterTable td.report-col-faculty {
+            vertical-align: top;
+            min-width: 140px;
+            max-width: 260px;
         }
         #categoryQuarterTable .report-col-dates,
-        #socialCategoryQuarterTable .report-col-dates {
-            width: 14%;
+        #categoryQuarterTable td.report-col-dates,
+        #socialCategoryQuarterTable .report-col-dates,
+        #socialCategoryQuarterTable td.report-col-dates {
+            vertical-align: top;
+            min-width: 150px;
+            max-width: 240px;
         }
         .report-course-block {
             white-space: normal;
             word-break: break-word;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
             line-height: 1.45;
         }
         .report-scheme-block {
             display: block;
             white-space: normal !important;
             word-break: break-word;
-            overflow-wrap: anywhere;
+            overflow-wrap: break-word;
             line-height: 1.45;
             text-align: left;
             font-weight: 400;
