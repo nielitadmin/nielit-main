@@ -2908,8 +2908,85 @@ if (!function_exists('get_report_monitor_category_groups')) {
                 'batch_count' => (int) $row['batch_count'],
                 'course_count' => (int) $row['course_count'],
                 'students_trained' => (int) $row['students_trained'],
+                'items' => [],
+                'courses' => [],
             ];
         }
+
+        if ($rows === []) {
+            return [];
+        }
+
+        $detailSql = "SELECT
+                    f.id AS faculty_id,
+                    b.id AS batch_id,
+                    b.batch_name,
+                    COALESCE(b.batch_code, '') AS batch_code,
+                    c.id AS course_id,
+                    c.course_name,
+                    COALESCE(c.course_code, '') AS course_code,
+                    COUNT(DISTINCT {$studentKey}) AS students_trained
+                FROM faculty f
+                INNER JOIN batch_faculty bf ON bf.faculty_id = f.id
+                INNER JOIN batches b ON b.id = bf.batch_id{$batchMonthJoin}
+                INNER JOIN courses c ON c.id = b.course_id{$scopeFilter['sql']}
+                {$studentJoin}
+                WHERE f.is_active = 1{$facultyCentreFilter['sql']}
+                GROUP BY f.id, b.id, b.batch_name, b.batch_code, c.id, c.course_name, c.course_code
+                ORDER BY f.id, b.batch_name ASC, c.course_name ASC";
+
+        $detailResult = report_monitor_bind_and_execute($conn, $detailSql, $types, $values);
+        $itemsByFaculty = [];
+        if ($detailResult) {
+            while ($dRow = $detailResult->fetch_assoc()) {
+                $fid = (int) ($dRow['faculty_id'] ?? 0);
+                if ($fid <= 0) {
+                    continue;
+                }
+                if (!isset($itemsByFaculty[$fid])) {
+                    $itemsByFaculty[$fid] = [];
+                }
+                $itemsByFaculty[$fid][] = [
+                    'batch_id' => (int) ($dRow['batch_id'] ?? 0),
+                    'batch_name' => (string) ($dRow['batch_name'] ?? ''),
+                    'batch_code' => (string) ($dRow['batch_code'] ?? ''),
+                    'course_id' => (int) ($dRow['course_id'] ?? 0),
+                    'course_name' => (string) ($dRow['course_name'] ?? ''),
+                    'course_code' => (string) ($dRow['course_code'] ?? ''),
+                    'students_trained' => (int) ($dRow['students_trained'] ?? 0),
+                ];
+            }
+        }
+
+        foreach ($rows as &$summaryRow) {
+            $fid = (int) $summaryRow['faculty_id'];
+            $items = $itemsByFaculty[$fid] ?? [];
+            $summaryRow['items'] = $items;
+            $courseMap = [];
+            foreach ($items as $item) {
+                $cid = (int) ($item['course_id'] ?? 0);
+                if ($cid <= 0) {
+                    continue;
+                }
+                if (!isset($courseMap[$cid])) {
+                    $courseMap[$cid] = [
+                        'course_id' => $cid,
+                        'course_name' => $item['course_name'],
+                        'course_code' => $item['course_code'],
+                        'batch_count' => 0,
+                        'students_trained' => 0,
+                    ];
+                }
+                $courseMap[$cid]['batch_count']++;
+                $courseMap[$cid]['students_trained'] += (int) $item['students_trained'];
+            }
+            $courses = array_values($courseMap);
+            usort($courses, static function (array $a, array $b): int {
+                return strcasecmp((string) ($a['course_name'] ?? ''), (string) ($b['course_name'] ?? ''));
+            });
+            $summaryRow['courses'] = $courses;
+        }
+        unset($summaryRow);
 
         return $rows;
     }

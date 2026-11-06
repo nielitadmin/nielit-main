@@ -3807,6 +3807,7 @@ if ($resultStatusFilterCourse > 0) {
             <?php echo count($facultyTrainingStats); ?> Faculty
 
         </span>
+        <small class="text-muted ms-2">Click batch or course counts to expand lists</small>
 
     </div>
 
@@ -3855,6 +3856,10 @@ if ($resultStatusFilterCourse > 0) {
                 <?php else: ?>
 
                 <?php foreach ($facultyTrainingStats as $index => $faculty): ?>
+                <?php
+                $facultyItems = is_array($faculty['items'] ?? null) ? $faculty['items'] : [];
+                $facultyCourses = is_array($faculty['courses'] ?? null) ? $faculty['courses'] : [];
+                ?>
 
                 <tr>
 
@@ -3866,9 +3871,51 @@ if ($resultStatusFilterCourse > 0) {
 
                     <td><?php echo htmlspecialchars($faculty['department'] ?: '—'); ?></td>
 
-                    <td class="text-end"><?php echo number_format($faculty['batch_count']); ?></td>
+                    <td class="text-end align-top">
+                        <?php if ($facultyItems === []): ?>
+                            <?php echo number_format($faculty['batch_count']); ?>
+                        <?php else: ?>
+                            <details class="faculty-training-details text-start d-inline-block">
+                                <summary class="fw-semibold"><?php echo number_format($faculty['batch_count']); ?> batches</summary>
+                                <ul class="list-unstyled small mb-0 mt-2 ps-1" style="min-width:220px;">
+                                    <?php foreach ($facultyItems as $item): ?>
+                                        <li class="mb-1">
+                                            <strong><?php echo htmlspecialchars($item['batch_name']); ?></strong>
+                                            <?php if ($item['batch_code'] !== ''): ?>
+                                                <span class="badge bg-secondary"><?php echo htmlspecialchars($item['batch_code']); ?></span>
+                                            <?php endif; ?>
+                                            <br>
+                                            <span class="text-muted"><?php echo htmlspecialchars($item['course_name']); ?></span>
+                                            · <?php echo number_format((int) $item['students_trained']); ?> students
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </details>
+                        <?php endif; ?>
+                    </td>
 
-                    <td class="text-end"><?php echo number_format($faculty['course_count']); ?></td>
+                    <td class="text-end align-top">
+                        <?php if ($facultyCourses === []): ?>
+                            <?php echo number_format($faculty['course_count']); ?>
+                        <?php else: ?>
+                            <details class="faculty-training-details text-start d-inline-block">
+                                <summary class="fw-semibold"><?php echo number_format($faculty['course_count']); ?> courses</summary>
+                                <ul class="list-unstyled small mb-0 mt-2 ps-1" style="min-width:200px;">
+                                    <?php foreach ($facultyCourses as $course): ?>
+                                        <li class="mb-1">
+                                            <strong><?php echo htmlspecialchars($course['course_name']); ?></strong>
+                                            <?php if ($course['course_code'] !== ''): ?>
+                                                <span class="badge bg-light text-dark border"><?php echo htmlspecialchars($course['course_code']); ?></span>
+                                            <?php endif; ?>
+                                            <br>
+                                            <span class="text-muted"><?php echo number_format((int) $course['batch_count']); ?> batch(es)</span>
+                                            · <?php echo number_format((int) $course['students_trained']); ?> students
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </details>
+                        <?php endif; ?>
+                    </td>
 
                     <td class="text-end text-success fw-bold"><?php echo number_format($faculty['students_trained']); ?></td>
 
