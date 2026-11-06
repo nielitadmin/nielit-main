@@ -3901,7 +3901,260 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         }
         unset($genderRow);
 
+        report_monitor_merge_training_partner_gender_social_summary($conn, $genderMap, $quarters, $centreId);
+
         return array_values($genderMap);
+    }
+
+    /**
+     * Course-wise admissions per gender and FY quarter (batch-enrolled students).
+     *
+     * @return array<int,array{key:string,label:string,Q1:int,Q2:int,Q3:int,Q4:int,total:int,courses:array<int,array{course_id:int,course_name:string,course_code:string,Q1:int,Q2:int,Q3:int,Q4:int,total:int}>}>
+     */
+    function report_monitor_get_gender_course_quarter_summary($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        $genderRows = report_monitor_get_gender_quarter_summary($conn, $courseIds, $centreId, $fyStartYear);
+        if ($genderRows === [] || !report_monitor_table_exists($conn, 'students')) {
+            return [];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $quarters = [
+            'Q1' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q1'),
+            'Q2' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q2'),
+            'Q3' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q3'),
+            'Q4' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q4'),
+        ];
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $genderMap = [];
+        foreach ($genderRows as $genderRow) {
+            $genderKey = (string) ($genderRow['key'] ?? '');
+            if ($genderKey === '') {
+                continue;
+            }
+            $genderMap[$genderKey] = [
+                'key' => $genderKey,
+                'label' => (string) ($genderRow['label'] ?? ucfirst($genderKey)),
+                'Q1' => (int) ($genderRow['Q1'] ?? 0),
+                'Q2' => (int) ($genderRow['Q2'] ?? 0),
+                'Q3' => (int) ($genderRow['Q3'] ?? 0),
+                'Q4' => (int) ($genderRow['Q4'] ?? 0),
+                'total' => (int) ($genderRow['total'] ?? 0),
+                'courses' => [],
+            ];
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= "    WHEN s.created_at >= '" . $conn->real_escape_string($range['start_date']) . "' AND s.created_at < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= "    ELSE '' END";
+
+        $sql = "SELECT {$quarterCase} AS quarter_key,
+                       s.gender AS raw_gender,
+                       c.id AS course_id,
+                       c.course_name,
+                       COALESCE(c.course_code, '') AS course_code,
+                       SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE {$activeCondition}
+                  AND s.created_at >= ? AND s.created_at < ?
+                  {$scopeFilter['sql']}
+                GROUP BY quarter_key, raw_gender, c.id, c.course_name, c.course_code
+                HAVING total > 0";
+
+        $types = 'ss' . $scopeFilter['types'];
+        $values = array_merge([$fyStart, $fyEnd], $scopeFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $quarter = (string) ($row['quarter_key'] ?? '');
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+                $count = (int) ($row['total'] ?? 0);
+                if ($count <= 0) {
+                    continue;
+                }
+                $genderKey = report_monitor_normalize_gender_key($row['raw_gender'] ?? '');
+                if (!isset($genderMap[$genderKey])) {
+                    $genderKey = 'other';
+                }
+                if (!isset($genderMap[$genderKey])) {
+                    continue;
+                }
+                $courseId = (int) ($row['course_id'] ?? 0);
+                if ($courseId <= 0) {
+                    continue;
+                }
+                if (!isset($genderMap[$genderKey]['courses'][$courseId])) {
+                    $genderMap[$genderKey]['courses'][$courseId] = [
+                        'course_id' => $courseId,
+                        'course_name' => (string) ($row['course_name'] ?? 'Course'),
+                        'course_code' => (string) ($row['course_code'] ?? ''),
+                        'Q1' => 0,
+                        'Q2' => 0,
+                        'Q3' => 0,
+                        'Q4' => 0,
+                        'total' => 0,
+                    ];
+                }
+                $genderMap[$genderKey]['courses'][$courseId][$quarter] += $count;
+                $genderMap[$genderKey]['courses'][$courseId]['total'] += $count;
+            }
+        }
+
+        report_monitor_merge_training_partner_gender_course_summary($conn, $genderMap, $quarters, $centreId);
+
+        foreach ($genderMap as &$genderRow) {
+            $courses = array_values($genderRow['courses']);
+            usort($courses, static function (array $a, array $b): int {
+                return strcasecmp((string) ($a['course_name'] ?? ''), (string) ($b['course_name'] ?? ''));
+            });
+            $genderRow['courses'] = $courses;
+        }
+        unset($genderRow);
+
+        return array_values($genderMap);
+    }
+
+    /**
+     * Social category × Male/Female counts by quarter (Admission order summary style).
+     *
+     * @return array{rows:array<int,array>,quarters:array<string,string>,totals:array<string,int>}
+     */
+    function report_monitor_get_category_gender_quarter_admission_matrix($conn, array $courseIds = [], $centreId = 0, int $fyStartYear = null) {
+        if (!report_monitor_table_exists($conn, 'students')) {
+            return ['rows' => [], 'quarters' => [], 'totals' => []];
+        }
+
+        if ($fyStartYear === null) {
+            $fyStartYear = report_monitor_get_financial_year_start();
+        }
+
+        $quarters = [
+            'Q1' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q1'),
+            'Q2' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q2'),
+            'Q3' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q3'),
+            'Q4' => report_monitor_get_financial_quarter_range($fyStartYear, 'Q4'),
+        ];
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $rows = [];
+        foreach (report_monitor_get_social_category_groups() as $key => $group) {
+            $row = [
+                'key' => $key,
+                'label' => $group['label'],
+                'total_male' => 0,
+                'total_female' => 0,
+                'total_all' => 0,
+            ];
+            foreach (array_keys($quarters) as $qKey) {
+                $row[$qKey . '_male'] = 0;
+                $row[$qKey . '_female'] = 0;
+            }
+            $rows[$key] = $row;
+        }
+
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $activeCondition = report_monitor_student_active_sql('s');
+        $batchCondition = report_monitor_student_batch_enrolled_condition($conn, 's');
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= "    WHEN s.created_at >= '" . $conn->real_escape_string($range['start_date']) . "' AND s.created_at < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= "    ELSE '' END";
+
+        $sql = "SELECT {$quarterCase} AS quarter_key,
+                       s.gender AS raw_gender,
+                       s.category AS raw_category,
+                       s.pwd_status AS pwd_status,
+                       SUM(CASE WHEN {$batchCondition} THEN 1 ELSE 0 END) AS total
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE {$activeCondition}
+                  AND s.created_at >= ? AND s.created_at < ?
+                  {$scopeFilter['sql']}
+                GROUP BY quarter_key, raw_gender, raw_category, pwd_status";
+
+        $types = 'ss' . $scopeFilter['types'];
+        $values = array_merge([$fyStart, $fyEnd], $scopeFilter['values']);
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $quarter = (string) ($row['quarter_key'] ?? '');
+                if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                    continue;
+                }
+                $count = (int) ($row['total'] ?? 0);
+                if ($count <= 0) {
+                    continue;
+                }
+
+                $genderKey = report_monitor_normalize_gender_key($row['raw_gender'] ?? '');
+                if ($genderKey !== 'male' && $genderKey !== 'female') {
+                    continue;
+                }
+                $genderCol = $genderKey === 'female' ? 'female' : 'male';
+
+                $socialKey = report_monitor_resolve_social_category_key($row['raw_category'] ?? '');
+                if (!isset($rows[$socialKey])) {
+                    $socialKey = 'general';
+                }
+                $rows[$socialKey][$quarter . '_' . $genderCol] += $count;
+                $rows[$socialKey]['total_' . $genderCol] += $count;
+                $rows[$socialKey]['total_all'] += $count;
+
+                if (report_monitor_is_pwd_status($row['pwd_status'] ?? '')) {
+                    if (isset($rows['pwd'])) {
+                        $rows['pwd'][$quarter . '_' . $genderCol] += $count;
+                        $rows['pwd']['total_' . $genderCol] += $count;
+                        $rows['pwd']['total_all'] += $count;
+                    }
+                }
+            }
+        }
+
+        report_monitor_merge_training_partner_category_gender_matrix($conn, $rows, $quarters, $centreId);
+
+        $totals = [
+            'total_male' => 0,
+            'total_female' => 0,
+            'total_all' => 0,
+        ];
+        foreach (array_keys($quarters) as $qKey) {
+            $totals[$qKey . '_male'] = 0;
+            $totals[$qKey . '_female'] = 0;
+        }
+        foreach ($rows as $row) {
+            foreach (array_keys($quarters) as $qKey) {
+                $totals[$qKey . '_male'] += (int) ($row[$qKey . '_male'] ?? 0);
+                $totals[$qKey . '_female'] += (int) ($row[$qKey . '_female'] ?? 0);
+            }
+            $totals['total_male'] += (int) ($row['total_male'] ?? 0);
+            $totals['total_female'] += (int) ($row['total_female'] ?? 0);
+            $totals['total_all'] += (int) ($row['total_all'] ?? 0);
+        }
+
+        return [
+            'rows' => array_values($rows),
+            'quarters' => array_keys($quarters),
+            'totals' => $totals,
+        ];
+    }
+
+    /** Short explanation for directors: what feeds the “Other” gender row. */
+    function report_monitor_gender_other_source_note(): string {
+        return '“Other” counts students whose gender is not Male or Female in the register (e.g. Other/Third gender, blank, or legacy import values), plus training-partner records with non Male/Female gender. Course-wise and admission-order tables count only Male/Female in category cells; remaining admissions appear under Gender → Other.';
     }
 
     /** Monthly certified / placed counts for one scope (all centres or a single centre). */
@@ -4799,6 +5052,195 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
                 $grouped[$socialKey][$itemKey][$quarter] += $count;
                 $grouped[$socialKey][$itemKey]['total'] += $count;
             }
+        }
+    }
+
+    function report_monitor_merge_training_partner_gender_social_summary($conn, array &$genderMap, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+
+        $centreCondition = $centreId > 0 ? ' AND p.centre_id = ' . (int) $centreId : '';
+
+        $sql = "SELECT COALESCE(NULLIF(TRIM(st.gender), ''), 'male') AS raw_gender,
+                       COALESCE(NULLIF(TRIM(st.category), ''), 'General') AS raw_category,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY raw_gender, raw_category, quarter_key";
+
+        $res = $conn->query($sql);
+        if (!$res) {
+            return;
+        }
+
+        while ($r = $res->fetch_assoc()) {
+            $quarter = (string) ($r['quarter_key'] ?? '');
+            if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                continue;
+            }
+            $count = (int) ($r['total'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+            $genderKey = report_monitor_normalize_gender_key($r['raw_gender'] ?? '');
+            if (!isset($genderMap[$genderKey])) {
+                $genderKey = 'other';
+            }
+            if (!isset($genderMap[$genderKey])) {
+                continue;
+            }
+            $socialKey = report_monitor_resolve_social_category_key($r['raw_category'] ?? '');
+            $catList = &$genderMap[$genderKey]['categories'];
+            foreach ($catList as &$catRow) {
+                if (($catRow['key'] ?? '') === $socialKey) {
+                    $catRow[$quarter] += $count;
+                    $catRow['total'] += $count;
+                    break;
+                }
+            }
+            unset($catRow, $catList);
+        }
+    }
+
+    function report_monitor_merge_training_partner_gender_course_summary($conn, array &$genderMap, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+
+        $centreCondition = $centreId > 0 ? ' AND p.centre_id = ' . (int) $centreId : '';
+
+        $sql = "SELECT COALESCE(NULLIF(TRIM(st.gender), ''), 'male') AS raw_gender,
+                       COALESCE(NULLIF(TRIM(st.course_name), ''), 'Training Partner Program') AS course_name,
+                       COALESCE(p.partner_code, 'TP') AS course_code,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY raw_gender, course_name, course_code, quarter_key";
+
+        $res = $conn->query($sql);
+        if (!$res) {
+            return;
+        }
+
+        while ($r = $res->fetch_assoc()) {
+            $quarter = (string) ($r['quarter_key'] ?? '');
+            if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                continue;
+            }
+            $count = (int) ($r['total'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+            $genderKey = report_monitor_normalize_gender_key($r['raw_gender'] ?? '');
+            if (!isset($genderMap[$genderKey])) {
+                $genderKey = 'other';
+            }
+            if (!isset($genderMap[$genderKey])) {
+                continue;
+            }
+            $courseName = (string) ($r['course_name'] ?? 'Training Partner Program');
+            $courseCode = (string) ($r['course_code'] ?? 'TP');
+            $courseId = 'tp_' . md5($genderKey . '|' . $courseName . '|' . $courseCode);
+            if (!isset($genderMap[$genderKey]['courses'][$courseId])) {
+                $genderMap[$genderKey]['courses'][$courseId] = [
+                    'course_id' => $courseId,
+                    'course_name' => $courseName . ' (Training partner)',
+                    'course_code' => $courseCode,
+                    'Q1' => 0,
+                    'Q2' => 0,
+                    'Q3' => 0,
+                    'Q4' => 0,
+                    'total' => 0,
+                ];
+            }
+            $genderMap[$genderKey]['courses'][$courseId][$quarter] += $count;
+            $genderMap[$genderKey]['courses'][$courseId]['total'] += $count;
+        }
+    }
+
+    function report_monitor_merge_training_partner_category_gender_matrix($conn, array &$rows, array $quarters, int $centreId = 0): void {
+        if (!report_monitor_table_exists($conn, 'training_partner_students') || !report_monitor_table_exists($conn, 'training_partners')) {
+            return;
+        }
+        $studentDateExpr = "COALESCE(NULLIF(st.course_start_date, '0000-00-00'), NULLIF(st.figure_month, '0000-00-00'), DATE(st.created_at))";
+        $fyStart = $quarters['Q1']['start_date'];
+        $fyEnd = $quarters['Q4']['next_start'];
+
+        $quarterCase = "CASE\n";
+        foreach ($quarters as $quarterKey => $range) {
+            $quarterCase .= " WHEN {$studentDateExpr} >= '" . $conn->real_escape_string($range['start_date']) . "' AND {$studentDateExpr} < '" . $conn->real_escape_string($range['next_start']) . "' THEN '{$quarterKey}'\n";
+        }
+        $quarterCase .= " ELSE '' END";
+
+        $centreCondition = $centreId > 0 ? ' AND p.centre_id = ' . (int) $centreId : '';
+
+        $sql = "SELECT COALESCE(NULLIF(TRIM(st.gender), ''), 'male') AS raw_gender,
+                       COALESCE(NULLIF(TRIM(st.category), ''), 'General') AS raw_category,
+                       {$quarterCase} AS quarter_key,
+                       COUNT(*) AS total
+                FROM training_partner_students st
+                INNER JOIN training_partners p ON p.id = st.partner_id
+                WHERE p.is_active = 1
+                  AND {$studentDateExpr} >= '{$conn->real_escape_string($fyStart)}'
+                  AND {$studentDateExpr} < '{$conn->real_escape_string($fyEnd)}'
+                  {$centreCondition}
+                GROUP BY raw_gender, raw_category, quarter_key";
+
+        $res = $conn->query($sql);
+        if (!$res) {
+            return;
+        }
+
+        while ($r = $res->fetch_assoc()) {
+            $quarter = (string) ($r['quarter_key'] ?? '');
+            if (!in_array($quarter, ['Q1', 'Q2', 'Q3', 'Q4'], true)) {
+                continue;
+            }
+            $count = (int) ($r['total'] ?? 0);
+            if ($count <= 0) {
+                continue;
+            }
+            $genderKey = report_monitor_normalize_gender_key($r['raw_gender'] ?? '');
+            if ($genderKey !== 'male' && $genderKey !== 'female') {
+                continue;
+            }
+            $genderCol = $genderKey === 'female' ? 'female' : 'male';
+            $socialKey = report_monitor_resolve_social_category_key($r['raw_category'] ?? '');
+            if (!isset($rows[$socialKey])) {
+                $socialKey = 'general';
+            }
+            $rows[$socialKey][$quarter . '_' . $genderCol] += $count;
+            $rows[$socialKey]['total_' . $genderCol] += $count;
+            $rows[$socialKey]['total_all'] += $count;
         }
     }
 

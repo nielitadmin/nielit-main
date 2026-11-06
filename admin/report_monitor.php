@@ -241,6 +241,24 @@ $genderSocialCategoryQuarterSummary = report_monitor_get_gender_social_category_
     $selectedYear
 );
 
+$genderCourseQuarterSummary = report_monitor_get_gender_course_quarter_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
+
+$categoryGenderAdmissionMatrix = report_monitor_get_category_gender_quarter_admission_matrix(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $selectedYear
+);
+$categoryGenderMatrixRows = $categoryGenderAdmissionMatrix['rows'] ?? [];
+$categoryGenderMatrixTotals = $categoryGenderAdmissionMatrix['totals'] ?? [];
+$categoryGenderMatrixQuarters = $categoryGenderAdmissionMatrix['quarters'] ?? ['Q1', 'Q2', 'Q3', 'Q4'];
+$genderOtherSourceNote = report_monitor_gender_other_source_note();
+
 $trainingPartnerRows = training_partner_report_rows($conn, $monthFilter, $centreId);
 $trainingPartnerTrend = training_partner_trend_points($conn, $quarterRange['graph_months'] ?? [], $centreId);
 $trainingPartnerRows = array_values(array_filter($trainingPartnerRows, static function (array $row): bool {
@@ -2789,8 +2807,17 @@ Q4 (Jan–Mar)
     <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div>
             <strong>Gender Quarterly Admissions Summary <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
-            <small class="text-muted ms-2">Male / Female / Other with General, OBC, SC, ST, EWS, PWD breakdown</small>
+            <small class="text-muted ms-2 d-block mt-1">Male / Female / Other — expand for <strong>course-wise</strong> or <strong>General, OBC, SC, ST, EWS, PWD</strong> breakdown</small>
         </div>
+        <div class="d-flex flex-wrap gap-2">
+        <button type="button"
+                class="btn btn-sm btn-outline-primary"
+                id="genderCourseDetailsToggle"
+                aria-expanded="false"
+                aria-controls="genderQuarterTable">
+            <i class="fas fa-chevron-down me-1" id="genderCourseDetailsToggleIcon"></i>
+            <span id="genderCourseDetailsToggleLabel">Show Course Details</span>
+        </button>
         <button type="button"
                 class="btn btn-sm btn-outline-secondary"
                 id="genderSocialDetailsToggle"
@@ -2799,6 +2826,10 @@ Q4 (Jan–Mar)
             <i class="fas fa-chevron-down me-1" id="genderSocialDetailsToggleIcon"></i>
             <span id="genderSocialDetailsToggleLabel">Show Social Category Details</span>
         </button>
+        </div>
+    </div>
+    <div class="card-body border-bottom py-2 px-3">
+        <p class="small text-muted mb-0"><i class="fas fa-info-circle me-1"></i><?php echo htmlspecialchars($genderOtherSourceNote); ?></p>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -2815,22 +2846,38 @@ Q4 (Jan–Mar)
                 </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($genderSocialCategoryQuarterSummary as $genderRow): ?>
+                <?php foreach ($genderCourseQuarterSummary as $genderRow): ?>
                     <?php
                     $genderKey = (string) ($genderRow['key'] ?? '');
                     $genderSafeKey = preg_replace('/[^a-zA-Z0-9_-]/', '_', $genderKey);
-                    $genderCategories = is_array($genderRow['categories'] ?? null) ? $genderRow['categories'] : [];
+                    $genderCourses = is_array($genderRow['courses'] ?? null) ? $genderRow['courses'] : [];
+                    $genderCategories = [];
+                    foreach ($genderSocialCategoryQuarterSummary as $gsRow) {
+                        if (($gsRow['key'] ?? '') === $genderKey) {
+                            $genderCategories = is_array($gsRow['categories'] ?? null) ? $gsRow['categories'] : [];
+                            break;
+                        }
+                    }
                     ?>
                     <tr class="table-light gender-summary-row">
                         <td class="text-center">—</td>
                         <td class="fw-semibold">
+                            <?php if ($genderCourses !== []): ?>
+                                <button type="button"
+                                        class="btn btn-sm btn-link p-0 me-1 gender-course-row-toggle text-decoration-none"
+                                        data-gender-group="<?php echo htmlspecialchars($genderSafeKey); ?>"
+                                        aria-expanded="false"
+                                        title="Show course breakdown">
+                                    <i class="fas fa-chevron-right"></i>
+                                </button>
+                            <?php endif; ?>
                             <?php if ($genderCategories !== []): ?>
                                 <button type="button"
                                         class="btn btn-sm btn-link p-0 me-1 gender-social-row-toggle text-decoration-none"
                                         data-gender-group="<?php echo htmlspecialchars($genderSafeKey); ?>"
                                         aria-expanded="false"
                                         title="Show social category breakdown">
-                                    <i class="fas fa-chevron-right"></i>
+                                    <i class="fas fa-ellipsis-v text-muted"></i>
                                 </button>
                             <?php endif; ?>
                             <?php echo htmlspecialchars($genderRow['label']); ?>
@@ -2841,6 +2888,23 @@ Q4 (Jan–Mar)
                         <td class="text-end fw-semibold"><?php echo number_format((int) ($genderRow['Q4'] ?? 0)); ?></td>
                         <td class="text-end fw-bold"><?php echo number_format((int) ($genderRow['total'] ?? 0)); ?></td>
                     </tr>
+                    <?php foreach ($genderCourses as $courseIndex => $courseRow): ?>
+                    <tr class="gender-course-detail-row d-none" data-gender-group="<?php echo htmlspecialchars($genderSafeKey); ?>">
+                        <td class="text-center text-muted"><?php echo (int) $courseIndex + 1; ?></td>
+                        <td class="ps-4">
+                            <span class="text-primary me-1">↳</span>
+                            <strong><?php echo htmlspecialchars($courseRow['course_name']); ?></strong>
+                            <?php if (!empty($courseRow['course_code'])): ?>
+                                <span class="badge bg-secondary ms-1"><?php echo htmlspecialchars($courseRow['course_code']); ?></span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-end"><?php echo number_format((int) ($courseRow['Q1'] ?? 0)); ?></td>
+                        <td class="text-end"><?php echo number_format((int) ($courseRow['Q2'] ?? 0)); ?></td>
+                        <td class="text-end"><?php echo number_format((int) ($courseRow['Q3'] ?? 0)); ?></td>
+                        <td class="text-end"><?php echo number_format((int) ($courseRow['Q4'] ?? 0)); ?></td>
+                        <td class="text-end fw-semibold"><?php echo number_format((int) ($courseRow['total'] ?? 0)); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
                     <?php foreach ($genderCategories as $catIndex => $categoryRow): ?>
                     <tr class="gender-social-detail-row d-none" data-gender-group="<?php echo htmlspecialchars($genderSafeKey); ?>">
                         <td class="text-center text-muted"><?php echo (int) $catIndex + 1; ?></td>
@@ -2865,6 +2929,63 @@ Q4 (Jan–Mar)
                     <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q3'))); ?></th>
                     <th class="text-end"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'Q4'))); ?></th>
                     <th class="text-end fw-bold"><?php echo number_format(array_sum(array_column($genderQuarterSummary, 'total'))); ?></th>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card table-card mb-4" id="categoryGenderAdmissionCard">
+    <div class="card-header">
+        <strong>Social category × gender (Admission order format) <?php echo htmlspecialchars($reportScopeTitleLabel); ?> FY - <?php echo htmlspecialchars($selectedFyFullLabel); ?></strong>
+        <div class="text-muted small">Same layout as batch admission order summary: each category with Male / Female counts per quarter (SC, ST, OBC, PWD, GEN/General, EWS). PWD is a separate head; those students remain in their category row too.</div>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm mb-0 text-center">
+                <thead class="table-light">
+                <tr>
+                    <th rowspan="2" class="align-middle">Sl</th>
+                    <th rowspan="2" class="align-middle text-start">Category</th>
+                    <?php foreach ($categoryGenderMatrixQuarters as $qLabel): ?>
+                        <th colspan="2"><?php echo htmlspecialchars($qLabel); ?></th>
+                    <?php endforeach; ?>
+                    <th colspan="2">FY Total</th>
+                    <th rowspan="2" class="align-middle">All</th>
+                </tr>
+                <tr>
+                    <?php foreach ($categoryGenderMatrixQuarters as $qLabel): ?>
+                        <th>M</th><th>F</th>
+                    <?php endforeach; ?>
+                    <th>M</th><th>F</th>
+                </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($categoryGenderMatrixRows as $idx => $matrixRow): ?>
+                <tr>
+                    <td><?php echo (int) $idx + 1; ?></td>
+                    <td class="text-start fw-semibold"><?php echo htmlspecialchars($matrixRow['label']); ?></td>
+                    <?php foreach ($categoryGenderMatrixQuarters as $qLabel): ?>
+                        <td><?php echo number_format((int) ($matrixRow[$qLabel . '_male'] ?? 0)); ?></td>
+                        <td><?php echo number_format((int) ($matrixRow[$qLabel . '_female'] ?? 0)); ?></td>
+                    <?php endforeach; ?>
+                    <td class="fw-semibold"><?php echo number_format((int) ($matrixRow['total_male'] ?? 0)); ?></td>
+                    <td class="fw-semibold"><?php echo number_format((int) ($matrixRow['total_female'] ?? 0)); ?></td>
+                    <td class="fw-bold"><?php echo number_format((int) ($matrixRow['total_all'] ?? 0)); ?></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+                <tfoot class="table-light">
+                <tr>
+                    <th colspan="2" class="text-start">Grand total (Male + Female in matrix)</th>
+                    <?php foreach ($categoryGenderMatrixQuarters as $qLabel): ?>
+                        <th><?php echo number_format((int) ($categoryGenderMatrixTotals[$qLabel . '_male'] ?? 0)); ?></th>
+                        <th><?php echo number_format((int) ($categoryGenderMatrixTotals[$qLabel . '_female'] ?? 0)); ?></th>
+                    <?php endforeach; ?>
+                    <th><?php echo number_format((int) ($categoryGenderMatrixTotals['total_male'] ?? 0)); ?></th>
+                    <th><?php echo number_format((int) ($categoryGenderMatrixTotals['total_female'] ?? 0)); ?></th>
+                    <th><?php echo number_format((int) ($categoryGenderMatrixTotals['total_all'] ?? 0)); ?></th>
                 </tr>
                 </tfoot>
             </table>
@@ -6205,6 +6326,33 @@ GENDER SOCIAL CATEGORY DETAIL DROPDOWN
 ==================================================*/
 
 (function () {
+    function setGenderCourseDetailsExpanded(expanded) {
+        document.querySelectorAll('.gender-course-detail-row').forEach(function (row) {
+            row.classList.toggle('d-none', !expanded);
+        });
+        document.querySelectorAll('.gender-course-row-toggle').forEach(function (btn) {
+            btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            const icon = btn.querySelector('i');
+            if (icon) {
+                icon.classList.toggle('fa-chevron-right', !expanded);
+                icon.classList.toggle('fa-chevron-down', expanded);
+            }
+        });
+        const masterBtn = document.getElementById('genderCourseDetailsToggle');
+        const masterIcon = document.getElementById('genderCourseDetailsToggleIcon');
+        const masterLabel = document.getElementById('genderCourseDetailsToggleLabel');
+        if (masterBtn) {
+            masterBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        }
+        if (masterIcon) {
+            masterIcon.classList.toggle('fa-chevron-down', !expanded);
+            masterIcon.classList.toggle('fa-chevron-up', expanded);
+        }
+        if (masterLabel) {
+            masterLabel.textContent = expanded ? 'Hide Course Details' : 'Show Course Details';
+        }
+    }
+
     function setGenderSocialDetailsExpanded(expanded) {
         const detailRows = document.querySelectorAll('.gender-social-detail-row');
         const rowToggles = document.querySelectorAll('.gender-social-row-toggle');
@@ -6238,6 +6386,35 @@ GENDER SOCIAL CATEGORY DETAIL DROPDOWN
     }
 
     function initGenderSocialDetailsToggle() {
+        const courseMasterBtn = document.getElementById('genderCourseDetailsToggle');
+        if (courseMasterBtn) {
+            courseMasterBtn.addEventListener('click', function () {
+                const expanded = courseMasterBtn.getAttribute('aria-expanded') === 'true';
+                setGenderCourseDetailsExpanded(!expanded);
+            });
+        }
+
+        document.querySelectorAll('.gender-course-row-toggle').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const group = btn.getAttribute('data-gender-group') || '';
+                const rows = document.querySelectorAll('.gender-course-detail-row[data-gender-group="' + group + '"]');
+                if (!rows.length) {
+                    return;
+                }
+                const open = btn.getAttribute('aria-expanded') === 'true';
+                const next = !open;
+                rows.forEach(function (row) {
+                    row.classList.toggle('d-none', !next);
+                });
+                btn.setAttribute('aria-expanded', next ? 'true' : 'false');
+                const icon = btn.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-chevron-right', !next);
+                    icon.classList.toggle('fa-chevron-down', next);
+                }
+            });
+        });
+
         const masterBtn = document.getElementById('genderSocialDetailsToggle');
         if (!masterBtn) {
             return;
