@@ -102,8 +102,11 @@ if ($category !== '' && !in_array($category, ['General', 'OBC', 'SC', 'ST', 'EWS
 if ($category === '') {
     $category = 'General';
 }
-if ($aadhar !== '' && strlen($aadhar) !== 12) {
-    $errors[] = 'Aadhar number must be exactly 12 digits if provided.';
+if ($aadhar === '') {
+    $errors[] = '12-digit Aadhar number is required.';
+    $missing[] = 'aadhar';
+} elseif (strlen($aadhar) !== 12 || !ctype_digit($aadhar)) {
+    $errors[] = 'Aadhar number must be exactly 12 digits.';
     $missing[] = 'aadhar';
 }
 

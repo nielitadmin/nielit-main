@@ -109,7 +109,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                 </div>
                 <div class="workshop-quick-item">
                     <i class="fas fa-camera"></i>
-                    <span>Photo required · Aadhar optional</span>
+                    <span>Photo & Aadhar mandatory</span>
                 </div>
                 <div class="workshop-quick-item">
                     <i class="fas fa-file-pdf"></i>
@@ -220,13 +220,13 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
         </section>
 
         <section class="form-section">
-            <?php workshopSectionHeader('fa-id-card', 'Aadhar details', 'Optional — you can skip and submit without Aadhar', 'icon-gold'); ?>
+            <?php workshopSectionHeader('fa-id-card', 'Aadhar details', 'Mandatory — 12-digit Aadhar number is required', 'icon-gold'); ?>
             <div class="row g-4">
                 <div class="col-md-6">
-                    <label class="form-label">Aadhar number (student or parent)</label>
+                    <label class="form-label">Aadhar number (student or parent) <span class="required-mark">*</span></label>
                     <input type="text" name="aadhar" class="form-control" maxlength="12" pattern="[0-9]{12}"
-                           placeholder="12-digit Aadhar number (optional)" value="<?php echo workshopFieldValue($formData, 'aadhar'); ?>">
-                    <span class="field-hint">Optional. If provided, must be 12 digits. Parent/guardian Aadhar is accepted for Class 1–10</span>
+                           placeholder="12-digit Aadhar number" required value="<?php echo workshopFieldValue($formData, 'aadhar'); ?>">
+                    <span class="field-hint">Mandatory (12 digits). Parent/guardian Aadhar is accepted for Class 1–10</span>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Upload Aadhar card</label>
@@ -281,7 +281,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
 
         <div class="workshop-info-note">
             <i class="fas fa-circle-info"></i>
-            <p>Payment, marksheets, signature, thumb impression, and Aadhar are <strong>not required</strong> for this short form. Passport photo is mandatory.</p>
+            <p>Payment, marksheets, signature, and thumb impression are <strong>not required</strong> for this short form. Passport photo and Aadhar are mandatory.</p>
         </div>
 
         <div class="workshop-form-actions">
