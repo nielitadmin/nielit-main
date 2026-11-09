@@ -336,13 +336,10 @@ if (!function_exists('workshopUploadSignature')) {
 if (!function_exists('workshopUploadAadharCard')) {
     function workshopUploadAadharCard(array $file, string $safeStudentId, string $redirectBack): string
     {
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
             || empty($file['tmp_name'])
             || !is_uploaded_file($file['tmp_name'] ?? '')) {
-            return '';
-        }
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            workshopRedirectWithErrors($redirectBack, ['Aadhar card upload failed. Please try again or leave it blank.'], ['aadhar_card']);
+            workshopRedirectWithErrors($redirectBack, ['Aadhar card document is required.'], ['aadhar_card']);
         }
         $allowed = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
@@ -361,7 +358,7 @@ if (!function_exists('workshopUploadAadharCard')) {
         }
         $uploadDir = dirname(__DIR__) . '/student/uploads/aadhar/';
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
-            workshopRedirectWithErrors($redirectBack, ['Unable to create upload folder.'], ['aadhar_card']);
+            workshopRedirectWithErrors($redirectBack, ['Unable to create upload folder for Aadhar card.'], ['aadhar_card']);
         }
         $fn = $safeStudentId . '_' . time() . '_aadhar.' . $ext;
         if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fn)) {

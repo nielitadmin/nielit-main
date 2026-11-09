@@ -220,7 +220,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
         </section>
 
         <section class="form-section">
-            <?php workshopSectionHeader('fa-id-card', 'Aadhar details', 'Mandatory — 12-digit Aadhar number is required', 'icon-gold'); ?>
+            <?php workshopSectionHeader('fa-id-card', 'Aadhar details', 'Mandatory — 12-digit Aadhar number & card upload are required', 'icon-gold'); ?>
             <div class="row g-4">
                 <div class="col-md-6">
                     <label class="form-label">Aadhar number (student or parent) <span class="required-mark">*</span></label>
@@ -229,15 +229,15 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                     <span class="field-hint">Mandatory (12 digits). Parent/guardian Aadhar is accepted for Class 1–10</span>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Upload Aadhar card</label>
+                    <label class="form-label">Upload Aadhar card <span class="required-mark">*</span></label>
                     <div class="file-upload-zone" id="zone_aadhar_card">
                         <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <div class="file-upload-label">JPG or PNG only (optional)</div>
-                        <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG/PNG max 5MB</span>
-                        <span class="field-hint d-block mb-2">Optional. Upload a clear photo or scan of your <strong>Aadhar card</strong> if available.</span>
+                        <div class="file-upload-label">Aadhar card (JPG, PNG or PDF) <span class="required-mark">*</span></div>
+                        <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG, PNG or PDF max 5MB</span>
+                        <span class="field-hint d-block mb-2">Upload a clear photo or scan of your <strong>Aadhar card</strong> (JPG, PNG, or PDF max 5MB). Mandatory.</span>
                         <input type="file" name="aadhar_card" id="workshop_aadhar_card" class="form-control workshop-file-input"
-                               accept="image/jpeg,image/png,image/jpg"
-                               data-max-image-mb="5">
+                               accept="image/jpeg,image/png,image/jpg,application/pdf" required
+                               data-max-image-mb="5" data-max-pdf-mb="5">
                     </div>
                 </div>
             </div>
@@ -418,8 +418,8 @@ function workshopValidateFileInput(input) {
         }
     }
     if (field === 'aadhar_card') {
-        if (!['.jpg', '.jpeg', '.png'].includes(ext)) {
-            return { valid: false, message: 'Aadhar card must be JPG or PNG.' };
+        if (!['.jpg', '.jpeg', '.png', '.pdf'].includes(ext)) {
+            return { valid: false, message: 'Aadhar card must be JPG, PNG, or PDF.' };
         }
     }
     if (field === 'graduation_certificate') {
