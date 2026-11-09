@@ -168,6 +168,7 @@ if ($student_id === null || $student_id === '') {
 
 $safe_student_id = str_replace(['/', '\\', ' '], '-', $student_id);
 $passport_photo_path = workshopUploadPassportPhoto($_FILES['passport_photo'] ?? [], $safe_student_id, $redirectBack);
+$signature_path = workshopUploadSignature($_FILES['signature'] ?? [], $safe_student_id, $redirectBack);
 $aadhar_card_path = workshopUploadAadharCard($_FILES['aadhar_card'] ?? [], $safe_student_id, $redirectBack);
 $graduation_certificate_path = workshopUploadGraduationCertificate($_FILES['graduation_certificate'] ?? [], $safe_student_id, $redirectBack);
 
@@ -211,12 +212,12 @@ $sql = "INSERT INTO students (
     dob, age, mobile, aadhar, gender, religion, marital_status,
     category, nationality, email, position,
     state, city, pincode, address, college_name, education_details,
-    passport_photo, aadhar_card_doc, student_id, password
+    passport_photo, signature, aadhar_card_doc, student_id, password
     {$gradColSql}{$schemeColSql}{$classColSql}, registration_date
 ) VALUES (
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
-    ?,?,?,?,?,?,?,
+    ?,?,?,?,?,?,?,?,
     ?{$gradValSql}{$schemeValSql}{$classValSql}, NOW()
 )";
 
@@ -229,16 +230,15 @@ $religion = 'Other';
 $marital_status = 'Single';
 $nationality = 'Indian';
 $position = 'Student';
-$signature_path = '';
 $empty = '';
 
-$bindTypes = 'ssisss' . 'issssss' . 'ssss' . 'ssssss' . 'ssss';
+$bindTypes = 'ssisss' . 'issssss' . 'ssss' . 'ssssss' . 'sssss';
 $bindArgs = [
     $course_name, $course_id, $training_center, $name, $father_name,
     $mother_name, $dob, $age, $mobile, $aadhar, $gender, $religion, $marital_status,
     $category, $nationality, $email, $position,
     $state, $city, $pincode, $address, $school_name, $education_data,
-    $passport_photo_path, $aadhar_card_path, $student_id, $hashed_password,
+    $passport_photo_path, $signature_path, $aadhar_card_path, $student_id, $hashed_password,
 ];
 if ($hasGradCol) {
     $bindTypes .= 's';
@@ -258,6 +258,12 @@ if (!$stmt->execute()) {
     $absPhoto = __DIR__ . '/../' . $passport_photo_path;
     if (is_file($absPhoto)) {
         unlink($absPhoto);
+    }
+    if ($signature_path !== '') {
+        $absSign = __DIR__ . '/../' . $signature_path;
+        if (is_file($absSign)) {
+            unlink($absSign);
+        }
     }
     if ($aadhar_card_path !== '') {
         $absAadhar = __DIR__ . '/../' . $aadhar_card_path;

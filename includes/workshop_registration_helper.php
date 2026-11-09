@@ -299,6 +299,40 @@ if (!function_exists('workshopUploadPassportPhoto')) {
     }
 }
 
+if (!function_exists('workshopUploadSignature')) {
+    function workshopUploadSignature(array $file, string $safeStudentId, string $redirectBack): string
+    {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+            || empty($file['tmp_name'])
+            || !is_uploaded_file($file['tmp_name'] ?? '')) {
+            workshopRedirectWithErrors($redirectBack, ['Student signature is required.'], ['signature']);
+        }
+        $allowed = ['image/jpeg', 'image/jpg', 'image/png'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+        if (!in_array($mime, $allowed, true)) {
+            workshopRedirectWithErrors($redirectBack, ['Signature must be JPG or PNG.'], ['signature']);
+        }
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png'], true)) {
+            workshopRedirectWithErrors($redirectBack, ['Signature must be JPG or PNG.'], ['signature']);
+        }
+        if (($file['size'] ?? 0) > 5 * 1024 * 1024) {
+            workshopRedirectWithErrors($redirectBack, ['Signature must be 5MB or smaller.'], ['signature']);
+        }
+        $uploadDir = dirname(__DIR__) . '/student/uploads/students/';
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+            workshopRedirectWithErrors($redirectBack, ['Unable to create upload folder for signature.'], ['signature']);
+        }
+        $fn = $safeStudentId . '_' . (time() + 1) . '_signature.' . $ext;
+        if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fn)) {
+            workshopRedirectWithErrors($redirectBack, ['Failed to save signature.'], ['signature']);
+        }
+        return 'student/uploads/students/' . $fn;
+    }
+}
+
 if (!function_exists('workshopUploadAadharCard')) {
     function workshopUploadAadharCard(array $file, string $safeStudentId, string $redirectBack): string
     {
