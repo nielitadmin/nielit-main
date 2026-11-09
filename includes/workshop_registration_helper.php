@@ -62,6 +62,11 @@ if (!function_exists('ensureWorkshopRegistrationSchema')) {
         } else {
             $conn->query("ALTER TABLE students MODIFY COLUMN class_standard VARCHAR(30) NULL DEFAULT NULL");
         }
+
+        $gradCol = $conn->query("SHOW COLUMNS FROM students LIKE 'graduation_certificate_doc'");
+        if (!$gradCol || $gradCol->num_rows === 0) {
+            $conn->query("ALTER TABLE students ADD COLUMN graduation_certificate_doc VARCHAR(255) NULL DEFAULT NULL AFTER aadhar_card_doc");
+        }
     }
 }
 
@@ -135,6 +140,12 @@ if (!function_exists('workshopNormalizeMobile')) {
 if (!function_exists('workshopFindAccountByMobile')) {
     function workshopFindAccountByMobile(mysqli $conn, string $mobile): ?array
     {
+        if (function_exists('findExistingStudentAccount')) {
+            $acc = findExistingStudentAccount($conn, '', $mobile, '');
+            if ($acc) {
+                return $acc;
+            }
+        }
         if (!isMultiCourseSystemInstalled($conn)) {
             return null;
         }
@@ -323,6 +334,45 @@ if (!function_exists('workshopUploadAadharCard')) {
             workshopRedirectWithErrors($redirectBack, ['Failed to save Aadhar card.'], ['aadhar_card']);
         }
         return 'student/uploads/aadhar/' . $fn;
+    }
+}
+
+if (!function_exists('workshopUploadGraduationCertificate')) {
+    function workshopUploadGraduationCertificate(array $file, string $safeStudentId, string $redirectBack): string
+    {
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK
+            || empty($file['tmp_name'])
+            || !is_uploaded_file($file['tmp_name'] ?? '')) {
+            workshopRedirectWithErrors($redirectBack, ['Graduation certificate is required.'], ['graduation_certificate']);
+        }
+        $allowed = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file['tmp_name']);
+        finfo_close($finfo);
+        if (!in_array($mime, $allowed, true)) {
+            workshopRedirectWithErrors($redirectBack, ['Graduation certificate must be JPG, PNG, or PDF.'], ['graduation_certificate']);
+        }
+        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'pdf'], true)) {
+            workshopRedirectWithErrors($redirectBack, ['Graduation certificate must be JPG, PNG, or PDF.'], ['graduation_certificate']);
+        }
+        $max = 5 * 1024 * 1024;
+        if (($file['size'] ?? 0) > $max) {
+            workshopRedirectWithErrors($redirectBack, ['Graduation certificate must be 5MB or smaller.'], ['graduation_certificate']);
+        }
+        $uploadDir = dirname(__DIR__) . '/student/uploads/marksheets/graduation/';
+        if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+            $uploadDir = dirname(__DIR__) . '/student/uploads/students/';
+            if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true)) {
+                workshopRedirectWithErrors($redirectBack, ['Unable to create upload folder for graduation certificate.'], ['graduation_certificate']);
+            }
+        }
+        $fn = $safeStudentId . '_' . time() . '_graduation.' . $ext;
+        if (!move_uploaded_file($file['tmp_name'], $uploadDir . $fn)) {
+            workshopRedirectWithErrors($redirectBack, ['Failed to save graduation certificate.'], ['graduation_certificate']);
+        }
+        $relativePath = str_replace(dirname(__DIR__) . '/', '', $uploadDir . $fn);
+        return ltrim(str_replace('\\', '/', $relativePath), '/');
     }
 }
 

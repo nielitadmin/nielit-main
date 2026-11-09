@@ -164,6 +164,154 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         ];
     }
 
+    /**
+     * Find an existing student account by Aadhar, mobile, or email.
+     * If a student registered previously without Aadhar, matching by mobile or email
+     * ensures their existing student_id is reused (avoiding duplicate student IDs)
+     * and their record in student_accounts & students is updated with the newly provided Aadhar.
+     */
+    function findExistingStudentAccount(mysqli $conn, string $aadhar, string $mobile, string $email = ''): ?array {
+        $aadhar = normalizeAadhar($aadhar);
+        $cleanMobile = substr(preg_replace('/\D/', '', $mobile), -10);
+        $cleanEmail = strtolower(trim($email));
+
+        // 1. Authoritative lookup: by Aadhar
+        if ($aadhar !== '') {
+            $byAadhar = findAccountByAadhar($conn, $aadhar);
+            if ($byAadhar) {
+                return $byAadhar;
+            }
+        }
+
+        // 2. If student registered previously without Aadhar (or with placeholder), look up by 10-digit mobile
+        if (strlen($cleanMobile) === 10) {
+            if (isMultiCourseSystemInstalled($conn)) {
+                $stmt = $conn->prepare(
+                    "SELECT * FROM student_accounts
+                     WHERE REPLACE(REPLACE(REPLACE(mobile,' ',''),'-',''),'+91','') LIKE ?
+                     ORDER BY id ASC LIMIT 1"
+                );
+                if ($stmt) {
+                    $mobileLike = '%' . $cleanMobile;
+                    $stmt->bind_param('s', $mobileLike);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if ($row) {
+                        // If this existing account had no real Aadhar or a placeholder, update it with the new Aadhar
+                        if ($aadhar !== '' && (!empty($row['aadhar']) && strpos($row['aadhar'], 'NOAADHAR') === 0 || empty($row['aadhar']))) {
+                            $upStmt = $conn->prepare("UPDATE student_accounts SET aadhar = ? WHERE id = ?");
+                            if ($upStmt) {
+                                $upStmt->bind_param('si', $aadhar, $row['id']);
+                                $upStmt->execute();
+                                $upStmt->close();
+                                $row['aadhar'] = $aadhar;
+                            }
+                        }
+                        return $row;
+                    }
+                }
+            }
+
+            // Check students table for legacy or non-migrated registrations
+            $stmt = $conn->prepare(
+                "SELECT id, student_id, name, email, mobile, password, dob, gender, aadhar
+                 FROM students
+                 WHERE REPLACE(REPLACE(REPLACE(mobile,' ',''),'-',''),'+91','') LIKE ?
+                 AND student_id IS NOT NULL AND student_id != ''
+                 ORDER BY id DESC LIMIT 1"
+            );
+            if ($stmt) {
+                $mobileLike = '%' . $cleanMobile;
+                $stmt->bind_param('s', $mobileLike);
+                $stmt->execute();
+                $legacy = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($legacy) {
+                    if ($aadhar !== '' && (empty($legacy['aadhar']) || $legacy['aadhar'] === '0')) {
+                        $up = $conn->prepare("UPDATE students SET aadhar = ? WHERE student_id = ? AND (aadhar IS NULL OR aadhar = '' OR aadhar = '0')");
+                        if ($up) {
+                            $up->bind_param('ss', $aadhar, $legacy['student_id']);
+                            $up->execute();
+                            $up->close();
+                        }
+                    }
+                    return [
+                        'id' => null,
+                        'student_id' => $legacy['student_id'],
+                        'aadhar' => $aadhar !== '' ? $aadhar : ($legacy['aadhar'] ?? ''),
+                        'name' => $legacy['name'],
+                        'email' => $legacy['email'],
+                        'mobile' => $legacy['mobile'],
+                        'password' => $legacy['password'],
+                        'legacy_only' => true,
+                    ];
+                }
+            }
+        }
+
+        // 3. Fallback: look up by valid email
+        if ($cleanEmail !== '' && filter_var($cleanEmail, FILTER_VALIDATE_EMAIL)) {
+            if (isMultiCourseSystemInstalled($conn)) {
+                $stmt = $conn->prepare("SELECT * FROM student_accounts WHERE LOWER(TRIM(email)) = ? ORDER BY id ASC LIMIT 1");
+                if ($stmt) {
+                    $stmt->bind_param('s', $cleanEmail);
+                    $stmt->execute();
+                    $row = $stmt->get_result()->fetch_assoc();
+                    $stmt->close();
+                    if ($row) {
+                        if ($aadhar !== '' && (!empty($row['aadhar']) && strpos($row['aadhar'], 'NOAADHAR') === 0 || empty($row['aadhar']))) {
+                            $upStmt = $conn->prepare("UPDATE student_accounts SET aadhar = ? WHERE id = ?");
+                            if ($upStmt) {
+                                $upStmt->bind_param('si', $aadhar, $row['id']);
+                                $upStmt->execute();
+                                $upStmt->close();
+                                $row['aadhar'] = $aadhar;
+                            }
+                        }
+                        return $row;
+                    }
+                }
+            }
+
+            $stmt = $conn->prepare(
+                "SELECT id, student_id, name, email, mobile, password, dob, gender, aadhar
+                 FROM students
+                 WHERE LOWER(TRIM(email)) = ?
+                 AND student_id IS NOT NULL AND student_id != ''
+                 ORDER BY id DESC LIMIT 1"
+            );
+            if ($stmt) {
+                $stmt->bind_param('s', $cleanEmail);
+                $stmt->execute();
+                $legacy = $stmt->get_result()->fetch_assoc();
+                $stmt->close();
+                if ($legacy) {
+                    if ($aadhar !== '' && (empty($legacy['aadhar']) || $legacy['aadhar'] === '0')) {
+                        $up = $conn->prepare("UPDATE students SET aadhar = ? WHERE student_id = ? AND (aadhar IS NULL OR aadhar = '' OR aadhar = '0')");
+                        if ($up) {
+                            $up->bind_param('ss', $aadhar, $legacy['student_id']);
+                            $up->execute();
+                            $up->close();
+                        }
+                    }
+                    return [
+                        'id' => null,
+                        'student_id' => $legacy['student_id'],
+                        'aadhar' => $aadhar !== '' ? $aadhar : ($legacy['aadhar'] ?? ''),
+                        'name' => $legacy['name'],
+                        'email' => $legacy['email'],
+                        'mobile' => $legacy['mobile'],
+                        'password' => $legacy['password'],
+                        'legacy_only' => true,
+                    ];
+                }
+            }
+        }
+
+        return null;
+    }
+
     function hasSchemeEnrollmentColumns(mysqli $conn): bool {
         static $has = null;
         if ($has !== null) {

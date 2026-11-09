@@ -143,18 +143,14 @@ if (workshopIsMobileEnrolledInCourse($conn, $mobile, $course_id)) {
 }
 
 $is_returning_student = false;
-$existing_account = null;
-if ($aadhar !== '') {
-    $existing_account = findAccountByAadhar($conn, $aadhar);
-    if ($existing_account && isAadharEnrolledInCourseScheme($conn, $aadhar, $course_id, $scheme_id)) {
-        workshopRedirectWithErrors($redirectBack, ['This Aadhar is already registered for this program.'], ['aadhar']);
-    }
-}
-if (!$existing_account) {
-    $existing_account = workshopFindAccountByMobile($conn, $mobile);
-}
+$existing_account = function_exists('findExistingStudentAccount')
+    ? findExistingStudentAccount($conn, $aadhar, $mobile, $email)
+    : ($aadhar !== '' ? findAccountByAadhar($conn, $aadhar) : workshopFindAccountByMobile($conn, $mobile));
 
 if ($existing_account) {
+    if ($aadhar !== '' && isAadharEnrolledInCourseScheme($conn, $aadhar, $course_id, $scheme_id)) {
+        workshopRedirectWithErrors($redirectBack, ['This Aadhar is already registered for this program.'], ['aadhar']);
+    }
     $is_returning_student = true;
     $student_id = (string)$existing_account['student_id'];
     if ($email === '' && !empty($existing_account['email'])) {
@@ -173,6 +169,7 @@ if ($student_id === null || $student_id === '') {
 $safe_student_id = str_replace(['/', '\\', ' '], '-', $student_id);
 $passport_photo_path = workshopUploadPassportPhoto($_FILES['passport_photo'] ?? [], $safe_student_id, $redirectBack);
 $aadhar_card_path = workshopUploadAadharCard($_FILES['aadhar_card'] ?? [], $safe_student_id, $redirectBack);
+$graduation_certificate_path = workshopUploadGraduationCertificate($_FILES['graduation_certificate'] ?? [], $safe_student_id, $redirectBack);
 
 $password = null;
 if ($is_returning_student && !empty($existing_account['password'])) {
@@ -196,23 +193,31 @@ if (!$classColCheck || $classColCheck->num_rows === 0) {
     $hasClassCol = false;
 }
 
+$hasGradCol = function_exists('studentsTableHasColumn') ? studentsTableHasColumn($conn, 'graduation_certificate_doc') : true;
+if (!$hasGradCol) {
+    $conn->query("ALTER TABLE students ADD COLUMN graduation_certificate_doc VARCHAR(255) NULL DEFAULT NULL AFTER aadhar_card_doc");
+    $hasGradCol = true;
+}
+
 $schemeColSql = $hasSchemeCol ? ', scheme_id' : '';
 $schemeValSql = $hasSchemeCol ? ', ?' : '';
 $classColSql = $hasClassCol ? ', class_standard' : '';
 $classValSql = $hasClassCol ? ', ?' : '';
+$gradColSql = $hasGradCol ? ', graduation_certificate_doc' : '';
+$gradValSql = $hasGradCol ? ', ?' : '';
 
 $sql = "INSERT INTO students (
     course, course_id, training_center, name, father_name, mother_name,
     dob, age, mobile, aadhar, gender, religion, marital_status,
     category, nationality, email, position,
     state, city, pincode, address, college_name, education_details,
-    passport_photo, aadhar_card_doc, student_id, password,
-    status{$schemeColSql}{$classColSql}, registration_date
+    passport_photo, aadhar_card_doc, student_id, password
+    {$gradColSql}{$schemeColSql}{$classColSql}, registration_date
 ) VALUES (
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,
-    'pending'{$schemeValSql}{$classValSql}, NOW()
+    ?{$gradValSql}{$schemeValSql}{$classValSql}, NOW()
 )";
 
 $stmt = $conn->prepare($sql);
@@ -235,6 +240,10 @@ $bindArgs = [
     $state, $city, $pincode, $address, $school_name, $education_data,
     $passport_photo_path, $aadhar_card_path, $student_id, $hashed_password,
 ];
+if ($hasGradCol) {
+    $bindTypes .= 's';
+    $bindArgs[] = $graduation_certificate_path;
+}
 if ($hasSchemeCol) {
     $bindTypes .= 'i';
     $bindArgs[] = $scheme_id;
@@ -256,6 +265,12 @@ if (!$stmt->execute()) {
             unlink($absAadhar);
         }
     }
+    if ($graduation_certificate_path !== '') {
+        $absGrad = __DIR__ . '/../' . $graduation_certificate_path;
+        if (is_file($absGrad)) {
+            unlink($absGrad);
+        }
+    }
     workshopRedirectWithErrors($redirectBack, ['Registration failed: ' . $stmt->error], []);
 }
 $stmt->close();
@@ -271,6 +286,14 @@ if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
     $account_id = null;
     if ($is_returning_student && !empty($existing_account['id'])) {
         $account_id = (int)$existing_account['id'];
+        if ($aadhar !== '') {
+            $upStmt = $conn->prepare("UPDATE student_accounts SET aadhar = ? WHERE id = ? AND (aadhar IS NULL OR aadhar = '' OR aadhar LIKE 'NOAADHAR%')");
+            if ($upStmt) {
+                $upStmt->bind_param('si', $aadhar, $account_id);
+                $upStmt->execute();
+                $upStmt->close();
+            }
+        }
     } else {
         // student_accounts.aadhar is UNIQUE — use a non-colliding placeholder when Aadhar is skipped.
         $accountAadhar = $aadhar !== ''
@@ -299,6 +322,13 @@ if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
         linkStudentRecordToAccount($conn, $student_record_id, $account_id);
         createStudentEnrollment($conn, $account_id, $course_id, $student_record_id, 'pending', $scheme_id);
     }
+}
+
+// Ensure any existing student rows without Aadhar get updated with the newly provided Aadhar
+if ($aadhar !== '' && !empty($student_id)) {
+    $escAadhar = $conn->real_escape_string($aadhar);
+    $escSid = $conn->real_escape_string($student_id);
+    $conn->query("UPDATE students SET aadhar = '$escAadhar' WHERE student_id = '$escSid' AND (aadhar IS NULL OR aadhar = '' OR aadhar = '0')");
 }
 
 if ($is_returning_student) {

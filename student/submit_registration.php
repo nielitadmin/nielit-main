@@ -717,7 +717,9 @@ if (isAadharEnrolledInCourseScheme($conn, $aadhar, $course_id, $scheme_id)) {
 }
 
 $is_returning_student = false;
-$existing_account = findAccountByAadhar($conn, $aadhar);
+$existing_account = function_exists('findExistingStudentAccount')
+    ? findExistingStudentAccount($conn, $aadhar, $mobile, $email)
+    : findAccountByAadhar($conn, $aadhar);
 
 if ($existing_account) {
     $is_returning_student = true;
@@ -1016,6 +1018,14 @@ if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
     if ($is_returning_student) {
         if (!empty($existing_account['id'])) {
             $account_id = (int)$existing_account['id'];
+            if ($aadhar !== '') {
+                $upStmt = $conn->prepare("UPDATE student_accounts SET aadhar = ? WHERE id = ? AND (aadhar IS NULL OR aadhar = '' OR aadhar LIKE 'NOAADHAR%')");
+                if ($upStmt) {
+                    $upStmt->bind_param('si', $aadhar, $account_id);
+                    $upStmt->execute();
+                    $upStmt->close();
+                }
+            }
         } else {
             $account_id = createStudentAccount($conn, [
                 'student_id' => $student_id,
@@ -1051,6 +1061,13 @@ if (isMultiCourseSystemInstalled($conn) && $student_record_id > 0) {
     } else {
         error_log("WARN: Multi-course account/enrollment not created for $student_id");
     }
+}
+
+// Ensure any existing student rows without Aadhar get updated with the newly provided Aadhar
+if ($aadhar !== '' && !empty($student_id)) {
+    $escAadhar = $conn->real_escape_string($aadhar);
+    $escSid = $conn->real_escape_string($student_id);
+    $conn->query("UPDATE students SET aadhar = '$escAadhar' WHERE student_id = '$escSid' AND (aadhar IS NULL OR aadhar = '' OR aadhar = '0')");
 }
 
 // ----------------------------------------------------------

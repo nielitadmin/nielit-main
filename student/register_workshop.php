@@ -109,7 +109,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
                 </div>
                 <div class="workshop-quick-item">
                     <i class="fas fa-camera"></i>
-                    <span>Photo & Aadhar mandatory</span>
+                    <span>Photo, Aadhar & Graduation Certificate mandatory</span>
                 </div>
                 <div class="workshop-quick-item">
                     <i class="fas fa-file-pdf"></i>
@@ -259,6 +259,22 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
         </section>
 
         <section class="form-section">
+            <?php workshopSectionHeader('fa-graduation-cap', 'Graduation Certificate', 'Mandatory graduation / degree certificate', 'icon-gold'); ?>
+            <div class="row g-4">
+                <div class="col-md-8">
+                    <div class="file-upload-zone" id="zone_graduation_certificate">
+                        <i class="fas fa-file-alt upload-icon"></i>
+                        <div class="file-upload-label">Graduation Certificate <span class="required-mark">*</span></div>
+                        <span class="upload-size-badge"><i class="fas fa-weight-hanging me-1"></i>JPG, PNG or PDF · max 5MB</span>
+                        <span class="field-hint d-block mb-2">Upload a clear photo or scan of your <strong>Graduation / Degree Certificate</strong> (JPG, PNG, or PDF max 5MB). Mandatory.</span>
+                        <input type="file" name="graduation_certificate" id="workshop_graduation_certificate" class="form-control workshop-file-input"
+                               accept="image/jpeg,image/png,image/jpg,application/pdf" required data-max-image-mb="5" data-max-pdf-mb="5">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="form-section">
             <?php workshopSectionHeader('fa-camera', 'Student photo', 'Passport-size photograph', 'icon-blue'); ?>
             <div class="row g-4">
                 <div class="col-md-8">
@@ -281,7 +297,7 @@ function workshopSectionHeader(string $icon, string $title, string $subtitle, st
 
         <div class="workshop-info-note">
             <i class="fas fa-circle-info"></i>
-            <p>Payment, marksheets, signature, and thumb impression are <strong>not required</strong> for this short form. Passport photo and Aadhar are mandatory.</p>
+            <p>Payment, marksheets, signature, and thumb impression are <strong>not required</strong> for this short form. Passport photo, Aadhar, and Graduation Certificate are mandatory.</p>
         </div>
 
         <div class="workshop-form-actions">
@@ -385,6 +401,11 @@ function workshopValidateFileInput(input) {
             return { valid: false, message: 'Aadhar card must be JPG or PNG.' };
         }
     }
+    if (field === 'graduation_certificate') {
+        if (!['.jpg', '.jpeg', '.png', '.pdf'].includes(ext)) {
+            return { valid: false, message: 'Graduation certificate must be JPG, PNG, or PDF.' };
+        }
+    }
     const maxImageMb = parseFloat(input.getAttribute('data-max-image-mb') || input.getAttribute('data-max-mb') || '5');
     const maxPdfMb = parseFloat(input.getAttribute('data-max-pdf-mb') || '10');
     const isPdf = ext === '.pdf';
@@ -445,7 +466,7 @@ function workshopRenderFilePreview(input, file) {
     const fieldName = input.getAttribute('name') || '';
     const isImage = (file && file.type) ? file.type.startsWith('image/') : false;
     const isPdf = (file && file.type === 'application/pdf') || (fileName || '').toLowerCase().endsWith('.pdf');
-    const showImagePreview = isImage && (fieldName === 'passport_photo' || fieldName === 'aadhar_card');
+    const showImagePreview = isImage && (fieldName === 'passport_photo' || fieldName === 'aadhar_card' || fieldName === 'graduation_certificate');
 
     zone.classList.add('has-preview');
 
@@ -453,7 +474,7 @@ function workshopRenderFilePreview(input, file) {
         preview.classList.add('is-image-preview');
         const reader = new FileReader();
         reader.onload = function (e) {
-            const label = fieldName === 'passport_photo' ? 'Passport photo preview' : 'Aadhar card preview';
+            const label = fieldName === 'passport_photo' ? 'Passport photo preview' : (fieldName === 'graduation_certificate' ? 'Graduation certificate preview' : 'Aadhar card preview');
             preview.innerHTML =
                 '<div class="file-preview-image-wrap">' +
                 '<img src="' + e.target.result + '" alt="' + label + '">' +
