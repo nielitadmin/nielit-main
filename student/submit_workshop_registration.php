@@ -212,13 +212,13 @@ $sql = "INSERT INTO students (
     dob, age, mobile, aadhar, gender, religion, marital_status,
     category, nationality, email, position,
     state, city, pincode, address, college_name, education_details,
-    passport_photo, signature, aadhar_card_doc, student_id, password
-    {$gradColSql}{$schemeColSql}{$classColSql}, registration_date
+    passport_photo, signature, aadhar_card_doc, student_id, password,
+    status{$gradColSql}{$schemeColSql}{$classColSql}, registration_date
 ) VALUES (
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,?,?,
     ?,?,?,?,?,?,?,?,
-    ?{$gradValSql}{$schemeValSql}{$classValSql}, NOW()
+    'pending'{$gradValSql}{$schemeValSql}{$classValSql}, NOW()
 )";
 
 $stmt = $conn->prepare($sql);
