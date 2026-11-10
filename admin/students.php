@@ -823,11 +823,6 @@ if ($selected_course !== 'All') {
     $where_parts[] = studentCourseMatchPreparedSql('s');
     $bind_types   .= 'iiii';
     $bind_values   = array_merge($bind_values, studentCourseMatchBindValues($selected_course_id));
-    if (function_exists('studentPendingCourseRemovalForCourseSql')) {
-        $where_parts[] = studentPendingCourseRemovalForCourseSql('s', '?');
-        $bind_types .= 'i';
-        $bind_values[] = $selected_course_id;
-    }
 }
 
 if ($selected_gender !== 'All') {
@@ -868,12 +863,17 @@ if (!empty($start_date) && !empty($end_date)) {
 
 $where_sql = implode(' AND ', $where_parts);
 
-$count_sql = "SELECT COUNT(*) AS total FROM (
-    SELECT s.student_id, s.course_id
-    FROM students s
-    WHERE $where_sql
-    GROUP BY s.student_id, s.course_id
-) AS grouped_students";
+$group_one_row_per_student_for_course = ($selected_course !== 'All');
+if ($group_one_row_per_student_for_course) {
+    $count_sql = "SELECT COUNT(DISTINCT s.student_id) AS total FROM students s WHERE $where_sql";
+} else {
+    $count_sql = "SELECT COUNT(*) AS total FROM (
+        SELECT s.student_id, s.course_id
+        FROM students s
+        WHERE $where_sql
+        GROUP BY s.student_id, s.course_id
+    ) AS grouped_students";
+}
 
 $count_stmt = $conn->prepare($count_sql);
 if ($count_stmt === false) {
@@ -895,14 +895,23 @@ $offset = ($page - 1) * $per_page;
 $showing_from = $total_filtered > 0 ? $offset + 1 : 0;
 $showing_to = min($offset + $per_page, $total_filtered);
 
-$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name, sch.scheme_code
-          FROM (
-              SELECT s.student_id, s.course_id, MAX(s.id) AS latest_id
+$list_group_sql = $group_one_row_per_student_for_course
+    ? 'SELECT s.student_id, MAX(s.id) AS latest_id
               FROM students s
-              WHERE $where_sql
+              WHERE ' . $where_sql . '
+              GROUP BY s.student_id
+              ORDER BY MAX(s.created_at) DESC
+              LIMIT ? OFFSET ?'
+    : 'SELECT s.student_id, s.course_id, MAX(s.id) AS latest_id
+              FROM students s
+              WHERE ' . $where_sql . '
               GROUP BY s.student_id, s.course_id
               ORDER BY MAX(s.created_at) DESC
-              LIMIT ? OFFSET ?
+              LIMIT ? OFFSET ?';
+
+$query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name, sch.scheme_name, sch.scheme_code
+          FROM (
+              {$list_group_sql}
           ) AS page_groups
           INNER JOIN students s ON s.id = page_groups.latest_id
           LEFT JOIN batches b ON s.batch_id = b.id
@@ -993,12 +1002,21 @@ if (!empty($start_date) && !empty($end_date)) {
 }
 
 $stats_where = count($stats_where_parts) ? implode(' AND ', $stats_where_parts) : '1=1';
-$stats_sql   = "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) AS total,
+if ($selected_course !== 'All') {
+    $stats_sql = "SELECT COUNT(DISTINCT s.student_id) AS total,
+                       COUNT(DISTINCT CASE WHEN LOWER(s.status) = 'active' THEN s.student_id END) AS active,
+                       COUNT(DISTINCT CASE WHEN s.gender = 'Male' THEN s.student_id END) AS male,
+                       COUNT(DISTINCT CASE WHEN s.gender = 'Female' THEN s.student_id END) AS female
+                FROM students s
+                WHERE $stats_where";
+} else {
+    $stats_sql = "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) AS total,
                        COUNT(DISTINCT CASE WHEN LOWER(status) = 'active' THEN CONCAT(student_id, ':', course_id) END) AS active,
                        COUNT(DISTINCT CASE WHEN gender = 'Male' THEN CONCAT(student_id, ':', course_id) END) AS male,
                        COUNT(DISTINCT CASE WHEN gender = 'Female' THEN CONCAT(student_id, ':', course_id) END) AS female
                 FROM students s
                 WHERE $stats_where";
+}
 
 $stats_res = $conn->query($stats_sql);
 if ($stats_res) {
@@ -2066,6 +2084,9 @@ if ($other_gender_count > 0) {
                                 $badge_cls  = $badge_map[$status] ?? 'badge-secondary';
                                 $course_display = htmlspecialchars(!empty($row['course_name']) ? $row['course_name'] : $row['course']);
                                 $row_course_id = (int)($row['course_id'] ?? 0);
+                                if ($selected_course !== 'All') {
+                                    $row_course_id = (int) $selected_course;
+                                }
                                 if ($row_course_id > 0 && !isset($course_schemes_cache[$row_course_id])) {
                                     $course_schemes_cache[$row_course_id] = getSchemesForCourse($conn, $row_course_id);
                                 }
