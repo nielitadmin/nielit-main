@@ -801,7 +801,9 @@ if ($selected_course !== 'All') {
 
 // ─── MAIN STUDENTS QUERY (paginated by student + course) ─────────────────────
 $where_parts = ["LOWER(s.status) != 'inactive'"];
-if (function_exists('studentPendingCourseRemovalExcludeSql')) {
+if ($selected_course !== 'All' && function_exists('studentPendingCourseRemovalExcludeSqlForCourseFilter')) {
+    $where_parts[] = studentPendingCourseRemovalExcludeSqlForCourseFilter($conn, 's', (int) $selected_course);
+} elseif (function_exists('studentPendingCourseRemovalExcludeSql')) {
     $where_parts[] = studentPendingCourseRemovalExcludeSql('s');
 }
 $bind_types  = '';
@@ -811,9 +813,7 @@ if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
         $coordParts = [];
         foreach ($admin_course_ids as $coordCourseId) {
-            $coordParts[] = studentCourseMatchPreparedSql('s');
-            $bind_types .= 'iiii';
-            $bind_values = array_merge($bind_values, studentCourseMatchBindValues((int) $coordCourseId));
+            $coordParts[] = studentCourseMatchSqlForFilter($conn, 's', (int) $coordCourseId);
         }
         $where_parts[] = '(' . implode(' OR ', $coordParts) . ')';
     } else {
@@ -823,9 +823,7 @@ if ($is_course_coordinator) {
 
 if ($selected_course !== 'All') {
     $selected_course_id = (int) $selected_course;
-    $where_parts[] = studentCourseMatchPreparedSql('s');
-    $bind_types   .= 'iiii';
-    $bind_values   = array_merge($bind_values, studentCourseMatchBindValues($selected_course_id));
+    $where_parts[] = studentCourseMatchSqlForFilter($conn, 's', $selected_course_id);
 }
 
 if ($selected_gender !== 'All') {
@@ -898,9 +896,13 @@ $offset = ($page - 1) * $per_page;
 $showing_from = $total_filtered > 0 ? $offset + 1 : 0;
 $showing_to = min($offset + $per_page, $total_filtered);
 
+$equiv_course_ids_for_list = ($group_one_row_per_student_for_course && function_exists('getEquivalentCourseIds'))
+    ? getEquivalentCourseIds($conn, (int) $selected_course)
+    : [(int) $selected_course];
+$equiv_course_ids_in = implode(',', array_map('intval', $equiv_course_ids_for_list));
 $list_group_sql = $group_one_row_per_student_for_course
     ? 'SELECT s.student_id, COALESCE(
-                 MAX(CASE WHEN s.course_id = ' . (int) $selected_course . ' THEN s.id END),
+                 MAX(CASE WHEN s.course_id IN (' . $equiv_course_ids_in . ') THEN s.id END),
                  MAX(s.id)
               ) AS latest_id
               FROM students s
@@ -969,7 +971,7 @@ $stats_status_filter = "LOWER(status) != 'inactive'";
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
-        $stats_where_parts[] = studentAssignedCoursesMatchSql('s', $admin_course_ids);
+        $stats_where_parts[] = studentAssignedCoursesMatchSql('s', $admin_course_ids, $conn);
         $stats_where_parts[] = $stats_status_filter;
     } else {
         $stats_where_parts[] = "1=0";
@@ -978,12 +980,14 @@ if ($is_course_coordinator) {
     $stats_where_parts[] = $stats_status_filter;
 }
 
-if (function_exists('studentPendingCourseRemovalExcludeSql')) {
+if ($selected_course !== 'All' && function_exists('studentPendingCourseRemovalExcludeSqlForCourseFilter')) {
+    $stats_where_parts[] = studentPendingCourseRemovalExcludeSqlForCourseFilter($conn, 's', (int) $selected_course);
+} elseif (function_exists('studentPendingCourseRemovalExcludeSql')) {
     $stats_where_parts[] = studentPendingCourseRemovalExcludeSql('s');
 }
 
 if ($selected_course !== 'All') {
-    $stats_where_parts[] = studentCourseMatchSql('s', (int) $selected_course);
+    $stats_where_parts[] = studentCourseMatchSql('s', (int) $selected_course, $conn);
 }
 if ($selected_gender !== 'All') {
     $stats_where_parts[]  = "gender = '" . $conn->real_escape_string($selected_gender) . "'";

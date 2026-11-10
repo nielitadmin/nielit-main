@@ -113,16 +113,14 @@ $bind_values = [];
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
-        $query .= ' AND ' . studentAssignedCoursesMatchSql('s', $admin_course_ids);
+        $query .= ' AND ' . studentAssignedCoursesMatchSql('s', $admin_course_ids, $conn);
     } else {
         $query .= ' AND 1=0';
     }
 }
 
 if ($selected_course !== 'All') {
-    $query .= ' AND ' . studentCourseMatchPreparedSql('s');
-    $bind_types .= 'iiii';
-    $bind_values = array_merge($bind_values, studentCourseMatchBindValues((int) $selected_course));
+    $query .= ' AND ' . studentCourseMatchSqlForFilter($conn, 's', (int) $selected_course);
 }
 
 if ($selected_gender !== 'All') {

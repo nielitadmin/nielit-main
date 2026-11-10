@@ -43,6 +43,101 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
             ))";
     }
 
+    /**
+     * All courses.id values that represent the same program (duplicate rows: same name and/or course_code).
+     *
+     * @return int[]
+     */
+    function getEquivalentCourseIds(mysqli $conn, int $courseId): array
+    {
+        $courseId = (int) $courseId;
+        if ($courseId <= 0) {
+            return [];
+        }
+        $stmt = $conn->prepare(
+            'SELECT TRIM(course_name) AS course_name, TRIM(IFNULL(course_code, "")) AS course_code FROM courses WHERE id = ? LIMIT 1'
+        );
+        if (!$stmt) {
+            return [$courseId];
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return [$courseId];
+        }
+        $name = trim((string) ($row['course_name'] ?? ''));
+        $code = trim((string) ($row['course_code'] ?? ''));
+        $ids = [$courseId];
+        $collate = sqlUtf8mb4Collate();
+        if ($name !== '') {
+            $q = $conn->prepare("SELECT id FROM courses WHERE TRIM(course_name) COLLATE {$collate} = ? COLLATE {$collate}");
+            if ($q) {
+                $q->bind_param('s', $name);
+                $q->execute();
+                $res = $q->get_result();
+                while ($r = $res->fetch_assoc()) {
+                    $ids[] = (int) $r['id'];
+                }
+                $q->close();
+            }
+        }
+        if ($code !== '') {
+            $q = $conn->prepare("SELECT id FROM courses WHERE TRIM(course_code) COLLATE {$collate} = ? COLLATE {$collate}");
+            if ($q) {
+                $q->bind_param('s', $code);
+                $q->execute();
+                $res = $q->get_result();
+                while ($r = $res->fetch_assoc()) {
+                    $ids[] = (int) $r['id'];
+                }
+                $q->close();
+            }
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        sort($ids, SORT_NUMERIC);
+        return $ids !== [] ? $ids : [$courseId];
+    }
+
+    /** Student row belongs to any of the given course ids (duplicate course rows included). */
+    function studentCourseMatchSqlFromIds(string $alias, array $courseIds): string
+    {
+        $courseIds = array_values(array_unique(array_filter(array_map('intval', $courseIds), static fn (int $id): bool => $id > 0)));
+        if ($courseIds === []) {
+            return '1=0';
+        }
+        $in = implode(',', $courseIds);
+        $c = sqlUtf8mb4Collate();
+        $nameMatch = "(
+            ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
+            AND TRIM(IFNULL({$alias}.course, '')) COLLATE {$c} IN (
+                SELECT TRIM(course_name) COLLATE {$c} FROM courses WHERE id IN ({$in})
+            )
+        )";
+        $enrollment = "EXISTS (
+            SELECT 1 FROM student_enrollments se
+            WHERE se.student_record_id = {$alias}.id AND se.course_id IN ({$in})
+        )";
+        $batch = "EXISTS (
+            SELECT 1 FROM batch_students bs
+            INNER JOIN batches b ON b.id = bs.batch_id
+            WHERE b.course_id IN ({$in})
+              AND (bs.student_record_id = {$alias}.id OR bs.student_id = {$alias}.id)
+        )";
+        return "(
+            {$alias}.course_id IN ({$in})
+            OR {$nameMatch}
+            OR {$enrollment}
+            OR {$batch}
+        )";
+    }
+
+    function studentCourseMatchSqlForFilter(mysqli $conn, string $alias, int $courseId): string
+    {
+        return studentCourseMatchSqlFromIds($alias, getEquivalentCourseIds($conn, $courseId));
+    }
+
     function fetchStudentEnrollmentByRecordId(mysqli $conn, int $recordId): ?array {
         if ($recordId <= 0) {
             return null;
@@ -317,21 +412,17 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         )";
     }
 
-    /** Same match with a known course id inlined (stats queries). */
-    function studentCourseMatchSql(string $alias, int $courseId): string
+    /** Same match with a known course id inlined (stats queries). Pass $conn to include duplicate course rows. */
+    function studentCourseMatchSql(string $alias, int $courseId, ?mysqli $conn = null): string
     {
         $courseId = (int) $courseId;
         if ($courseId <= 0) {
             return '1=0';
         }
-        return "(
-            {$alias}.course_id = {$courseId}
-            OR (
-                ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
-                AND " . sqlStudentCourseNameMatchesCourseId("IFNULL({$alias}.course, '')", (string) $courseId) . "
-            )
-            OR " . studentCourseEnrollmentOrBatchExistsSql($alias, (string) $courseId) . "
-        )";
+        if ($conn instanceof mysqli) {
+            return studentCourseMatchSqlForFilter($conn, $alias, $courseId);
+        }
+        return studentCourseMatchSqlFromIds($alias, [$courseId]);
     }
 
     /** Exclude students removed from a specific course (archive), regardless of row course_id drift. */
@@ -366,13 +457,8 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
             return 0;
         }
         $n = (int) $conn->affected_rows;
-        if ($n > 0) {
-            return $n;
-        }
         $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
-        if (!$enrTable || $enrTable->num_rows === 0) {
-            return 0;
-        }
+        if ($enrTable && $enrTable->num_rows > 0) {
         $sql2 = "DELETE r FROM student_course_removals r
                  INNER JOIN student_enrollments se ON se.course_id = r.course_id
                  INNER JOIN students s ON s.id = se.student_record_id
@@ -381,7 +467,45 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                    AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')
                    AND LOWER(IFNULL(se.status, '')) NOT IN ('inactive', 'rejected', 'cancelled')";
         $ok2 = $conn->query($sql2);
-        return $ok2 ? (int) $conn->affected_rows : 0;
+        if ($ok2) {
+            $n += (int) $conn->affected_rows;
+        }
+        }
+        $sql3 = "DELETE r FROM student_course_removals r
+                 INNER JOIN students s ON s.student_id COLLATE {$c} = r.student_id COLLATE {$c}
+                 INNER JOIN courses cr ON cr.id = r.course_id
+                 INNER JOIN courses cs ON cs.id = s.course_id
+                 WHERE r.restored_at IS NULL
+                   AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')
+                   AND (
+                       " . sqlTrimEqualsCollated('cr.course_name', 'cs.course_name') . "
+                       OR (
+                           TRIM(IFNULL(cr.course_code, '')) != ''
+                           AND " . sqlTrimEqualsCollated('cr.course_code', 'cs.course_code') . "
+                       )
+                   )";
+        $ok3 = $conn->query($sql3);
+        if ($ok3) {
+            $n += (int) $conn->affected_rows;
+        }
+        return $n;
+    }
+
+    /** Pending removal for any duplicate course id when filtering by one courses.id. */
+    function studentPendingCourseRemovalExcludeSqlForCourseFilter(mysqli $conn, string $alias, int $filterCourseId): string
+    {
+        $ids = getEquivalentCourseIds($conn, $filterCourseId);
+        if ($ids === []) {
+            return studentPendingCourseRemovalExcludeSql($alias);
+        }
+        $in = implode(',', $ids);
+        $c = sqlUtf8mb4Collate();
+        return "NOT EXISTS (
+            SELECT 1 FROM student_course_removals r
+            WHERE r.student_id COLLATE {$c} = {$alias}.student_id COLLATE {$c}
+              AND r.course_id IN ({$in})
+              AND r.restored_at IS NULL
+        )";
     }
 
     /** Hide rows that were removed from a course (archive pending restore). */
@@ -397,8 +521,16 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
     }
 
     /** OR of course matches for coordinator assigned courses. */
-    function studentAssignedCoursesMatchSql(string $alias, array $courseIds): string
+    function studentAssignedCoursesMatchSql(string $alias, array $courseIds, ?mysqli $conn = null): string
     {
+        if ($conn instanceof mysqli) {
+            $merged = [];
+            foreach ($courseIds as $cid) {
+                $merged = array_merge($merged, getEquivalentCourseIds($conn, (int) $cid));
+            }
+            $merged = array_values(array_unique(array_filter(array_map('intval', $merged), static fn (int $id): bool => $id > 0)));
+            return studentCourseMatchSqlFromIds($alias, $merged);
+        }
         $parts = [];
         foreach ($courseIds as $cid) {
             $cid = (int) $cid;
