@@ -167,17 +167,17 @@ if (isset($_GET['id'])) {
     $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
     $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 
-    // Fetch student info
-    $sql = "SELECT * FROM students WHERE student_id = ?";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        die("Statement preparation failed: " . $conn->error);
+    $resolveParams = [
+        'id' => $student_id,
+        'student_id' => $student_id,
+        'record_id' => isset($_GET['record_id']) ? (int) $_GET['record_id'] : 0,
+        'course_id' => 0,
+    ];
+    if (!empty($filter_course) && $filter_course !== 'All') {
+        $resolveParams['course_id'] = (int) $filter_course;
     }
-    $stmt->bind_param("s", $student_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    if ($result->num_rows > 0) {
-        $student = $result->fetch_assoc();
+    $student = resolveStudentEnrollmentForForm($conn, $resolveParams);
+    if ($student) {
         ensureDgeRegistrationDocumentColumns($conn);
         ensureTwelfthCertificateDocColumn($conn);
         $has_dge_doc_cols = hasDgeRegistrationDocumentColumns($conn);
@@ -210,6 +210,19 @@ if (isset($_GET['id'])) {
 
 // On update submission
 if (isset($_POST['update_student'])) {
+    $student_record_id = (int) ($_POST['student_record_id'] ?? ($student['id'] ?? 0));
+    if ($student_record_id <= 0 || (int) ($student['id'] ?? 0) !== $student_record_id) {
+        $resolved = fetchStudentEnrollmentByRecordId($conn, $student_record_id);
+        if ($resolved && enrollmentBelongsToStudentId($resolved, $student_id)) {
+            $student = $resolved;
+        } else {
+            $_SESSION['message'] = 'Invalid enrollment record. Please open Edit from Manage Students again.';
+            $_SESSION['message_type'] = 'danger';
+            header("Location: edit_student.php?id=" . urlencode($student_id));
+            exit();
+        }
+    }
+
     // Collect student info
     $name = $_POST['name'] ?? '';
     $father_name = $_POST['father_name'] ?? '';
@@ -453,7 +466,7 @@ if (isset($_POST['update_student'])) {
         passport_photo=?, signature=?, left_thumb_impression=?, documents=?, payment_receipt=?,
         aadhar_card_doc=?, tenth_marksheet_doc=?{$twelfthCertSql}, twelfth_marksheet_doc=?,
         caste_certificate_doc=?, graduation_certificate_doc=?, other_documents_doc=?{$dgeDocSql}
-        WHERE student_id=?";
+        WHERE id=?";
     
     $stmt = $conn->prepare($update_sql);
     if (!$stmt) {
@@ -480,15 +493,18 @@ if (isset($_POST['update_student'])) {
         $bindArgs[] = $income_certificate_doc;
         $bindArgs[] = $aadhaar_bank_seeding_doc;
     }
-    $bindArgs[] = $student_id;
+    $bindArgs[] = $student_record_id;
     $bindTypes = str_repeat('s', count($bindArgs));
     $stmt->bind_param($bindTypes, ...$bindArgs);
 
     if ($stmt->execute()) {
         // Log successful database update
         error_log("Student database update successful for student_id: $student_id");
-        if (function_exists('syncStudentRecordCourse') && !empty($student['id'])) {
-            syncStudentRecordCourse($conn, (int) $student['id'], (string) $course);
+        if (function_exists('syncStudentRecordCourse') && $student_record_id > 0) {
+            syncStudentRecordCourse($conn, $student_record_id, (string) $course);
+        }
+        if (function_exists('repairStudentsCourseIdFromCourseName')) {
+            repairStudentsCourseIdFromCourseName($conn, $student_id);
         }
         if (!empty($uploadedDocs)) {
             error_log("Documents updated for student $student_id: " . implode(', ', array_keys($uploadedDocs)));
@@ -740,6 +756,7 @@ $active_theme = loadActiveTheme($conn);
             <?php endif; ?>
 
             <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="student_record_id" value="<?php echo (int)($student['id'] ?? 0); ?>">
                 <!-- Personal Information Section -->
                 <div class="form-section">
                     <h5 class="section-title">

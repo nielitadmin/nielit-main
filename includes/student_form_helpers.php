@@ -107,6 +107,38 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
     /**
      * Keep students.course_id (and student_enrollments) in sync when a student is moved to another course.
      */
+    /**
+     * Fix rows where students.course was updated but students.course_id was left on an old course
+     * (common after Edit Student matched on student_id only).
+     */
+    function repairStudentsCourseIdFromCourseName(mysqli $conn, ?string $studentIdStr = null): int
+    {
+        $col = @$conn->query("SHOW COLUMNS FROM students LIKE 'course_id'");
+        if (!$col || $col->num_rows === 0) {
+            return 0;
+        }
+        $sql = "UPDATE students s
+                INNER JOIN courses c ON TRIM(s.course) = TRIM(c.course_name)
+                SET s.course_id = c.id
+                WHERE (s.course_id IS NULL OR s.course_id != c.id)
+                  AND TRIM(IFNULL(s.course, '')) != ''
+                  AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+        if ($studentIdStr !== null && $studentIdStr !== '') {
+            $sql .= ' AND s.student_id = ?';
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return 0;
+            }
+            $stmt->bind_param('s', $studentIdStr);
+            $stmt->execute();
+            $n = $stmt->affected_rows;
+            $stmt->close();
+            return (int) $n;
+        }
+        $ok = $conn->query($sql);
+        return $ok ? (int) $conn->affected_rows : 0;
+    }
+
     function syncStudentRecordCourse(mysqli $conn, int $recordId, string $courseName): bool
     {
         $recordId = (int) $recordId;

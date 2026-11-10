@@ -42,6 +42,9 @@ if (function_exists('repairSoftRemovedEnrollments')) {
 if (function_exists('repairEnrollmentStatusMismatch')) {
     repairEnrollmentStatusMismatch($conn);
 }
+if (function_exists('repairStudentsCourseIdFromCourseName')) {
+    repairStudentsCourseIdFromCourseName($conn);
+}
 
 // Role flags
 $admin_role = $_SESSION['admin_role'] ?? '';
@@ -2367,7 +2370,7 @@ if ($other_gender_count > 0) {
                                             <i class="fas fa-times"></i>
                                         </a>
                                     <?php elseif (in_array($status, ['active', 'approved'], true)): ?>
-                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $primary_record_id; ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -2387,12 +2390,12 @@ if ($other_gender_count > 0) {
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>">
                                             <i class="fas fa-undo"></i>
                                         </a>
-                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $primary_record_id; ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                     <?php else: ?>
-                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $primary_record_id; ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
