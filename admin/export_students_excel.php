@@ -6,6 +6,7 @@
 
 session_start();
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/student_form_helpers.php';
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');
@@ -108,19 +109,16 @@ $bind_values = [];
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
-        $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $query .= " AND s.course_id IN ($ph) AND s.batch_id IS NULL AND LOWER(s.status) != 'inactive'";
-        $bind_types .= str_repeat('i', count($admin_course_ids));
-        $bind_values = array_merge($bind_values, $admin_course_ids);
+        $query .= ' AND ' . studentAssignedCoursesMatchSql('s', $admin_course_ids) . ' AND LOWER(s.status) != \'inactive\'';
     } else {
         $query .= ' AND 1=0';
     }
 }
 
 if ($selected_course !== 'All') {
-    $query .= ' AND s.course_id = ?';
-    $bind_types .= 'i';
-    $bind_values[] = (int)$selected_course;
+    $query .= ' AND ' . studentCourseMatchPreparedSql('s');
+    $bind_types .= 'ii';
+    $bind_values = array_merge($bind_values, studentCourseMatchBindValues((int) $selected_course));
 }
 
 if ($selected_gender !== 'All') {

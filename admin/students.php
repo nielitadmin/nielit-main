@@ -609,24 +609,19 @@ function runCount($conn, $sql, $types = '', $values = []) {
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
-        $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $types = str_repeat('i', count($admin_course_ids));
+        $coordMatchSql = studentAssignedCoursesMatchSql('s', $admin_course_ids);
 
         $total_students_count  = runCount($conn,
-            "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) FROM students WHERE course_id IN ($ph) AND LOWER(status) != 'inactive'",
-            $types, $admin_course_ids);
+            "SELECT COUNT(DISTINCT CONCAT(s.student_id, ':', s.course_id)) FROM students s WHERE {$coordMatchSql} AND LOWER(s.status) != 'inactive'");
 
         $pending_students_count = runCount($conn,
-            "SELECT COUNT(*) FROM students WHERE status='pending' AND course_id IN ($ph)",
-            $types, $admin_course_ids);
+            "SELECT COUNT(*) FROM students s WHERE s.status='pending' AND {$coordMatchSql}");
 
         $active_students_count  = runCount($conn,
-            "SELECT COUNT(*) FROM students WHERE status='active' AND course_id IN ($ph)",
-            $types, $admin_course_ids);
+            "SELECT COUNT(*) FROM students s WHERE s.status='active' AND {$coordMatchSql}");
 
         $rejected_students_count = runCount($conn,
-            "SELECT COUNT(*) FROM students WHERE status='rejected' AND course_id IN ($ph)",
-            $types, $admin_course_ids);
+            "SELECT COUNT(*) FROM students s WHERE s.status='rejected' AND {$coordMatchSql}");
     } else {
         $total_students_count = $pending_students_count = $active_students_count = $rejected_students_count = 0;
     }
@@ -802,19 +797,22 @@ $bind_values = [];
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
-        $ph = implode(',', array_fill(0, count($admin_course_ids), '?'));
-        $where_parts[] = "s.course_id IN ($ph)";
-        $bind_types   .= str_repeat('i', count($admin_course_ids));
-        $bind_values   = array_merge($bind_values, $admin_course_ids);
+        $coordParts = [];
+        foreach ($admin_course_ids as $coordCourseId) {
+            $coordParts[] = studentCourseMatchPreparedSql('s');
+            $bind_types .= 'ii';
+            $bind_values = array_merge($bind_values, studentCourseMatchBindValues((int) $coordCourseId));
+        }
+        $where_parts[] = '(' . implode(' OR ', $coordParts) . ')';
     } else {
         $where_parts[] = '1=0';
     }
 }
 
 if ($selected_course !== 'All') {
-    $where_parts[]  = 's.course_id = ?';
-    $bind_types    .= 'i';
-    $bind_values[]  = (int)$selected_course;
+    $where_parts[] = studentCourseMatchPreparedSql('s');
+    $bind_types   .= 'ii';
+    $bind_values   = array_merge($bind_values, studentCourseMatchBindValues((int) $selected_course));
 }
 
 if ($selected_gender !== 'All') {
@@ -941,8 +939,7 @@ $stats_status_filter = "LOWER(status) != 'inactive'";
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
-        $ph = implode(',', array_map('intval', $admin_course_ids)); // safe int list
-        $stats_where_parts[] = "course_id IN ($ph)";
+        $stats_where_parts[] = studentAssignedCoursesMatchSql('s', $admin_course_ids);
         $stats_where_parts[] = $stats_status_filter;
     } else {
         $stats_where_parts[] = "1=0";
@@ -952,7 +949,7 @@ if ($is_course_coordinator) {
 }
 
 if ($selected_course !== 'All') {
-    $stats_where_parts[]  = "course_id = " . (int)$selected_course;
+    $stats_where_parts[] = studentCourseMatchSql('s', (int) $selected_course);
 }
 if ($selected_gender !== 'All') {
     $stats_where_parts[]  = "gender = '" . $conn->real_escape_string($selected_gender) . "'";
@@ -981,7 +978,7 @@ $stats_sql   = "SELECT COUNT(DISTINCT CONCAT(student_id, ':', course_id)) AS tot
                        COUNT(DISTINCT CASE WHEN LOWER(status) = 'active' THEN CONCAT(student_id, ':', course_id) END) AS active,
                        COUNT(DISTINCT CASE WHEN gender = 'Male' THEN CONCAT(student_id, ':', course_id) END) AS male,
                        COUNT(DISTINCT CASE WHEN gender = 'Female' THEN CONCAT(student_id, ':', course_id) END) AS female
-                FROM students
+                FROM students s
                 WHERE $stats_where";
 
 $stats_res = $conn->query($stats_sql);

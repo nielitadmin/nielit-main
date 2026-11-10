@@ -153,6 +153,44 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                        OR (TRIM(IFNULL(s.course, '')) != '' AND TRIM(s.course) = TRIM({$courseNameSql}))))";
     }
 
+    /**
+     * Prepared statement fragment: student row belongs to one courses.id (id + name fallback).
+     */
+    function studentCourseMatchPreparedSql(string $alias = 's'): string
+    {
+        return "({$alias}.course_id = ? OR TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = ? LIMIT 1))";
+    }
+
+    /** Same match with a known course id inlined (stats queries). */
+    function studentCourseMatchSql(string $alias, int $courseId): string
+    {
+        $courseId = (int) $courseId;
+        if ($courseId <= 0) {
+            return '1=0';
+        }
+        return "({$alias}.course_id = {$courseId} OR TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = {$courseId} LIMIT 1))";
+    }
+
+    /** OR of course matches for coordinator assigned courses. */
+    function studentAssignedCoursesMatchSql(string $alias, array $courseIds): string
+    {
+        $parts = [];
+        foreach ($courseIds as $cid) {
+            $cid = (int) $cid;
+            if ($cid > 0) {
+                $parts[] = studentCourseMatchSql($alias, $cid);
+            }
+        }
+        return $parts !== [] ? '(' . implode(' OR ', $parts) . ')' : '1=0';
+    }
+
+    /** Bind types + values for studentCourseMatchPreparedSql (two ints: course id twice). */
+    function studentCourseMatchBindValues(int $courseId): array
+    {
+        $courseId = (int) $courseId;
+        return [$courseId, $courseId];
+    }
+
     function syncStudentRecordCourse(mysqli $conn, int $recordId, string $courseName): bool
     {
         $recordId = (int) $recordId;
