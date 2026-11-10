@@ -36,14 +36,17 @@ if (function_exists('ensureSchemeEnrollmentUniqueIndex')) {
 if (function_exists('backfillBatchStudentRecordIds')) {
     backfillBatchStudentRecordIds($conn);
 }
-if (function_exists('repairSoftRemovedEnrollments')) {
-    repairSoftRemovedEnrollments($conn);
-}
 if (function_exists('repairEnrollmentStatusMismatch')) {
     repairEnrollmentStatusMismatch($conn);
 }
+if (function_exists('repairStudentCourseTextFromCourseId')) {
+    repairStudentCourseTextFromCourseId($conn);
+}
 if (function_exists('repairStudentsCourseIdFromCourseName')) {
     repairStudentsCourseIdFromCourseName($conn);
+}
+if (function_exists('ensureStudentCourseRemovalArchive')) {
+    ensureStudentCourseRemovalArchive($conn);
 }
 
 // Role flags
@@ -792,6 +795,9 @@ if ($selected_course !== 'All') {
 
 // ─── MAIN STUDENTS QUERY (paginated by student + course) ─────────────────────
 $where_parts = ["LOWER(s.status) != 'inactive'"];
+if (function_exists('studentPendingCourseRemovalExcludeSql')) {
+    $where_parts[] = studentPendingCourseRemovalExcludeSql('s');
+}
 $bind_types  = '';
 $bind_values = [];
 
@@ -946,6 +952,10 @@ if ($is_course_coordinator) {
     }
 } else {
     $stats_where_parts[] = $stats_status_filter;
+}
+
+if (function_exists('studentPendingCourseRemovalExcludeSql')) {
+    $stats_where_parts[] = studentPendingCourseRemovalExcludeSql('s');
 }
 
 if ($selected_course !== 'All') {

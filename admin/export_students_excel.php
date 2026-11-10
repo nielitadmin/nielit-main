@@ -102,14 +102,18 @@ $query = "SELECT s.*, b.batch_name, b.batch_code, c.course_name,
           LEFT JOIN courses c ON c.id = s.course_id
           LEFT JOIN schemes sch ON sch.id = s.scheme_id
           LEFT JOIN education_details ed ON s.student_id = ed.student_id
-          WHERE 1=1";
+          WHERE LOWER(s.status) != 'inactive'";
+
+if (function_exists('studentPendingCourseRemovalExcludeSql')) {
+    $query .= ' AND ' . studentPendingCourseRemovalExcludeSql('s');
+}
 
 $bind_types = '';
 $bind_values = [];
 
 if ($is_course_coordinator) {
     if (!empty($admin_course_ids)) {
-        $query .= ' AND ' . studentAssignedCoursesMatchSql('s', $admin_course_ids) . ' AND LOWER(s.status) != \'inactive\'';
+        $query .= ' AND ' . studentAssignedCoursesMatchSql('s', $admin_course_ids);
     } else {
         $query .= ' AND 1=0';
     }

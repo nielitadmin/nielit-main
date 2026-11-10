@@ -111,18 +111,57 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
      * Fix rows where students.course was updated but students.course_id was left on an old course
      * (common after Edit Student matched on student_id only).
      */
+    /**
+     * Reset students.course text from courses.course_name when course_id is valid but text was copied wrongly.
+     */
+    function repairStudentCourseTextFromCourseId(mysqli $conn, ?string $studentIdStr = null): int
+    {
+        $sql = "UPDATE students s
+                INNER JOIN courses c ON c.id = s.course_id
+                SET s.course = c.course_name
+                WHERE s.course_id IS NOT NULL AND s.course_id > 0
+                  AND TRIM(IFNULL(s.course, '')) != ''
+                  AND TRIM(s.course) != TRIM(c.course_name)
+                  AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+        if ($studentIdStr !== null && $studentIdStr !== '') {
+            $sql .= ' AND s.student_id = ?';
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return 0;
+            }
+            $stmt->bind_param('s', $studentIdStr);
+            $stmt->execute();
+            $n = $stmt->affected_rows;
+            $stmt->close();
+            return (int) $n;
+        }
+        $ok = $conn->query($sql);
+        return $ok ? (int) $conn->affected_rows : 0;
+    }
+
     function repairStudentsCourseIdFromCourseName(mysqli $conn, ?string $studentIdStr = null): int
     {
         $col = @$conn->query("SHOW COLUMNS FROM students LIKE 'course_id'");
         if (!$col || $col->num_rows === 0) {
             return 0;
         }
+        // Never reassign a row to another course when course_id still points at a different valid course
+        // (Edit Student used to copy the FDAP course name onto every enrollment).
         $sql = "UPDATE students s
                 INNER JOIN courses c ON TRIM(s.course) = TRIM(c.course_name)
                 SET s.course_id = c.id
-                WHERE (s.course_id IS NULL OR s.course_id != c.id)
+                WHERE (s.course_id IS NULL OR s.course_id = 0 OR s.course_id != c.id)
                   AND TRIM(IFNULL(s.course, '')) != ''
-                  AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+                  AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')
+                  AND (
+                    s.course_id IS NULL OR s.course_id = 0
+                    OR NOT EXISTS (SELECT 1 FROM courses c_chk WHERE c_chk.id = s.course_id)
+                    OR EXISTS (
+                        SELECT 1 FROM courses c_old
+                        WHERE c_old.id = s.course_id
+                          AND TRIM(c_old.course_name) = TRIM(s.course)
+                    )
+                  )";
         if ($studentIdStr !== null && $studentIdStr !== '') {
             $sql .= ' AND s.student_id = ?';
             $stmt = $conn->prepare($sql);
@@ -147,10 +186,17 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
      */
     function sqlSubqueryDistinctStudentsPerCourse(string $courseIdSql, string $courseNameSql): string
     {
+        $pending = function_exists('studentPendingCourseRemovalExcludeSql')
+            ? ' AND ' . studentPendingCourseRemovalExcludeSql('s')
+            : '';
         return "(SELECT COUNT(DISTINCT s.student_id) FROM students s
-                WHERE LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')
+                WHERE LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected'){$pending}
                   AND (s.course_id = {$courseIdSql}
-                       OR (TRIM(IFNULL(s.course, '')) != '' AND TRIM(s.course) = TRIM({$courseNameSql}))))";
+                       OR (
+                           (s.course_id IS NULL OR s.course_id = 0)
+                           AND TRIM(IFNULL(s.course, '')) != ''
+                           AND TRIM(s.course) = TRIM({$courseNameSql})
+                       )))";
     }
 
     /**
@@ -158,7 +204,13 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
      */
     function studentCourseMatchPreparedSql(string $alias = 's'): string
     {
-        return "({$alias}.course_id = ? OR TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = ? LIMIT 1))";
+        return "(
+            {$alias}.course_id = ?
+            OR (
+                ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
+                AND TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = ? LIMIT 1)
+            )
+        )";
     }
 
     /** Same match with a known course id inlined (stats queries). */
@@ -168,7 +220,24 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         if ($courseId <= 0) {
             return '1=0';
         }
-        return "({$alias}.course_id = {$courseId} OR TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = {$courseId} LIMIT 1))";
+        return "(
+            {$alias}.course_id = {$courseId}
+            OR (
+                ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
+                AND TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = {$courseId} LIMIT 1)
+            )
+        )";
+    }
+
+    /** Hide rows that were removed from a course (archive pending restore). */
+    function studentPendingCourseRemovalExcludeSql(string $alias = 's'): string
+    {
+        return "NOT EXISTS (
+            SELECT 1 FROM student_course_removals r
+            WHERE r.student_id = {$alias}.student_id
+              AND r.course_id = {$alias}.course_id
+              AND r.restored_at IS NULL
+        )";
     }
 
     /** OR of course matches for coordinator assigned courses. */

@@ -19,6 +19,9 @@ require_once __DIR__ . '/../includes/student_form_helpers.php';
 require_once __DIR__ . '/../schemes_module/includes/scheme_centres_helper.php';
 scheme_centres_ensure($conn);
 ensureCourseRequiredDocumentsColumn($conn);
+if (function_exists('repairStudentCourseTextFromCourseId')) {
+    repairStudentCourseTextFromCourseId($conn);
+}
 if (function_exists('repairStudentsCourseIdFromCourseName')) {
     repairStudentsCourseIdFromCourseName($conn);
 }
