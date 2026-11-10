@@ -378,6 +378,43 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         return [$courseId, $courseId, $courseId, $courseId];
     }
 
+    /**
+     * Build students.php query string after edit, keeping list filters and course context.
+     */
+    function studentsListReturnQueryFromEdit(array $source, int $fallbackCourseId = 0): string
+    {
+        $params = [];
+        $map = [
+            'filter_course' => ['list_filter_course', 'filter_course'],
+            'filter_status' => ['list_filter_status', 'filter_status'],
+            'filter_gender' => ['list_filter_gender', 'filter_gender'],
+            'filter_scheme' => ['list_filter_scheme', 'filter_scheme'],
+            'start_date' => ['list_start_date', 'start_date'],
+            'end_date' => ['list_end_date', 'end_date'],
+            'page' => ['list_page', 'page'],
+            'per_page' => ['list_per_page', 'per_page'],
+        ];
+        foreach ($map as $paramKey => $sourceKeys) {
+            $val = '';
+            foreach ($sourceKeys as $sk) {
+                if (isset($source[$sk]) && $source[$sk] !== '') {
+                    $val = $source[$sk];
+                    break;
+                }
+            }
+            if ($val !== '' && $val !== 'All') {
+                $params[$paramKey] = $val;
+            }
+        }
+        if (empty($params['filter_course']) && $fallbackCourseId > 0) {
+            $params['filter_course'] = $fallbackCourseId;
+        }
+        if (!empty($source['list_filter_category']) && is_array($source['list_filter_category'])) {
+            $params['filter_category'] = $source['list_filter_category'];
+        }
+        return $params === [] ? '' : '?' . http_build_query($params);
+    }
+
     function syncStudentRecordCourse(mysqli $conn, int $recordId, string $courseName): bool
     {
         $recordId = (int) $recordId;

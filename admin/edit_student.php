@@ -158,12 +158,25 @@ if (!isset($_SESSION['admin'])) {
     exit();
 }
 
+$list_return_filters = [];
+
 // Get student ID from URL
 if (isset($_GET['id'])) {
     $student_id = $_GET['id'];
     
     // Get filter parameters to preserve them
     $filter_course = isset($_GET['filter_course']) ? $_GET['filter_course'] : '';
+    $list_return_filters = [
+        'list_filter_course' => $filter_course,
+        'list_filter_status' => $_GET['filter_status'] ?? '',
+        'list_filter_gender' => $_GET['filter_gender'] ?? '',
+        'list_filter_scheme' => $_GET['filter_scheme'] ?? '',
+        'list_start_date' => $_GET['start_date'] ?? '',
+        'list_end_date' => $_GET['end_date'] ?? '',
+        'list_page' => $_GET['page'] ?? '',
+        'list_per_page' => $_GET['per_page'] ?? '',
+        'list_filter_category' => isset($_GET['filter_category']) ? (array) $_GET['filter_category'] : [],
+    ];
     $start_date = isset($_GET['start_date']) ? $_GET['start_date'] : '';
     $end_date = isset($_GET['end_date']) ? $_GET['end_date'] : '';
 
@@ -503,8 +516,22 @@ if (isset($_POST['update_student'])) {
         if (function_exists('syncStudentRecordCourse') && $student_record_id > 0) {
             syncStudentRecordCourse($conn, $student_record_id, (string) $course);
         }
-        if (function_exists('repairStudentsCourseIdFromCourseName')) {
-            repairStudentsCourseIdFromCourseName($conn, $student_id);
+        if (function_exists('syncStudentEnrollmentRecord') && $student_record_id > 0) {
+            syncStudentEnrollmentRecord($conn, $student_record_id);
+        }
+        if (function_exists('repairStudentsCourseIdFromEnrollmentLinks')) {
+            repairStudentsCourseIdFromEnrollmentLinks($conn, $student_id);
+        }
+        $updatedCourseId = (int) ($student['course_id'] ?? 0);
+        $cidStmt = $conn->prepare('SELECT course_id FROM students WHERE id = ? LIMIT 1');
+        if ($cidStmt) {
+            $cidStmt->bind_param('i', $student_record_id);
+            $cidStmt->execute();
+            $cidRow = $cidStmt->get_result()->fetch_assoc();
+            $cidStmt->close();
+            if (!empty($cidRow['course_id'])) {
+                $updatedCourseId = (int) $cidRow['course_id'];
+            }
         }
         if (!empty($uploadedDocs)) {
             error_log("Documents updated for student $student_id: " . implode(', ', array_keys($uploadedDocs)));
@@ -566,23 +593,11 @@ if (isset($_POST['update_student'])) {
             }
         }
         
-        // Build return URL with filters
-        $return_url = 'students.php';
-        $return_params = [];
-        if (!empty($filter_course) && $filter_course != 'All') {
-            $return_params[] = 'filter_course=' . urlencode($filter_course);
-        }
-        if (!empty($start_date)) {
-            $return_params[] = 'start_date=' . urlencode($start_date);
-        }
-        if (!empty($end_date)) {
-            $return_params[] = 'end_date=' . urlencode($end_date);
-        }
-        if (!empty($return_params)) {
-            $return_url .= '?' . implode('&', $return_params);
-        }
-        
-        header("Location: $return_url");
+        $returnSource = array_merge($list_return_filters, $_POST);
+        $return_query = function_exists('studentsListReturnQueryFromEdit')
+            ? studentsListReturnQueryFromEdit($returnSource, $updatedCourseId)
+            : '';
+        header('Location: students.php' . $return_query);
         exit();
     } else {
         // Database update failed - rollback uploaded files
@@ -757,6 +772,15 @@ $active_theme = loadActiveTheme($conn);
 
             <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="student_record_id" value="<?php echo (int)($student['id'] ?? 0); ?>">
+                <?php foreach ($list_return_filters as $lfKey => $lfVal): ?>
+                    <?php if ($lfKey === 'list_filter_category' && is_array($lfVal)): ?>
+                        <?php foreach ($lfVal as $cat): ?>
+                            <input type="hidden" name="list_filter_category[]" value="<?php echo htmlspecialchars((string) $cat); ?>">
+                        <?php endforeach; ?>
+                    <?php elseif (!is_array($lfVal)): ?>
+                        <input type="hidden" name="<?php echo htmlspecialchars($lfKey); ?>" value="<?php echo htmlspecialchars((string) $lfVal); ?>">
+                    <?php endif; ?>
+                <?php endforeach; ?>
                 <!-- Personal Information Section -->
                 <div class="form-section">
                     <h5 class="section-title">
