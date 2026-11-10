@@ -5,6 +5,30 @@
 
 if (!function_exists('fetchStudentEnrollmentByRecordId')) {
 
+    /** Collation for cross-table string compares (Hostinger/MySQL 8.4 mixes uca1400 with unicode_ci). */
+    function sqlUtf8mb4Collate(): string
+    {
+        return 'utf8mb4_unicode_ci';
+    }
+
+    function sqlTrimEqualsCollated(string $leftExpr, string $rightExpr): string
+    {
+        $c = sqlUtf8mb4Collate();
+        return "TRIM({$leftExpr}) COLLATE {$c} = TRIM({$rightExpr}) COLLATE {$c}";
+    }
+
+    function sqlTrimNotEqualsCollated(string $leftExpr, string $rightExpr): string
+    {
+        $c = sqlUtf8mb4Collate();
+        return "TRIM({$leftExpr}) COLLATE {$c} != TRIM({$rightExpr}) COLLATE {$c}";
+    }
+
+    function sqlStudentCourseNameMatchesCourseId(string $studentCourseExpr, string $courseIdSql): string
+    {
+        $c = sqlUtf8mb4Collate();
+        return "TRIM({$studentCourseExpr}) COLLATE {$c} = (SELECT TRIM(course_name) COLLATE {$c} FROM courses WHERE id = {$courseIdSql} LIMIT 1)";
+    }
+
     function fetchStudentEnrollmentByRecordId(mysqli $conn, int $recordId): ?array {
         if ($recordId <= 0) {
             return null;
@@ -81,7 +105,8 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         if ($courseName === '') {
             return 0;
         }
-        $stmt = $conn->prepare('SELECT id FROM courses WHERE TRIM(course_name) = ? ORDER BY id ASC LIMIT 1');
+        $collate = sqlUtf8mb4Collate();
+        $stmt = $conn->prepare("SELECT id FROM courses WHERE TRIM(course_name) COLLATE {$collate} = ? COLLATE {$collate} ORDER BY id ASC LIMIT 1");
         if (!$stmt) {
             return 0;
         }
@@ -121,7 +146,7 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                 SET s.course = c.course_name
                 WHERE s.course_id IS NOT NULL AND s.course_id > 0
                   AND TRIM(IFNULL(s.course, '')) != ''
-                  AND TRIM(s.course) != TRIM(c.course_name)
+                  AND " . sqlTrimNotEqualsCollated('s.course', 'c.course_name') . "
                   AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
         if ($studentIdStr !== null && $studentIdStr !== '') {
             $sql .= ' AND s.student_id = ?';
@@ -148,7 +173,7 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         // Never reassign a row to another course when course_id still points at a different valid course
         // (Edit Student used to copy the FDAP course name onto every enrollment).
         $sql = "UPDATE students s
-                INNER JOIN courses c ON TRIM(s.course) = TRIM(c.course_name)
+                INNER JOIN courses c ON " . sqlTrimEqualsCollated('s.course', 'c.course_name') . "
                 SET s.course_id = c.id
                 WHERE (s.course_id IS NULL OR s.course_id = 0 OR s.course_id != c.id)
                   AND TRIM(IFNULL(s.course, '')) != ''
@@ -159,7 +184,7 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                     OR EXISTS (
                         SELECT 1 FROM courses c_old
                         WHERE c_old.id = s.course_id
-                          AND TRIM(c_old.course_name) = TRIM(s.course)
+                          AND " . sqlTrimEqualsCollated('c_old.course_name', 's.course') . "
                     )
                   )";
         if ($studentIdStr !== null && $studentIdStr !== '') {
@@ -195,7 +220,7 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                        OR (
                            (s.course_id IS NULL OR s.course_id = 0)
                            AND TRIM(IFNULL(s.course, '')) != ''
-                           AND TRIM(s.course) = TRIM({$courseNameSql})
+                           AND " . sqlTrimEqualsCollated('s.course', $courseNameSql) . "
                        )))";
     }
 
@@ -208,7 +233,7 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
             {$alias}.course_id = ?
             OR (
                 ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
-                AND TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = ? LIMIT 1)
+                AND " . sqlStudentCourseNameMatchesCourseId("IFNULL({$alias}.course, '')", '?') . "
             )
         )";
     }
@@ -224,7 +249,7 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
             {$alias}.course_id = {$courseId}
             OR (
                 ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
-                AND TRIM(IFNULL({$alias}.course, '')) = (SELECT TRIM(course_name) FROM courses WHERE id = {$courseId} LIMIT 1)
+                AND " . sqlStudentCourseNameMatchesCourseId("IFNULL({$alias}.course, '')", (string) $courseId) . "
             )
         )";
     }
@@ -232,9 +257,10 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
     /** Hide rows that were removed from a course (archive pending restore). */
     function studentPendingCourseRemovalExcludeSql(string $alias = 's'): string
     {
+        $c = sqlUtf8mb4Collate();
         return "NOT EXISTS (
             SELECT 1 FROM student_course_removals r
-            WHERE r.student_id = {$alias}.student_id
+            WHERE r.student_id COLLATE {$c} = {$alias}.student_id COLLATE {$c}
               AND r.course_id = {$alias}.course_id
               AND r.restored_at IS NULL
         )";
