@@ -15,9 +15,13 @@ require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/support_ticket_helper.php';
 require_once __DIR__ . '/../includes/course_required_documents_helper.php';
 require_once __DIR__ . '/../includes/payment_gateway_helper.php';
+require_once __DIR__ . '/../includes/student_form_helpers.php';
 require_once __DIR__ . '/../schemes_module/includes/scheme_centres_helper.php';
 scheme_centres_ensure($conn);
 ensureCourseRequiredDocumentsColumn($conn);
+if (function_exists('repairStudentsCourseIdFromCourseName')) {
+    repairStudentsCourseIdFromCourseName($conn);
+}
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login.php");
@@ -106,9 +110,9 @@ $valid_tabs = ['all','ongoing','upcoming','past'];
 if (!in_array($courses_tab, $valid_tabs)) $courses_tab = 'all';
 
 // Build query with filter and student count
-$sql = "SELECT courses.*, 
-    (SELECT COUNT(*) FROM students WHERE students.course_id = courses.id) as student_count 
-        FROM courses WHERE 1=1";
+$sql = 'SELECT courses.*, '
+    . sqlSubqueryDistinctStudentsPerCourse('courses.id', 'courses.course_name')
+    . ' AS student_count FROM courses WHERE 1=1';
 
 // Add course coordinator filtering
 if ($is_course_coordinator) {
@@ -534,7 +538,11 @@ if ($batch_performance_query) {
 }
 
 $recent_courses_rows = [];
-$recent_courses_query = $conn->query("SELECT c.id, c.course_name, c.category, c.duration, c.start_date, c.course_code, c.course_abbreviation, COALESCE((SELECT COUNT(*) FROM students s WHERE s.course_id = c.id), 0) AS student_count FROM courses c ORDER BY c.created_at DESC LIMIT 5");
+$recentStudentCountSql = sqlSubqueryDistinctStudentsPerCourse('c.id', 'c.course_name');
+$recent_courses_query = $conn->query(
+    'SELECT c.id, c.course_name, c.category, c.duration, c.start_date, c.course_code, c.course_abbreviation, '
+    . $recentStudentCountSql . ' AS student_count FROM courses c ORDER BY c.created_at DESC LIMIT 5'
+);
 if ($recent_courses_query) {
     while ($row = $recent_courses_query->fetch_assoc()) {
         $recent_courses_rows[] = $row;

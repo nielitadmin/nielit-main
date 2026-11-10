@@ -139,6 +139,20 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         return $ok ? (int) $conn->affected_rows : 0;
     }
 
+    /**
+     * SQL subquery: distinct students for one course (course_id match, else course name text).
+     *
+     * @param string $courseIdSql e.g. courses.id or c.id
+     * @param string $courseNameSql e.g. courses.course_name or c.course_name
+     */
+    function sqlSubqueryDistinctStudentsPerCourse(string $courseIdSql, string $courseNameSql): string
+    {
+        return "(SELECT COUNT(DISTINCT s.student_id) FROM students s
+                WHERE LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')
+                  AND (s.course_id = {$courseIdSql}
+                       OR (TRIM(IFNULL(s.course, '')) != '' AND TRIM(s.course) = TRIM({$courseNameSql}))))";
+    }
+
     function syncStudentRecordCourse(mysqli $conn, int $recordId, string $courseName): bool
     {
         $recordId = (int) $recordId;
