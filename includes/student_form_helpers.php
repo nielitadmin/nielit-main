@@ -346,6 +346,44 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         )";
     }
 
+    /**
+     * Drop pending removal archives when an active students row still exists (stale after edit/restore).
+     */
+    function repairStaleCourseRemovalArchives(mysqli $conn): int
+    {
+        if (!function_exists('ensureStudentCourseRemovalArchive') || !ensureStudentCourseRemovalArchive($conn)) {
+            return 0;
+        }
+        $c = sqlUtf8mb4Collate();
+        $sql = "DELETE r FROM student_course_removals r
+                INNER JOIN students s
+                  ON s.student_id COLLATE {$c} = r.student_id COLLATE {$c}
+                 AND s.course_id = r.course_id
+                WHERE r.restored_at IS NULL
+                  AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+        $ok = $conn->query($sql);
+        if (!$ok) {
+            return 0;
+        }
+        $n = (int) $conn->affected_rows;
+        if ($n > 0) {
+            return $n;
+        }
+        $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if (!$enrTable || $enrTable->num_rows === 0) {
+            return 0;
+        }
+        $sql2 = "DELETE r FROM student_course_removals r
+                 INNER JOIN student_enrollments se ON se.course_id = r.course_id
+                 INNER JOIN students s ON s.id = se.student_record_id
+                   AND s.student_id COLLATE {$c} = r.student_id COLLATE {$c}
+                 WHERE r.restored_at IS NULL
+                   AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')
+                   AND LOWER(IFNULL(se.status, '')) NOT IN ('inactive', 'rejected', 'cancelled')";
+        $ok2 = $conn->query($sql2);
+        return $ok2 ? (int) $conn->affected_rows : 0;
+    }
+
     /** Hide rows that were removed from a course (archive pending restore). */
     function studentPendingCourseRemovalExcludeSql(string $alias = 's'): string
     {

@@ -51,6 +51,9 @@ if (function_exists('repairStudentsCourseIdFromEnrollmentLinks')) {
 if (function_exists('ensureStudentCourseRemovalArchive')) {
     ensureStudentCourseRemovalArchive($conn);
 }
+if (function_exists('repairStaleCourseRemovalArchives')) {
+    repairStaleCourseRemovalArchives($conn);
+}
 
 // Role flags
 $admin_role = $_SESSION['admin_role'] ?? '';
@@ -896,7 +899,10 @@ $showing_from = $total_filtered > 0 ? $offset + 1 : 0;
 $showing_to = min($offset + $per_page, $total_filtered);
 
 $list_group_sql = $group_one_row_per_student_for_course
-    ? 'SELECT s.student_id, MAX(s.id) AS latest_id
+    ? 'SELECT s.student_id, COALESCE(
+                 MAX(CASE WHEN s.course_id = ' . (int) $selected_course . ' THEN s.id END),
+                 MAX(s.id)
+              ) AS latest_id
               FROM students s
               WHERE ' . $where_sql . '
               GROUP BY s.student_id
