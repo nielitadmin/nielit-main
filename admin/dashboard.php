@@ -25,6 +25,9 @@ if (function_exists('repairStudentCourseTextFromCourseId')) {
 if (function_exists('repairStudentsCourseIdFromCourseName')) {
     repairStudentsCourseIdFromCourseName($conn);
 }
+if (function_exists('repairStudentsCourseIdFromEnrollmentLinks')) {
+    repairStudentsCourseIdFromEnrollmentLinks($conn);
+}
 
 if (!isset($_SESSION['admin'])) {
     header("Location: login.php");

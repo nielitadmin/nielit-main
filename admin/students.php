@@ -45,6 +45,9 @@ if (function_exists('repairStudentCourseTextFromCourseId')) {
 if (function_exists('repairStudentsCourseIdFromCourseName')) {
     repairStudentsCourseIdFromCourseName($conn);
 }
+if (function_exists('repairStudentsCourseIdFromEnrollmentLinks')) {
+    repairStudentsCourseIdFromEnrollmentLinks($conn);
+}
 if (function_exists('ensureStudentCourseRemovalArchive')) {
     ensureStudentCourseRemovalArchive($conn);
 }
@@ -806,7 +809,7 @@ if ($is_course_coordinator) {
         $coordParts = [];
         foreach ($admin_course_ids as $coordCourseId) {
             $coordParts[] = studentCourseMatchPreparedSql('s');
-            $bind_types .= 'ii';
+            $bind_types .= 'iiii';
             $bind_values = array_merge($bind_values, studentCourseMatchBindValues((int) $coordCourseId));
         }
         $where_parts[] = '(' . implode(' OR ', $coordParts) . ')';
@@ -816,9 +819,15 @@ if ($is_course_coordinator) {
 }
 
 if ($selected_course !== 'All') {
+    $selected_course_id = (int) $selected_course;
     $where_parts[] = studentCourseMatchPreparedSql('s');
-    $bind_types   .= 'ii';
-    $bind_values   = array_merge($bind_values, studentCourseMatchBindValues((int) $selected_course));
+    $bind_types   .= 'iiii';
+    $bind_values   = array_merge($bind_values, studentCourseMatchBindValues($selected_course_id));
+    if (function_exists('studentPendingCourseRemovalForCourseSql')) {
+        $where_parts[] = studentPendingCourseRemovalForCourseSql('s', '?');
+        $bind_types .= 'i';
+        $bind_values[] = $selected_course_id;
+    }
 }
 
 if ($selected_gender !== 'All') {

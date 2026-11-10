@@ -121,7 +121,7 @@ if ($is_course_coordinator) {
 
 if ($selected_course !== 'All') {
     $query .= ' AND ' . studentCourseMatchPreparedSql('s');
-    $bind_types .= 'ii';
+    $bind_types .= 'iiii';
     $bind_values = array_merge($bind_values, studentCourseMatchBindValues((int) $selected_course));
 }
 

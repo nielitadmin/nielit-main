@@ -29,6 +29,20 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         return "TRIM({$studentCourseExpr}) COLLATE {$c} = (SELECT TRIM(course_name) COLLATE {$c} FROM courses WHERE id = {$courseIdSql} LIMIT 1)";
     }
 
+    function studentCourseEnrollmentOrBatchExistsSql(string $alias, string $courseIdSql): string
+    {
+        return "(EXISTS (
+                SELECT 1 FROM student_enrollments se
+                WHERE se.student_record_id = {$alias}.id AND se.course_id = {$courseIdSql}
+            )
+            OR EXISTS (
+                SELECT 1 FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                WHERE b.course_id = {$courseIdSql}
+                  AND (bs.student_record_id = {$alias}.id OR bs.student_id = {$alias}.id)
+            ))";
+    }
+
     function fetchStudentEnrollmentByRecordId(mysqli $conn, int $recordId): ?array {
         if ($recordId <= 0) {
             return null;
@@ -204,6 +218,68 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
     }
 
     /**
+     * Fix students.course_id / course text from student_enrollments or batch assignment when columns drifted.
+     */
+    function repairStudentsCourseIdFromEnrollmentLinks(mysqli $conn, ?string $studentIdStr = null): int
+    {
+        $fixed = 0;
+        $statusFilter = "LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+        $studentFilter = '';
+        if ($studentIdStr !== null && $studentIdStr !== '') {
+            $studentFilter = ' AND s.student_id = ?';
+        }
+
+        $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($enrTable && $enrTable->num_rows > 0) {
+            $sql = "UPDATE students s
+                    INNER JOIN student_enrollments se ON se.student_record_id = s.id
+                    INNER JOIN courses c ON c.id = se.course_id
+                    SET s.course_id = se.course_id, s.course = c.course_name
+                    WHERE (s.course_id IS NULL OR s.course_id = 0 OR s.course_id != se.course_id)
+                      AND {$statusFilter}{$studentFilter}";
+            if ($studentFilter !== '') {
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    $stmt->bind_param('s', $studentIdStr);
+                    $stmt->execute();
+                    $fixed += (int) $stmt->affected_rows;
+                    $stmt->close();
+                }
+            } else {
+                if ($conn->query($sql)) {
+                    $fixed += (int) $conn->affected_rows;
+                }
+            }
+        }
+
+        $bsTable = @$conn->query("SHOW TABLES LIKE 'batch_students'");
+        if ($bsTable && $bsTable->num_rows > 0) {
+            $sql = "UPDATE students s
+                    INNER JOIN batch_students bs ON (bs.student_record_id = s.id OR bs.student_id = s.id)
+                    INNER JOIN batches b ON b.id = bs.batch_id
+                    INNER JOIN courses c ON c.id = b.course_id
+                    SET s.course_id = b.course_id, s.course = c.course_name
+                    WHERE (s.course_id IS NULL OR s.course_id = 0 OR s.course_id != b.course_id)
+                      AND {$statusFilter}{$studentFilter}";
+            if ($studentFilter !== '') {
+                $stmt = $conn->prepare($sql);
+                if ($stmt) {
+                    $stmt->bind_param('s', $studentIdStr);
+                    $stmt->execute();
+                    $fixed += (int) $stmt->affected_rows;
+                    $stmt->close();
+                }
+            } else {
+                if ($conn->query($sql)) {
+                    $fixed += (int) $conn->affected_rows;
+                }
+            }
+        }
+
+        return $fixed;
+    }
+
+    /**
      * SQL subquery: distinct students for one course (course_id match, else course name text).
      *
      * @param string $courseIdSql e.g. courses.id or c.id
@@ -221,7 +297,9 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                            (s.course_id IS NULL OR s.course_id = 0)
                            AND TRIM(IFNULL(s.course, '')) != ''
                            AND " . sqlTrimEqualsCollated('s.course', $courseNameSql) . "
-                       )))";
+                       )
+                       OR " . studentCourseEnrollmentOrBatchExistsSql('s', $courseIdSql) . "
+                       ))";
     }
 
     /**
@@ -235,6 +313,7 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                 ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
                 AND " . sqlStudentCourseNameMatchesCourseId("IFNULL({$alias}.course, '')", '?') . "
             )
+            OR " . studentCourseEnrollmentOrBatchExistsSql($alias, '?') . "
         )";
     }
 
@@ -251,6 +330,19 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
                 ({$alias}.course_id IS NULL OR {$alias}.course_id = 0)
                 AND " . sqlStudentCourseNameMatchesCourseId("IFNULL({$alias}.course, '')", (string) $courseId) . "
             )
+            OR " . studentCourseEnrollmentOrBatchExistsSql($alias, (string) $courseId) . "
+        )";
+    }
+
+    /** Exclude students removed from a specific course (archive), regardless of row course_id drift. */
+    function studentPendingCourseRemovalForCourseSql(string $alias, string $courseIdSql): string
+    {
+        $c = sqlUtf8mb4Collate();
+        return "NOT EXISTS (
+            SELECT 1 FROM student_course_removals r
+            WHERE r.student_id COLLATE {$c} = {$alias}.student_id COLLATE {$c}
+              AND r.course_id = {$courseIdSql}
+              AND r.restored_at IS NULL
         )";
     }
 
@@ -279,11 +371,11 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         return $parts !== [] ? '(' . implode(' OR ', $parts) . ')' : '1=0';
     }
 
-    /** Bind types + values for studentCourseMatchPreparedSql (two ints: course id twice). */
+    /** Bind types + values for studentCourseMatchPreparedSql (course id repeated per ? placeholder). */
     function studentCourseMatchBindValues(int $courseId): array
     {
         $courseId = (int) $courseId;
-        return [$courseId, $courseId];
+        return [$courseId, $courseId, $courseId, $courseId];
     }
 
     function syncStudentRecordCourse(mysqli $conn, int $recordId, string $courseName): bool
