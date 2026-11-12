@@ -499,6 +499,18 @@ unset(
                         </p>
                     </div>
 
+                    <div class="alert-box alert-success-box">
+                        <i class="fas fa-user-graduate" style="color:#10b981;"></i>
+                        <p style="color:#065f46; margin-bottom: 8px;">
+                            <strong>Student portal:</strong> After you log in, you can track everything in one place:
+                        </p>
+                        <ul style="color:#065f46; margin: 0; padding-left: 1.25rem; font-size: 0.95rem;">
+                            <li><strong>Dashboard</strong> — application / enrollment status for your course(s)</li>
+                            <li><strong><a href="<?php echo APP_URL; ?>/student/fees.php" style="color:#047857;">Fee Details</a></strong> — payments due, pay online, and download receipts</li>
+                            <li><strong>Profile &amp; certificates</strong> — your details, updates, and issued certificates</li>
+                        </ul>
+                    </div>
+
                     <?php if ($online_payment_required): ?>
                     <div class="alert-box alert-warning-box">
                         <i class="fas fa-credit-card" style="color:#f59e0b;"></i>

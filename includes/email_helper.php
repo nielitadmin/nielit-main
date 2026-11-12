@@ -205,7 +205,14 @@ function sendRegistrationEmail($to_email, $student_name, $student_id, $password,
  */
 function getRegistrationEmailTemplate($student_name, $student_id, $password, $course_name, $training_center) {
     $current_year = date('Y');
-    
+    $login_url = htmlspecialchars(getEmailPublicPageUrl('student/login.php'), ENT_QUOTES, 'UTF-8');
+    $fees_url = htmlspecialchars(getEmailPublicPageUrl('student/fees.php'), ENT_QUOTES, 'UTF-8');
+    $safe_name = htmlspecialchars((string) $student_name, ENT_QUOTES, 'UTF-8');
+    $safe_id = htmlspecialchars((string) $student_id, ENT_QUOTES, 'UTF-8');
+    $safe_password = htmlspecialchars((string) $password, ENT_QUOTES, 'UTF-8');
+    $safe_course = htmlspecialchars((string) $course_name, ENT_QUOTES, 'UTF-8');
+    $safe_center = htmlspecialchars((string) $training_center, ENT_QUOTES, 'UTF-8');
+
     return <<<HTML
 <!DOCTYPE html>
 <html lang="en">
@@ -235,7 +242,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                     <tr>
                         <td style="padding: 40px 30px;">
                             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                                Dear <strong>{$student_name}</strong>,
+                                Dear <strong>{$safe_name}</strong>,
                             </p>
                             
                             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
@@ -252,7 +259,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                                     Student ID:
                                                 </td>
                                                 <td style="color: #333; font-size: 16px; font-weight: 700; font-family: 'Courier New', monospace;">
-                                                    {$student_id}
+                                                    {$safe_id}
                                                 </td>
                                             </tr>
                                             <tr>
@@ -260,7 +267,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                                     Password:
                                                 </td>
                                                 <td style="color: #333; font-size: 16px; font-weight: 700; font-family: 'Courier New', monospace;">
-                                                    {$password}
+                                                    {$safe_password}
                                                 </td>
                                             </tr>
                                             <tr>
@@ -268,15 +275,15 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                                     Course:
                                                 </td>
                                                 <td style="color: #333; font-size: 14px;">
-                                                    {$course_name}
+                                                    {$safe_course}
                                                 </td>
                                             </tr>
                                             <tr>
                                                 <td style="color: #0a1628; font-weight: 700; font-size: 14px;">
-                                                    Training Centre:
+                                                    Training Center:
                                                 </td>
                                                 <td style="color: #333; font-size: 14px;">
-                                                    {$training_center}
+                                                    {$safe_center}
                                                 </td>
                                             </tr>
                                         </table>
@@ -287,15 +294,26 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                             <!-- Important Notice -->
                             <div style="background-color: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px; padding: 15px; margin: 20px 0;">
                                 <p style="color: #856404; font-size: 14px; margin: 0; line-height: 1.6;">
-                                    <strong>⚠️ Important:</strong> Please save these credentials securely. You will need them to access your student portal.
+                                    <strong>⚠️ Important:</strong> Please save these credentials securely. You will need them to log in to the student portal.
                                 </p>
+                            </div>
+
+                            <div style="background-color: #e8f5e9; border-left: 4px solid #2e7d32; border-radius: 4px; padding: 18px; margin: 20px 0;">
+                                <p style="color: #1b5e20; font-size: 15px; margin: 0 0 12px 0; line-height: 1.5;">
+                                    <strong>✅ After you log in</strong>, use the student portal to stay updated:
+                                </p>
+                                <ul style="color: #333; font-size: 14px; line-height: 1.65; margin: 0; padding-left: 22px;">
+                                    <li style="margin-bottom: 8px;"><strong>Dashboard</strong> — check your application / enrollment status for each course (Pending, Active, etc.).</li>
+                                    <li style="margin-bottom: 8px;"><strong><a href="{$fees_url}" style="color: #0a1628;">Fee Details</a></strong> — see fee amounts, pay online if required, and download payment receipts.</li>
+                                    <li style="margin-bottom: 0;"><strong>Profile &amp; documents</strong> — view your registration details, announcements, and certificates when they are issued.</li>
+                                </ul>
                             </div>
                             
                             <!-- Login Button -->
                             <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
                                 <tr>
                                     <td align="center">
-                                        <a href="https://nielitbhubaneswar.in/student/login.php" 
+                                        <a href="{$login_url}" 
                                            style="display: inline-block; background: linear-gradient(135deg, #0a1628 0%, #112240 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 6px rgba(13, 71, 161, 0.3);">
                                             Login to Student Portal
                                         </a>
@@ -338,6 +356,9 @@ HTML;
  * Get plain text version of registration email
  */
 function getRegistrationEmailPlainText($student_name, $student_id, $password, $course_name, $training_center) {
+    $login_url = getEmailPublicPageUrl('student/login.php');
+    $fees_url = getEmailPublicPageUrl('student/fees.php');
+
     return <<<TEXT
 REGISTRATION SUCCESSFUL - NIELIT Bhubaneswar
 
@@ -350,11 +371,16 @@ YOUR LOGIN CREDENTIALS:
 Student ID: {$student_id}
 Password: {$password}
 Course: {$course_name}
-Training Centre: {$training_center}
+Training Center: {$training_center}
 
-IMPORTANT: Please save these credentials securely. You will need them to access your student portal.
+IMPORTANT: Please save these credentials securely. You will need them to log in to the student portal.
 
-Login to Student Portal: https://nielitbhubaneswar.in/student/login.php
+AFTER YOU LOG IN:
+- Dashboard — check your application / enrollment status for each course.
+- Fee Details ({$fees_url}) — pay course fees online if required and download receipts.
+- Profile — view your registration details, announcements, and certificates when issued.
+
+Login to Student Portal: {$login_url}
 
 If you have any questions or need assistance, please contact us at:
 Email: admin@nielitbhubaneswar.in
