@@ -330,10 +330,7 @@ $active_theme = loadActiveTheme($conn);
                             <label class="form-label">Total Seats *</label>
                             <input type="number" class="form-control" name="seats_total" min="1" step="1"
                                    value="<?php echo $batch['seats_total']; ?>" required>
-                            <small class="text-muted">
-                                Capacity <?php echo htmlspecialchars(batchSeatsCapacityLabel((int) $batch['seats_total'])); ?>
-                                · <?php echo (int) $batch['seats_filled']; ?> filled
-                            </small>
+                            <small class="text-muted">Currently filled: <?php echo $batch['seats_filled']; ?> seats</small>
                         </div>
                         
                         <div class="form-group">
