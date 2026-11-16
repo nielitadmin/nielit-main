@@ -14,6 +14,11 @@ require_once __DIR__ . '/includes/student_inspector_enrollment.php';
 require_once __DIR__ . '/includes/student_inspector_roster.php';
 require_once __DIR__ . '/includes/student_inspector_directory.php';
 require_once __DIR__ . '/includes/student_inspector_list_import.php';
+require_once __DIR__ . '/../includes/batch_assignment_helper.php';
+
+if (function_exists('repairStudentCourseIdFromBatchAssignment')) {
+    repairStudentCourseIdFromBatchAssignment($conn);
+}
 
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');

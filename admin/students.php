@@ -54,6 +54,9 @@ if (function_exists('ensureStudentCourseRemovalArchive')) {
 if (function_exists('repairStaleCourseRemovalArchives')) {
     repairStaleCourseRemovalArchives($conn);
 }
+if (function_exists('repairStudentCourseIdFromBatchAssignment')) {
+    repairStudentCourseIdFromBatchAssignment($conn);
+}
 
 // Role flags
 $admin_role = $_SESSION['admin_role'] ?? '';

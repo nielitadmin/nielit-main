@@ -299,4 +299,122 @@ if (!function_exists('batch_assignment_ensure_schema')) {
         sort($ids, SORT_NUMERIC);
         return $ids !== [] ? $ids : [$courseId];
     }
+
+    /**
+     * Point a student enrollment row at the batch's course when both share the same course_name (JUL vs OCT intake).
+     */
+    function alignStudentRecordToBatchCourse(mysqli $conn, int $studentRecordId, int $batchCourseId): bool
+    {
+        $studentRecordId = (int) $studentRecordId;
+        $batchCourseId = (int) $batchCourseId;
+        if ($studentRecordId <= 0 || $batchCourseId <= 0) {
+            return false;
+        }
+        $stmt = $conn->prepare('SELECT course_id FROM students WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('i', $studentRecordId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return false;
+        }
+        $currentCourseId = (int) ($row['course_id'] ?? 0);
+        if ($currentCourseId === $batchCourseId) {
+            return true;
+        }
+        if (!coursesAreEquivalentForEnrollment($conn, $currentCourseId, $batchCourseId)) {
+            return false;
+        }
+        $cStmt = $conn->prepare('SELECT course_name FROM courses WHERE id = ? LIMIT 1');
+        if (!$cStmt) {
+            return false;
+        }
+        $cStmt->bind_param('i', $batchCourseId);
+        $cStmt->execute();
+        $cRow = $cStmt->get_result()->fetch_assoc();
+        $cStmt->close();
+        $courseName = trim((string) ($cRow['course_name'] ?? ''));
+        if ($courseName === '') {
+            return false;
+        }
+        $upd = $conn->prepare('UPDATE students SET course_id = ?, course = ? WHERE id = ?');
+        if (!$upd) {
+            return false;
+        }
+        $upd->bind_param('isi', $batchCourseId, $courseName, $studentRecordId);
+        $ok = $upd->execute();
+        $upd->close();
+        if (!$ok) {
+            return false;
+        }
+        $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($enrTable && $enrTable->num_rows > 0) {
+            $enr = $conn->prepare(
+                'UPDATE student_enrollments SET course_id = ? WHERE student_record_id = ?'
+            );
+            if ($enr) {
+                $enr->bind_param('ii', $batchCourseId, $studentRecordId);
+                $enr->execute();
+                $enr->close();
+            }
+        }
+        if (function_exists('syncStudentEnrollmentRecord')) {
+            syncStudentEnrollmentRecord($conn, $studentRecordId);
+        }
+        return true;
+    }
+
+    /**
+     * Fix students still on CCC-OCT (etc.) while linked to a batch on CCC-JUL — same course_name only.
+     */
+    function repairStudentCourseIdFromBatchAssignment(mysqli $conn): int
+    {
+        $enrTable = @$conn->query("SHOW TABLES LIKE 'batch_students'");
+        if (!$enrTable || $enrTable->num_rows === 0) {
+            return 0;
+        }
+        $collate = function_exists('sqlUtf8mb4Collate') ? sqlUtf8mb4Collate() : 'utf8mb4_unicode_ci';
+        $hasRecordCol = @$conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+        $useRecord = $hasRecordCol && $hasRecordCol->num_rows > 0;
+        if ($useRecord) {
+            $sql = "UPDATE students s
+                    INNER JOIN batch_students bs ON bs.student_record_id = s.id
+                    INNER JOIN batches b ON b.id = bs.batch_id
+                    INNER JOIN courses cb ON cb.id = b.course_id
+                    INNER JOIN courses cs ON cs.id = s.course_id
+                    SET s.course_id = b.course_id, s.course = cb.course_name
+                    WHERE s.course_id != b.course_id
+                      AND TRIM(cs.course_name) COLLATE {$collate} = TRIM(cb.course_name) COLLATE {$collate}
+                      AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+        } else {
+            $sql = "UPDATE students s
+                    INNER JOIN batch_students bs ON bs.student_id = s.id
+                    INNER JOIN batches b ON b.id = bs.batch_id
+                    INNER JOIN courses cb ON cb.id = b.course_id
+                    INNER JOIN courses cs ON cs.id = s.course_id
+                    SET s.course_id = b.course_id, s.course = cb.course_name
+                    WHERE s.course_id != b.course_id
+                      AND TRIM(cs.course_name) COLLATE {$collate} = TRIM(cb.course_name) COLLATE {$collate}
+                      AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+        }
+        if (!$conn->query($sql)) {
+            return 0;
+        }
+        $n = (int) $conn->affected_rows;
+        $seTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($seTable && $seTable->num_rows > 0 && $useRecord) {
+            $sql2 = "UPDATE student_enrollments se
+                     INNER JOIN batch_students bs ON bs.student_record_id = se.student_record_id
+                     INNER JOIN batches b ON b.id = bs.batch_id
+                     SET se.course_id = b.course_id
+                     WHERE se.course_id != b.course_id";
+            if ($conn->query($sql2)) {
+                $n += (int) $conn->affected_rows;
+            }
+        }
+        return $n;
+    }
 }

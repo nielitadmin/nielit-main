@@ -3121,6 +3121,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                         $fixUpd->execute();
                         $fixUpd->close();
                     }
+                    if (function_exists('alignStudentRecordToBatchCourse')) {
+                        alignStudentRecordToBatchCourse($conn, $studentRecordId, $batchCourseId);
+                    }
                     return ['success' => true, 'message' => 'Student is already in this batch.'];
                 }
                 $check->close();
@@ -3151,6 +3154,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                         $fixUpd->bind_param('ii', $batchId, $studentRecordId);
                         $fixUpd->execute();
                         $fixUpd->close();
+                    }
+                    if (function_exists('alignStudentRecordToBatchCourse')) {
+                        alignStudentRecordToBatchCourse($conn, $studentRecordId, $batchCourseId);
                     }
                     return ['success' => true, 'message' => 'Student is already in this batch.'];
                 }
@@ -3190,6 +3196,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
                         $fixLink->execute();
                         $fixLink->close();
                     }
+                }
+                if (function_exists('alignStudentRecordToBatchCourse')) {
+                    alignStudentRecordToBatchCourse($conn, $studentRecordId, $batchCourseId);
                 }
                 return ['success' => true, 'message' => 'Student linked to this batch.'];
             }
@@ -3267,6 +3276,10 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if (file_exists(__DIR__ . '/nielit_registration_helper.php')) {
             require_once __DIR__ . '/nielit_registration_helper.php';
             syncNielitRegistrationNoDefault($conn, $studentRecordId, $batchId);
+        }
+
+        if (function_exists('alignStudentRecordToBatchCourse')) {
+            alignStudentRecordToBatchCourse($conn, $studentRecordId, (int) ($batch['course_id'] ?? 0));
         }
 
         return ['success' => true, 'message' => 'Student assigned to batch successfully.'];
