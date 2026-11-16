@@ -228,35 +228,4 @@ if (!function_exists('batch_assignment_ensure_schema')) {
             WHERE aba.admin_id = ? AND aba.is_active = 1
         ))";
     }
-
-    /**
-     * True when two courses.id rows are the same program (duplicate intakes share course_name).
-     */
-    function coursesAreEquivalentForEnrollment(mysqli $conn, int $courseIdA, int $courseIdB): bool
-    {
-        $courseIdA = (int) $courseIdA;
-        $courseIdB = (int) $courseIdB;
-        if ($courseIdA <= 0 || $courseIdB <= 0) {
-            return $courseIdA === $courseIdB;
-        }
-        if ($courseIdA === $courseIdB) {
-            return true;
-        }
-        $collate = function_exists('sqlUtf8mb4Collate') ? sqlUtf8mb4Collate() : 'utf8mb4_unicode_ci';
-        $stmt = $conn->prepare(
-            "SELECT 1 FROM courses a
-             INNER JOIN courses b ON b.id = ?
-             WHERE a.id = ?
-               AND TRIM(a.course_name) COLLATE {$collate} = TRIM(b.course_name) COLLATE {$collate}
-             LIMIT 1"
-        );
-        if (!$stmt) {
-            return false;
-        }
-        $stmt->bind_param('ii', $courseIdB, $courseIdA);
-        $stmt->execute();
-        $ok = (bool) $stmt->get_result()->fetch_row();
-        $stmt->close();
-        return $ok;
-    }
 }
