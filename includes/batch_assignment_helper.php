@@ -438,6 +438,167 @@ if (!function_exists('batch_assignment_ensure_schema')) {
     }
 
     /**
+     * Move batch_students (and students.batch_id) from one enrollment record to another (same portal Student ID).
+     */
+    function transferStudentBatchLinks(mysqli $conn, int $fromRecordId, int $toRecordId): int
+    {
+        $fromRecordId = (int) $fromRecordId;
+        $toRecordId = (int) $toRecordId;
+        if ($fromRecordId <= 0 || $toRecordId <= 0 || $fromRecordId === $toRecordId) {
+            return 0;
+        }
+        $moved = 0;
+        $hasRecordCol = @$conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
+        if ($hasRecordCol && $hasRecordCol->num_rows > 0) {
+            $upd = $conn->prepare('UPDATE batch_students SET student_record_id = ? WHERE student_record_id = ?');
+            if ($upd) {
+                $upd->bind_param('ii', $toRecordId, $fromRecordId);
+                $upd->execute();
+                $moved += max(0, (int) $upd->affected_rows);
+                $upd->close();
+            }
+        }
+        $batchId = 0;
+        $bStmt = $conn->prepare('SELECT batch_id FROM students WHERE id = ? LIMIT 1');
+        if ($bStmt) {
+            $bStmt->bind_param('i', $fromRecordId);
+            $bStmt->execute();
+            $bRow = $bStmt->get_result()->fetch_assoc();
+            $bStmt->close();
+            $batchId = (int) ($bRow['batch_id'] ?? 0);
+        }
+        if ($batchId > 0) {
+            $toUpd = $conn->prepare('UPDATE students SET batch_id = ? WHERE id = ?');
+            if ($toUpd) {
+                $toUpd->bind_param('ii', $batchId, $toRecordId);
+                $toUpd->execute();
+                $toUpd->close();
+            }
+            $fromClr = $conn->prepare('UPDATE students SET batch_id = NULL WHERE id = ?');
+            if ($fromClr) {
+                $fromClr->bind_param('i', $fromRecordId);
+                $fromClr->execute();
+                $fromClr->close();
+            }
+        }
+        $batchCourseId = 0;
+        $bc = $conn->prepare(
+            'SELECT b.course_id FROM batch_students bs
+             INNER JOIN batches b ON b.id = bs.batch_id
+             WHERE bs.student_record_id = ? LIMIT 1'
+        );
+        if ($bc) {
+            $bc->bind_param('i', $toRecordId);
+            $bc->execute();
+            $bcRow = $bc->get_result()->fetch_assoc();
+            $bc->close();
+            $batchCourseId = (int) ($bcRow['course_id'] ?? 0);
+        }
+        if ($batchCourseId > 0) {
+            alignStudentRecordToBatchCourse($conn, $toRecordId, $batchCourseId);
+        }
+        return $moved;
+    }
+
+    /**
+     * When batch is on a mis-labelled roster row but student_accounts uses another name, attach batch to the account row.
+     */
+    function repairStudentPortalIdentity(mysqli $conn, string $studentIdStr): int
+    {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
+            return 0;
+        }
+        $accountName = '';
+        $acc = $conn->prepare('SELECT name FROM student_accounts WHERE student_id = ? LIMIT 1');
+        if ($acc) {
+            $acc->bind_param('s', $studentIdStr);
+            $acc->execute();
+            $accRow = $acc->get_result()->fetch_assoc();
+            $acc->close();
+            $accountName = strtolower(trim((string) ($accRow['name'] ?? '')));
+        }
+        if ($accountName === '') {
+            return 0;
+        }
+        $sql = "SELECT s.id, s.name, s.status,
+                       (SELECT COUNT(*) FROM batch_students bs WHERE bs.student_record_id = s.id) AS batch_links
+                FROM students s
+                WHERE s.student_id = ?";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('s', $studentIdStr);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+        if ($rows === []) {
+            return 0;
+        }
+        $accountRecordId = 0;
+        $batchRecordId = 0;
+        foreach ($rows as $row) {
+            $rid = (int) ($row['id'] ?? 0);
+            $nm = strtolower(trim((string) ($row['name'] ?? '')));
+            if ($nm === $accountName) {
+                $accountRecordId = $rid;
+            }
+            if ((int) ($row['batch_links'] ?? 0) > 0) {
+                $batchRecordId = $rid;
+            }
+        }
+        $actions = 0;
+        if ($accountRecordId > 0 && $batchRecordId > 0 && $accountRecordId !== $batchRecordId) {
+            $actions += transferStudentBatchLinks($conn, $batchRecordId, $accountRecordId);
+            $react = $conn->prepare(
+                "UPDATE students SET status = 'active' WHERE id = ? AND LOWER(IFNULL(status,'')) = 'inactive'"
+            );
+            if ($react) {
+                $react->bind_param('i', $accountRecordId);
+                $react->execute();
+                $actions += (int) $react->affected_rows;
+                $react->close();
+            }
+            $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+            if ($enrTable && $enrTable->num_rows > 0) {
+                $enr = $conn->prepare(
+                    "UPDATE student_enrollments SET status = 'active' WHERE student_record_id = ?"
+                );
+                if ($enr) {
+                    $enr->bind_param('i', $accountRecordId);
+                    $enr->execute();
+                    $enr->close();
+                }
+            }
+        } elseif ($batchRecordId > 0 && $accountRecordId === 0) {
+            $accNameRaw = '';
+            $acc2 = $conn->prepare('SELECT name FROM student_accounts WHERE student_id = ? LIMIT 1');
+            if ($acc2) {
+                $acc2->bind_param('s', $studentIdStr);
+                $acc2->execute();
+                $ar = $acc2->get_result()->fetch_assoc();
+                $acc2->close();
+                $accNameRaw = trim((string) ($ar['name'] ?? ''));
+            }
+            if ($accNameRaw !== '') {
+                $ren = $conn->prepare('UPDATE students SET name = ? WHERE id = ?');
+                if ($ren) {
+                    $ren->bind_param('si', $accNameRaw, $batchRecordId);
+                    $ren->execute();
+                    $actions += (int) $ren->affected_rows;
+                    $ren->close();
+                }
+            }
+        }
+        return $actions;
+    }
+
+    /**
      * One active enrollment per student + course_name + scheme (collapse CCC-OCT vs CCC-JUL).
      */
     function repairDuplicateEquivalentCourseEnrollments(mysqli $conn, ?string $studentIdFilter = null): int
@@ -500,12 +661,16 @@ if (!function_exists('batch_assignment_ensure_schema')) {
             }
             usort($members, static function (array $a, array $b) use ($accountName): int {
                 $score = static function (array $r) use ($accountName): int {
-                    $s = ((int) ($r['batch_links'] ?? 0) > 0) ? 1000 : 0;
+                    $s = 0;
                     $nm = strtolower(trim((string) ($r['name'] ?? '')));
                     if ($accountName !== '' && $nm === $accountName) {
-                        $s += 100;
+                        $s += 10000;
                     }
-                    return $s - (int) ($r['id'] ?? 0);
+                    if ((int) ($r['batch_links'] ?? 0) > 0) {
+                        $s += 1000;
+                    }
+                    $s += (int) ($r['id'] ?? 0);
+                    return $s;
                 };
                 return $score($b) <=> $score($a);
             });
@@ -516,7 +681,7 @@ if (!function_exists('batch_assignment_ensure_schema')) {
                     continue;
                 }
                 if ((int) ($drop['batch_links'] ?? 0) > 0 && (int) ($members[0]['batch_links'] ?? 0) === 0) {
-                    continue;
+                    transferStudentBatchLinks($conn, $dropId, $keepId);
                 }
                 $upd = $conn->prepare("UPDATE students SET status = 'inactive' WHERE id = ?");
                 if ($upd) {

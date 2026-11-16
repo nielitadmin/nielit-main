@@ -428,16 +428,40 @@ if ($searched) {
         }
     }
 
-    if (inspectorHasIdentityCriteria($searchCriteria) && function_exists('reconcileStudentBatchLinksForStudent')) {
+    $reconcileSid = '';
+    if (inspectorHasIdentityCriteria($searchCriteria)) {
         $reconcileSid = trim((string) ($searchCriteria['student_id'] ?? ''));
         if ($reconcileSid === '' && !empty($studentRows[0]['student_id'])) {
             $reconcileSid = trim((string) $studentRows[0]['student_id']);
+        } elseif ($reconcileSid === '' && !empty($hiddenStudentRows[0]['student_id'])) {
+            $reconcileSid = trim((string) $hiddenStudentRows[0]['student_id']);
+        } elseif ($reconcileSid === '' && !empty($accountRows[0]['student_id'])) {
+            $reconcileSid = trim((string) $accountRows[0]['student_id']);
         }
-        if ($reconcileSid !== '') {
-            reconcileStudentBatchLinksForStudent($conn, $reconcileSid);
+    }
+    if ($reconcileSid !== '' && function_exists('reconcileStudentBatchLinksForStudent')) {
+        reconcileStudentBatchLinksForStudent($conn, $reconcileSid);
+        if (function_exists('repairStudentPortalIdentity')) {
+            repairStudentPortalIdentity($conn, $reconcileSid);
         }
         if (function_exists('repairDuplicateEquivalentCourseEnrollments')) {
-            repairDuplicateEquivalentCourseEnrollments($conn, $reconcileSid !== '' ? $reconcileSid : null);
+            repairDuplicateEquivalentCourseEnrollments($conn, $reconcileSid);
+        }
+        $searchResult = inspectorRunSearch($conn, $searchCriteria);
+        $studentRows = $searchResult['studentRows'];
+        $hiddenStudentRows = $searchResult['hiddenStudentRows'];
+        $accountRows = $searchResult['accountRows'];
+        $enrollmentRows = $searchResult['enrollmentRows'];
+        $courseFilterLabel = $searchResult['courseFilterLabel'];
+        $inAdminPanel = !empty($studentRows);
+        $hasOrphanEnrollments = empty($studentRows) && !empty($enrollmentRows);
+        $exists = $inAdminPanel || !empty($accountRows) || !empty($enrollmentRows) || !empty($hiddenStudentRows);
+        if ($inAdminPanel) {
+            $summary = 'Student is in the database and SHOULD appear in Admin → Students.';
+        } elseif ($hasOrphanEnrollments) {
+            $summary = 'Orphan enrollment only — NOT visible in Admin → Students (missing students row).';
+        } elseif (!empty($hiddenStudentRows)) {
+            $summary = 'Student exists but is rejected/inactive — hidden from Admin → Students.';
         }
     }
 

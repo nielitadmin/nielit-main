@@ -138,9 +138,12 @@ if (!function_exists('inspectorBuildEnrollmentContext')) {
             }
             $sid = (string) ($row['student_id'] ?? $primaryStudentId);
             if ($sid !== '') {
-                $nm = strtolower(trim((string) ($row['name'] ?? '')));
-                if ($nm !== '') {
-                    $nameByStudentId[$sid][$nm] = true;
+                $st = strtolower(trim((string) ($row['status'] ?? 'active')));
+                if (!in_array($st, ['inactive', 'rejected'], true)) {
+                    $nm = strtolower(trim((string) ($row['name'] ?? '')));
+                    if ($nm !== '') {
+                        $nameByStudentId[$sid][$nm] = true;
+                    }
                 }
             }
             $courseId = (int) ($row['course_id'] ?? 0);

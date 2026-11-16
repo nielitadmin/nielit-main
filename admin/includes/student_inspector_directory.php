@@ -485,6 +485,19 @@ if (!function_exists('inspectorDedupeDirectoryRowsByStudentId')) {
      */
     function inspectorDedupeDirectoryRowsByStudentId(array $rows): array
     {
+        $statusRank = static function (array $row): int {
+            $st = strtolower(trim((string) ($row['status'] ?? '')));
+            if (in_array($st, ['active', 'approved'], true)) {
+                return 3;
+            }
+            if ($st === 'pending') {
+                return 2;
+            }
+            if (in_array($st, ['inactive', 'rejected'], true)) {
+                return 0;
+            }
+            return 1;
+        };
         $byStudent = [];
         foreach ($rows as $row) {
             $studentId = trim((string)($row['student_id'] ?? ''));
@@ -494,6 +507,15 @@ if (!function_exists('inspectorDedupeDirectoryRowsByStudentId')) {
                 continue;
             }
             $existing = $byStudent[$key];
+            $existingRank = $statusRank($existing);
+            $rowRank = $statusRank($row);
+            if ($rowRank > $existingRank) {
+                $byStudent[$key] = $row;
+                continue;
+            }
+            if ($rowRank < $existingRank) {
+                continue;
+            }
             $existingTs = strtotime((string)($existing['apply_date'] ?? '')) ?: 0;
             $rowTs = strtotime((string)($row['apply_date'] ?? '')) ?: 0;
             if ($rowTs > $existingTs || (int)($row['id'] ?? 0) > (int)($existing['id'] ?? 0)) {
