@@ -921,9 +921,10 @@ function getBatchEnrolledCount($batch_id, $conn) {
     $hasBatchStudents = ($check && $check->num_rows > 0);
 
     if ($hasBatchStudents) {
-        $sql = "SELECT COUNT(DISTINCT s.id) AS enrolled_count
+        $sql = "SELECT COUNT(DISTINCT s.student_id) AS enrolled_count
                 FROM students s
                 WHERE LOWER(COALESCE(s.status, '')) NOT IN ('rejected', 'inactive')
+                AND TRIM(IFNULL(s.student_id, '')) != ''
                 AND (
                     s.batch_id = ?
                     OR EXISTS (
@@ -942,7 +943,7 @@ function getBatchEnrolledCount($batch_id, $conn) {
         }
     }
 
-    $stmt = $conn->prepare("SELECT COUNT(*) AS enrolled_count FROM students WHERE batch_id = ? AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive')");
+    $stmt = $conn->prepare("SELECT COUNT(DISTINCT student_id) AS enrolled_count FROM students WHERE batch_id = ? AND LOWER(COALESCE(status, '')) NOT IN ('rejected', 'inactive') AND TRIM(IFNULL(student_id, '')) != ''");
     if (!$stmt) {
         return 0;
     }

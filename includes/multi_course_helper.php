@@ -749,11 +749,13 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if ($courseIdIn === '') {
             $courseIdIn = (string) (int) $courseId;
         }
-        $sql = "SELECT DISTINCT sch.id, sch.scheme_name, sch.scheme_code, s.id AS student_record_id
+        $sql = "SELECT sch.id, sch.scheme_name, sch.scheme_code,
+                       MIN(s.id) AS student_record_id
                 FROM students s
                 INNER JOIN schemes sch ON sch.id = s.scheme_id
                 WHERE s.student_id = ? AND s.course_id IN ({$courseIdIn})
                 AND LOWER(s.status) NOT IN ('rejected', 'inactive')
+                GROUP BY sch.id, sch.scheme_name, sch.scheme_code
                 ORDER BY sch.scheme_name ASC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
