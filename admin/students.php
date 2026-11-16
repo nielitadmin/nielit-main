@@ -2590,8 +2590,8 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="per_page"      value="<?php echo (int)$per_page; ?>">
             <div id="batch-modal-enrollments"></div>
             <p id="batch-modal-empty" style="display:none;color:#b45309;font-size:13px;margin-top:8px;">
-                <i class="fas fa-exclamation-triangle"></i> No active batches found for this course.
-                If you created a batch under another intake (e.g. CCC-JUL vs CCC-OCT), use a batch with the same course name.
+                <i class="fas fa-exclamation-triangle"></i> No batches match this student's course and scheme.
+                Create a batch with the same course and scheme, or set the student's scheme in Edit Student.
             </p>
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button type="submit" name="assign_batch" class="btn btn-primary" style="flex:1;">
@@ -2646,7 +2646,7 @@ if ($other_gender_count > 0) {
                     <?php endforeach; ?>
                 </select>
                 <small style="color:#64748b;margin-top:5px;display:block;">
-                    <i class="fas fa-lightbulb"></i> Batches are filtered by selected students' courses
+                    <i class="fas fa-lightbulb"></i> Only batches matching all selected students' course and scheme are listed
                 </small>
             </div>
             <div style="display:flex;gap:10px;margin-top:20px;">
@@ -2953,10 +2953,10 @@ function batchOptionLabel(batch) {
 
 function getEligibleBatchesForEnrollment(enrollment, courseId, courseName) {
     const assigned = new Set((enrollment.assigned_batch_ids || []).map(String));
-    // Show every batch for this course (Regular + SCSP/TSP, etc.).
-    // Server aligns the student's scheme to the selected batch on assign.
+    const enrollmentSchemeId = parseInt(enrollment.scheme_id, 10) || 0;
     return ALL_BATCHES.filter(batch => {
         return courseMatchesBatch(courseId, batch.course_id, courseName, batch.course_name)
+            && schemeMatchesBatch(enrollmentSchemeId, batch.scheme_id)
             && !assigned.has(String(batch.id));
     });
 }
@@ -3073,8 +3073,9 @@ function openBulkBatchModal() {
     container.innerHTML = '';
     const courses = new Set();
     const courseIds = new Set();
+    const checkedList = Array.from(checked);
 
-    checked.forEach(cb => {
+    checkedList.forEach(cb => {
         const inp = document.createElement('input');
         inp.type = 'hidden'; inp.name = 'student_record_ids[]'; inp.value = cb.value;
         container.appendChild(inp);
@@ -3087,11 +3088,15 @@ function openBulkBatchModal() {
     document.getElementById('bulk-modal-batch-select').querySelectorAll('option').forEach(opt => {
         if (!opt.value) { opt.style.display = ''; return; }
         const batchCourseId = parseInt(opt.dataset.courseId, 10) || 0;
+        const batchSchemeId = parseInt(opt.dataset.schemeId, 10) || 0;
         const oc = (opt.dataset.course || '').trim().toLowerCase();
         const courseOk = (batchCourseId > 0 && courseIds.has(batchCourseId))
             || (oc !== '' && courses.has(oc));
-        // Show batches for the same course name even when courses.id differs (e.g. CCC-OCT vs CCC-JUL)
-        opt.style.display = courseOk ? '' : 'none';
+        const schemeOk = checkedList.every(cb => {
+            const studentSchemeId = parseInt(cb.dataset.schemeId, 10) || 0;
+            return schemeMatchesBatch(studentSchemeId, batchSchemeId);
+        });
+        opt.style.display = (courseOk && schemeOk) ? '' : 'none';
     });
 
     document.getElementById('bulk-modal-batch-select').value = '';
