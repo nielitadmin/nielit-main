@@ -1027,6 +1027,17 @@ function getBatchesForStudentCourse($conn, string $studentIdStr, int $courseId):
         return [];
     }
 
+    if (!function_exists('getCourseIdsWithSameName')) {
+        require_once dirname(__DIR__, 2) . '/includes/batch_assignment_helper.php';
+    }
+    $courseIds = function_exists('getCourseIdsWithSameName')
+        ? getCourseIdsWithSameName($conn, $courseId)
+        : [$courseId];
+    if ($courseIds === []) {
+        $courseIds = [$courseId];
+    }
+    $courseIdIn = implode(',', array_map('intval', $courseIds));
+
     $batches = [];
     $hasRecordCol = $conn->query("SHOW COLUMNS FROM batch_students LIKE 'student_record_id'");
     $useRecordCol = ($hasRecordCol && $hasRecordCol->num_rows > 0);
@@ -1037,11 +1048,11 @@ function getBatchesForStudentCourse($conn, string $studentIdStr, int $courseId):
                 FROM batch_students bs
                 INNER JOIN batches b ON b.id = bs.batch_id
                 INNER JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
-                WHERE s.student_id = ? AND s.course_id = ?
+                WHERE s.student_id = ? AND s.course_id IN ({$courseIdIn})
                 ORDER BY b.batch_name ASC";
         $stmt = $conn->prepare($sql);
         if ($stmt) {
-            $stmt->bind_param('si', $studentIdStr, $courseId);
+            $stmt->bind_param('s', $studentIdStr);
             $stmt->execute();
             $res = $stmt->get_result();
             while ($row = $res->fetch_assoc()) {
@@ -1060,11 +1071,11 @@ function getBatchesForStudentCourse($conn, string $studentIdStr, int $courseId):
                 FROM batch_students bs
                 INNER JOIN batches b ON b.id = bs.batch_id
                 INNER JOIN students s ON s.id = bs.student_id
-                WHERE s.student_id = ? AND s.course_id = ?
+                WHERE s.student_id = ? AND s.course_id IN ({$courseIdIn})
                 ORDER BY b.batch_name ASC";
         $stmt = $conn->prepare($sql);
         if ($stmt) {
-            $stmt->bind_param('si', $studentIdStr, $courseId);
+            $stmt->bind_param('s', $studentIdStr);
             $stmt->execute();
             $res = $stmt->get_result();
             while ($row = $res->fetch_assoc()) {
@@ -1083,10 +1094,10 @@ function getBatchesForStudentCourse($conn, string $studentIdStr, int $courseId):
     $fallback = $conn->prepare("SELECT s.id AS student_record_id, b.id, b.batch_name, b.batch_code
         FROM students s
         INNER JOIN batches b ON b.id = s.batch_id
-        WHERE s.student_id = ? AND s.course_id = ?
+        WHERE s.student_id = ? AND s.course_id IN ({$courseIdIn})
         AND s.batch_id IS NOT NULL AND s.batch_id > 0");
     if ($fallback) {
-        $fallback->bind_param('si', $studentIdStr, $courseId);
+        $fallback->bind_param('s', $studentIdStr);
         $fallback->execute();
         $res = $fallback->get_result();
         while ($row = $res->fetch_assoc()) {

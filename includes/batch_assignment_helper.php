@@ -259,4 +259,44 @@ if (!function_exists('batch_assignment_ensure_schema')) {
         $stmt->close();
         return $ok;
     }
+
+    /**
+     * All courses.id values sharing the same course_name (duplicate intakes, e.g. CCC-JUL vs CCC-OCT).
+     *
+     * @return int[]
+     */
+    function getCourseIdsWithSameName(mysqli $conn, int $courseId): array
+    {
+        $courseId = (int) $courseId;
+        if ($courseId <= 0) {
+            return [];
+        }
+        $collate = function_exists('sqlUtf8mb4Collate') ? sqlUtf8mb4Collate() : 'utf8mb4_unicode_ci';
+        $stmt = $conn->prepare("SELECT TRIM(course_name) AS n FROM courses WHERE id = ? LIMIT 1");
+        if (!$stmt) {
+            return [$courseId];
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $name = trim((string) ($row['n'] ?? ''));
+        if ($name === '') {
+            return [$courseId];
+        }
+        $ids = [$courseId];
+        $q = $conn->prepare("SELECT id FROM courses WHERE TRIM(course_name) COLLATE {$collate} = ? COLLATE {$collate}");
+        if ($q) {
+            $q->bind_param('s', $name);
+            $q->execute();
+            $res = $q->get_result();
+            while ($r = $res->fetch_assoc()) {
+                $ids[] = (int) $r['id'];
+            }
+            $q->close();
+        }
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn (int $id): bool => $id > 0)));
+        sort($ids, SORT_NUMERIC);
+        return $ids !== [] ? $ids : [$courseId];
+    }
 }

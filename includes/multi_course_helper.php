@@ -739,17 +739,27 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if ($studentIdStr === '' || $courseId <= 0 || !hasSchemeEnrollmentColumns($conn)) {
             return [];
         }
+        if (!function_exists('getCourseIdsWithSameName')) {
+            require_once __DIR__ . '/batch_assignment_helper.php';
+        }
+        $courseIds = function_exists('getCourseIdsWithSameName')
+            ? getCourseIdsWithSameName($conn, $courseId)
+            : [$courseId];
+        $courseIdIn = implode(',', array_map('intval', array_filter($courseIds, static fn (int $id): bool => $id > 0)));
+        if ($courseIdIn === '') {
+            $courseIdIn = (string) (int) $courseId;
+        }
         $sql = "SELECT DISTINCT sch.id, sch.scheme_name, sch.scheme_code, s.id AS student_record_id
                 FROM students s
                 INNER JOIN schemes sch ON sch.id = s.scheme_id
-                WHERE s.student_id = ? AND s.course_id = ?
+                WHERE s.student_id = ? AND s.course_id IN ({$courseIdIn})
                 AND LOWER(s.status) NOT IN ('rejected', 'inactive')
                 ORDER BY sch.scheme_name ASC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return [];
         }
-        $stmt->bind_param('si', $studentIdStr, $courseId);
+        $stmt->bind_param('s', $studentIdStr);
         $stmt->execute();
         $res = $stmt->get_result();
         $rows = [];

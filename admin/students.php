@@ -2110,6 +2110,13 @@ if ($other_gender_count > 0) {
                                 $all_student_schemes = $student_course_schemes_cache[$schemes_cache_key] ?? [];
 
                                 $batch_assign_key = $row['student_id'] . ':' . $row_course_id;
+                                $equiv_course_ids_row = ($row_course_id > 0 && function_exists('getCourseIdsWithSameName'))
+                                    ? getCourseIdsWithSameName($conn, $row_course_id)
+                                    : [$row_course_id];
+                                $equiv_course_ids_sql = implode(',', array_map('intval', array_filter($equiv_course_ids_row, static fn (int $id): bool => $id > 0)));
+                                if ($equiv_course_ids_sql === '') {
+                                    $equiv_course_ids_sql = (string) (int) $row_course_id;
+                                }
                                 if ($row_course_id > 0 && !isset($student_course_meta_cache[$batch_assign_key])) {
                                     $meta_stmt = $conn->prepare("SELECT MIN(id) AS primary_id,
                                         MIN(created_at) AS first_registered,
@@ -2117,9 +2124,9 @@ if ($other_gender_count > 0) {
                                         SUM(CASE WHEN LOWER(status) = 'pending' THEN 1 ELSE 0 END) AS pending_count,
                                         SUM(CASE WHEN LOWER(status) = 'rejected' THEN 1 ELSE 0 END) AS rejected_count
                                         FROM students
-                                        WHERE student_id = ? AND course_id = ?");
+                                        WHERE student_id = ? AND course_id IN ({$equiv_course_ids_sql})");
                                     if ($meta_stmt) {
-                                        $meta_stmt->bind_param('si', $row['student_id'], $row_course_id);
+                                        $meta_stmt->bind_param('s', $row['student_id']);
                                         $meta_stmt->execute();
                                         $meta_row = $meta_stmt->get_result()->fetch_assoc();
                                         $meta_stmt->close();
@@ -2135,12 +2142,12 @@ if ($other_gender_count > 0) {
                                     $enr_stmt = $conn->prepare("SELECT s.id AS record_id, s.scheme_id, sch.scheme_name, sch.scheme_code
                                         FROM students s
                                         LEFT JOIN schemes sch ON sch.id = s.scheme_id
-                                        WHERE s.student_id = ? AND s.course_id = ?
+                                        WHERE s.student_id = ? AND s.course_id IN ({$equiv_course_ids_sql})
                                         AND LOWER(s.status) NOT IN ('rejected', 'inactive')
                                         ORDER BY sch.scheme_name ASC, s.id ASC");
                                     $batch_assign_rows = [];
                                     if ($enr_stmt) {
-                                        $enr_stmt->bind_param('si', $row['student_id'], $row_course_id);
+                                        $enr_stmt->bind_param('s', $row['student_id']);
                                         $enr_stmt->execute();
                                         $enr_res = $enr_stmt->get_result();
                                         while ($enr_row = $enr_res->fetch_assoc()) {
