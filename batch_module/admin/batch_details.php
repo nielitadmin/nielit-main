@@ -1342,7 +1342,8 @@ function downloadScannedOrder(batchId) {
                     <div class="info-box">
                         <h6>Seats</h6>
                         <p>
-                            <?php echo $batch['seats_filled']; ?> / <?php echo $batch['seats_total']; ?>
+                            <strong><?php echo htmlspecialchars(batchSeatsCapacityLabel((int) $batch['seats_total'])); ?></strong>
+                            <span class="text-muted">(<?php echo (int) $batch['seats_filled']; ?> filled)</span>
                             <?php 
                             $is_full = $batch['seats_filled'] >= $batch['seats_total'];
                             $is_almost_full = $batch['seats_filled'] >= ($batch['seats_total'] * 0.9);

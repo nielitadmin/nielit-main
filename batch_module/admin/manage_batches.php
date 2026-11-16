@@ -300,6 +300,9 @@ if (!$batches_result) {
 
 $batches = [];
 repairBatchStudentsJunction($conn);
+if (function_exists('syncBatchSeatsFilledColumn')) {
+    syncBatchSeatsFilledColumn($conn);
+}
 while ($row = $batches_result->fetch_assoc()) {
     $row['enrolled_count'] = getBatchEnrolledCount((int)$row['id'], $conn);
     $batches[] = $row;
@@ -564,9 +567,10 @@ $active_theme = loadActiveTheme($conn);
                                             $is_batch_full = $batch['enrolled_count'] >= $batch['seats_total'];
                                             $is_batch_almost_full = $batch['enrolled_count'] >= ($batch['seats_total'] * 0.9);
                                             ?>
-                                            <span class="badge <?php echo $is_batch_full ? 'badge-danger' : ($is_batch_almost_full ? 'badge-warning' : 'badge-info'); ?>">
-                                                <?php echo $batch['enrolled_count']; ?> / <?php echo $batch['seats_total']; ?>
+                                            <span class="badge badge-info" title="Seat capacity range">
+                                                <?php echo htmlspecialchars(batchSeatsCapacityLabel((int) $batch['seats_total'])); ?>
                                             </span>
+                                            <br><small class="text-muted"><?php echo (int) $batch['enrolled_count']; ?> filled</small>
                                             <?php if ($is_batch_full): ?>
                                                 <br><span class="badge badge-danger" style="margin-top: 4px;">
                                                     <i class="fas fa-ban"></i> FULL

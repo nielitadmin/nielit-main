@@ -908,6 +908,43 @@ function repairBatchStudentsJunction($conn, $batch_id = null) {
     return $fixed;
 }
 
+/** Capacity label for lists, e.g. 45 seats → "0-45". */
+function batchSeatsCapacityLabel(int $seatsTotal): string
+{
+    $seatsTotal = max(0, $seatsTotal);
+    return '0-' . $seatsTotal;
+}
+
+/**
+ * Keep batches.seats_filled equal to live enrollment count.
+ */
+function syncBatchSeatsFilledColumn(mysqli $conn, ?int $batchId = null): int
+{
+    if ($batchId !== null && $batchId > 0) {
+        $n = getBatchEnrolledCount($batchId, $conn);
+        $stmt = $conn->prepare('UPDATE batches SET seats_filled = ? WHERE id = ?');
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('ii', $n, $batchId);
+        $stmt->execute();
+        $stmt->close();
+        return 1;
+    }
+    $res = $conn->query('SELECT id FROM batches');
+    if (!$res) {
+        return 0;
+    }
+    $updated = 0;
+    while ($row = $res->fetch_assoc()) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id > 0 && syncBatchSeatsFilledColumn($conn, $id) > 0) {
+            $updated++;
+        }
+    }
+    return $updated;
+}
+
 /**
  * Count students enrolled in a batch (primary batch_id + batch_students links).
  */

@@ -303,7 +303,7 @@ $active_theme = loadActiveTheme($conn);
                                                 <?php endif; ?>
                                         >
                                             <?php echo htmlspecialchars($batch['batch_name']); ?> 
-                                            (<?php echo $batch['enrolled_count']; ?>/<?php echo $batch['seats_total']; ?> seats)
+                                            (<?php echo htmlspecialchars(batchSeatsCapacityLabel((int) $batch['seats_total'])); ?>, <?php echo (int) $batch['enrolled_count']; ?> filled)
                                             <?php if ($is_full): ?>
                                                 ❌ FULL
                                             <?php elseif ($is_almost_full): ?>
