@@ -2590,7 +2590,8 @@ if ($other_gender_count > 0) {
             <input type="hidden" name="per_page"      value="<?php echo (int)$per_page; ?>">
             <div id="batch-modal-enrollments"></div>
             <p id="batch-modal-empty" style="display:none;color:#b45309;font-size:13px;margin-top:8px;">
-                <i class="fas fa-exclamation-triangle"></i> No matching batches available for the selected scheme(s).
+                <i class="fas fa-exclamation-triangle"></i> No active batches found for this course.
+                If you created a batch under another intake (e.g. CCC-JUL vs CCC-OCT), use a batch with the same course name.
             </p>
             <div style="display:flex;gap:10px;margin-top:20px;">
                 <button type="submit" name="assign_batch" class="btn btn-primary" style="flex:1;">
@@ -2934,12 +2935,12 @@ function schemeMatchesBatch(studentSchemeId, batchSchemeId) {
 function courseMatchesBatch(studentCourseId, batchCourseId, studentCourseName, batchCourseName) {
     const studentId = parseInt(studentCourseId, 10) || 0;
     const batchId = parseInt(batchCourseId, 10) || 0;
-    if (studentId > 0 && batchId > 0) {
-        return studentId === batchId;
+    if (studentId > 0 && batchId > 0 && studentId === batchId) {
+        return true;
     }
     const norm = (studentCourseName || '').trim().toLowerCase();
     const optCourse = (batchCourseName || '').trim().toLowerCase();
-    return norm !== '' && optCourse === norm;
+    return norm !== '' && optCourse !== '' && optCourse === norm;
 }
 
 function batchOptionLabel(batch) {
@@ -3088,8 +3089,8 @@ function openBulkBatchModal() {
         const batchCourseId = parseInt(opt.dataset.courseId, 10) || 0;
         const oc = (opt.dataset.course || '').trim().toLowerCase();
         const courseOk = (batchCourseId > 0 && courseIds.has(batchCourseId))
-            || (courseIds.size === 0 && courses.has(oc));
-        // Show all batches for the course; scheme is adopted from the batch on assign
+            || (oc !== '' && courses.has(oc));
+        // Show batches for the same course name even when courses.id differs (e.g. CCC-OCT vs CCC-JUL)
         opt.style.display = courseOk ? '' : 'none';
     });
 

@@ -2986,6 +2986,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
     }
 
     function assignEnrollmentToBatch(mysqli $conn, int $studentRecordId, int $batchId, string $adminName = ''): array {
+        if (!function_exists('coursesAreEquivalentForEnrollment')) {
+            require_once __DIR__ . '/batch_assignment_helper.php';
+        }
         $batch = getBatchByIdForEnrollment($conn, $batchId);
         if (!$batch) {
             return ['success' => false, 'message' => 'Batch not found.'];
@@ -3006,6 +3009,9 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
             $studentCourseId = (int) ($studentRow['course_id'] ?? 0);
             $batchCourseId = (int) ($batch['course_id'] ?? 0);
             $courseOk = ($studentCourseId === $batchCourseId);
+            if (!$courseOk && function_exists('coursesAreEquivalentForEnrollment')) {
+                $courseOk = coursesAreEquivalentForEnrollment($conn, $studentCourseId, $batchCourseId);
+            }
             $loginIdForCourseCheck = trim((string) ($studentRow['student_id'] ?? ''));
             if (!$courseOk && isMultiCourseSystemInstalled($conn) && $loginIdForCourseCheck !== '') {
                 $enrCheck = $conn->prepare(
