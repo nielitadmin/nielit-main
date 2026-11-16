@@ -417,4 +417,127 @@ if (!function_exists('batch_assignment_ensure_schema')) {
         }
         return $n;
     }
+
+    function studentRecordHasBatchLink(mysqli $conn, int $recordId): bool
+    {
+        $recordId = (int) $recordId;
+        if ($recordId <= 0) {
+            return false;
+        }
+        $stmt = $conn->prepare(
+            'SELECT 1 FROM batch_students WHERE student_record_id = ? OR student_id = ? LIMIT 1'
+        );
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('ii', $recordId, $recordId);
+        $stmt->execute();
+        $ok = (bool) $stmt->get_result()->fetch_row();
+        $stmt->close();
+        return $ok;
+    }
+
+    /**
+     * One active enrollment per student + course_name + scheme (collapse CCC-OCT vs CCC-JUL).
+     */
+    function repairDuplicateEquivalentCourseEnrollments(mysqli $conn, ?string $studentIdFilter = null): int
+    {
+        $collate = function_exists('sqlUtf8mb4Collate') ? sqlUtf8mb4Collate() : 'utf8mb4_unicode_ci';
+        $sql = "SELECT s.id, s.student_id, s.name, s.course_id, s.scheme_id,
+                       TRIM(c.course_name) AS course_name, c.course_code,
+                       (SELECT COUNT(*) FROM batch_students bs
+                        WHERE bs.student_record_id = s.id OR bs.student_id = s.id) AS batch_links
+                FROM students s
+                INNER JOIN courses c ON c.id = s.course_id
+                WHERE LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')";
+        if ($studentIdFilter !== null && $studentIdFilter !== '') {
+            $sql .= ' AND s.student_id = ?';
+        }
+        $sql .= " ORDER BY s.student_id, course_name, s.id";
+        $stmt = $studentIdFilter !== null && $studentIdFilter !== ''
+            ? $conn->prepare($sql)
+            : null;
+        if ($stmt) {
+            $stmt->bind_param('s', $studentIdFilter);
+            $stmt->execute();
+            $res = $stmt->get_result();
+        } else {
+            $res = $conn->query($sql);
+        }
+        if (!$res) {
+            if ($stmt) {
+                $stmt->close();
+            }
+            return 0;
+        }
+        $groups = [];
+        while ($row = $res->fetch_assoc()) {
+            $sid = trim((string) ($row['student_id'] ?? ''));
+            $cname = strtolower(trim((string) ($row['course_name'] ?? '')));
+            $scheme = (int) ($row['scheme_id'] ?? 0);
+            $key = $sid . '|' . $cname . '|' . $scheme;
+            $groups[$key][] = $row;
+        }
+        if ($stmt) {
+            $stmt->close();
+        }
+        $inactivated = 0;
+        foreach ($groups as $members) {
+            if (count($members) < 2) {
+                continue;
+            }
+            $accountName = '';
+            $sid = trim((string) ($members[0]['student_id'] ?? ''));
+            if ($sid !== '') {
+                $a = $conn->prepare('SELECT name FROM student_accounts WHERE student_id = ? LIMIT 1');
+                if ($a) {
+                    $a->bind_param('s', $sid);
+                    $a->execute();
+                    $ar = $a->get_result()->fetch_assoc();
+                    $a->close();
+                    $accountName = strtolower(trim((string) ($ar['name'] ?? '')));
+                }
+            }
+            usort($members, static function (array $a, array $b) use ($accountName): int {
+                $score = static function (array $r) use ($accountName): int {
+                    $s = ((int) ($r['batch_links'] ?? 0) > 0) ? 1000 : 0;
+                    $nm = strtolower(trim((string) ($r['name'] ?? '')));
+                    if ($accountName !== '' && $nm === $accountName) {
+                        $s += 100;
+                    }
+                    return $s - (int) ($r['id'] ?? 0);
+                };
+                return $score($b) <=> $score($a);
+            });
+            $keepId = (int) ($members[0]['id'] ?? 0);
+            foreach (array_slice($members, 1) as $drop) {
+                $dropId = (int) ($drop['id'] ?? 0);
+                if ($dropId <= 0 || $dropId === $keepId) {
+                    continue;
+                }
+                if ((int) ($drop['batch_links'] ?? 0) > 0 && (int) ($members[0]['batch_links'] ?? 0) === 0) {
+                    continue;
+                }
+                $upd = $conn->prepare("UPDATE students SET status = 'inactive' WHERE id = ?");
+                if ($upd) {
+                    $upd->bind_param('i', $dropId);
+                    $upd->execute();
+                    $inactivated += (int) $upd->affected_rows;
+                    $upd->close();
+                }
+                $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+                if ($enrTable && $enrTable->num_rows > 0) {
+                    $enr = $conn->prepare(
+                        "UPDATE student_enrollments SET status = 'inactive' WHERE student_record_id = ?"
+                    );
+                    if ($enr) {
+                        $enr->bind_param('i', $dropId);
+                        $enr->execute();
+                        $enr->close();
+                    }
+                }
+            }
+        }
+        return $inactivated;
+    }
 }

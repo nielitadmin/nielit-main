@@ -526,3 +526,77 @@ if (!function_exists('inspectorCollectDirectoryRecordIds')) {
         return array_values(array_unique(array_filter($ids)));
     }
 }
+
+if (!function_exists('inspectorAssignedCoursesLabel')) {
+    /**
+     * One line per program name (avoid CCC-OCT and CCC-JUL duplicate labels).
+     */
+    function inspectorAssignedCoursesLabel(mysqli $conn, string $studentIdStr): string
+    {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
+            return '';
+        }
+        $collate = function_exists('sqlUtf8mb4Collate') ? sqlUtf8mb4Collate() : 'utf8mb4_unicode_ci';
+        if (!function_exists('sqlUtf8mb4Collate')) {
+            require_once dirname(__DIR__, 2) . '/includes/student_form_helpers.php';
+        }
+        $enrTable = @$conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($enrTable && $enrTable->num_rows > 0) {
+            $sql = "SELECT c.course_name, c.course_code, se.student_record_id
+                    FROM student_enrollments se
+                    INNER JOIN courses c ON c.id = se.course_id
+                    WHERE se.student_id = ?
+                      AND LOWER(IFNULL(se.status, '')) NOT IN ('inactive', 'rejected')
+                    ORDER BY c.course_name, c.course_code";
+            $stmt = $conn->prepare($sql);
+        } else {
+            $sql = "SELECT c.course_name, c.course_code, s.id AS student_record_id
+                    FROM students s
+                    INNER JOIN courses c ON c.id = s.course_id
+                    WHERE s.student_id = ?
+                      AND LOWER(IFNULL(s.status, '')) NOT IN ('inactive', 'rejected')
+                    ORDER BY c.course_name, c.course_code";
+            $stmt = $conn->prepare($sql);
+        }
+        if (!$stmt) {
+            return '';
+        }
+        $stmt->bind_param('s', $studentIdStr);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $byName = [];
+        while ($row = $res->fetch_assoc()) {
+            $nameKey = strtolower(trim((string) ($row['course_name'] ?? '')));
+            if ($nameKey === '') {
+                continue;
+            }
+            $recordId = (int) ($row['student_record_id'] ?? 0);
+            $hasBatch = $recordId > 0 && function_exists('studentRecordHasBatchLink')
+                ? studentRecordHasBatchLink($conn, $recordId)
+                : false;
+            $code = trim((string) ($row['course_code'] ?? ''));
+            $score = ($hasBatch ? 1000 : 0) + strlen($code);
+            if (!isset($byName[$nameKey]) || $score > $byName[$nameKey]['score']) {
+                $byName[$nameKey] = [
+                    'name' => trim((string) ($row['course_name'] ?? '')),
+                    'code' => $code,
+                    'score' => $score,
+                ];
+            }
+        }
+        $stmt->close();
+        if ($byName === []) {
+            return '';
+        }
+        $parts = [];
+        foreach ($byName as $entry) {
+            $label = $entry['name'];
+            if ($entry['code'] !== '') {
+                $label .= ' (' . $entry['code'] . ')';
+            }
+            $parts[] = $label;
+        }
+        return implode(' | ', $parts);
+    }
+}

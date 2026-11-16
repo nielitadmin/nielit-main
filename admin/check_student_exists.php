@@ -19,7 +19,6 @@ require_once __DIR__ . '/../includes/batch_assignment_helper.php';
 if (function_exists('repairStudentCourseIdFromBatchAssignment')) {
     repairStudentCourseIdFromBatchAssignment($conn);
 }
-
 if (!isset($_SESSION['admin'])) {
     header('Location: login.php');
     exit();
@@ -386,7 +385,7 @@ $summary = 'No search performed yet.';
 $relatedRecords = [];
 $relatedTotal = 0;
 $collectedIds = ['record_ids' => [], 'account_ids' => [], 'student_id_strings' => []];
-$enrollmentContext = ['primary_student_id' => '', 'primary_name' => '', 'course_items' => []];
+$enrollmentContext = ['primary_student_id' => '', 'primary_name' => '', 'course_items' => [], 'name_conflicts' => []];
 $courseFilterLabel = '';
 $searchParams = $searchCriteria;
 $directoryCriteria = inspectorDirectoryCriteriaFromRequest($_GET);
@@ -436,6 +435,9 @@ if ($searched) {
         }
         if ($reconcileSid !== '') {
             reconcileStudentBatchLinksForStudent($conn, $reconcileSid);
+        }
+        if (function_exists('repairDuplicateEquivalentCourseEnrollments')) {
+            repairDuplicateEquivalentCourseEnrollments($conn, $reconcileSid !== '' ? $reconcileSid : null);
         }
     }
 
@@ -665,6 +667,17 @@ $active_theme = loadActiveTheme($conn);
             <i class="fas fa-exclamation-triangle"></i>
             Admin → Students will <strong>not</strong> show this person until a row exists in the <code>students</code> table.
             Ask them to register again, or add manually in <a href="students.php" class="alert-link">Students</a>.
+        </div>
+        <?php endif; ?>
+        <?php if (!empty($enrollmentContext['name_conflicts'])): ?>
+        <div class="small mt-2 text-danger">
+            <i class="fas fa-user-times"></i>
+            <strong>Data conflict:</strong> The same Student ID is linked to different names on multiple enrollment rows.
+            Duplicate CCC intakes (OCT vs JUL) are merged automatically; if two different people share one ID, correct the ID or inactivate the wrong row in the table below.
+            <?php foreach ($enrollmentContext['name_conflicts'] as $conflictSid => $names): ?>
+                <span class="d-block mt-1"><code><?php echo htmlspecialchars((string) $conflictSid); ?></code>:
+                <?php echo htmlspecialchars(implode(' · ', $names)); ?></span>
+            <?php endforeach; ?>
         </div>
         <?php endif; ?>
     </div>

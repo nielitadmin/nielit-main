@@ -326,7 +326,13 @@ foreach ($directoryRows as $dirRow) {
             if (!empty($row['course_code'])) {
                 $courseLabel .= ' (' . $row['course_code'] . ')';
             }
-            $assignedCourses = trim((string)($row['assigned_courses'] ?? ''));
+            $assignedCourses = '';
+            if (!empty($row['student_id']) && function_exists('inspectorAssignedCoursesLabel')) {
+                $assignedCourses = inspectorAssignedCoursesLabel($conn, (string) $row['student_id']);
+            }
+            if ($assignedCourses === '') {
+                $assignedCourses = trim((string)($row['assigned_courses'] ?? ''));
+            }
             if ($assignedCourses === '') {
                 $assignedCourses = $courseLabel;
             }

@@ -17,6 +17,47 @@ if (!function_exists('inspectorGetCoursesForAssign')) {
     }
 }
 
+if (!function_exists('inspectorNormalizedCourseName')) {
+    function inspectorNormalizedCourseName(mysqli $conn, int $courseId, string $fallback = ''): string
+    {
+        $courseId = (int) $courseId;
+        if ($courseId <= 0) {
+            return strtolower(trim($fallback));
+        }
+        $stmt = $conn->prepare('SELECT TRIM(course_name) AS n FROM courses WHERE id = ? LIMIT 1');
+        if (!$stmt) {
+            return strtolower(trim($fallback));
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        $name = trim((string) ($row['n'] ?? $fallback));
+        return strtolower($name !== '' ? $name : $fallback);
+    }
+}
+
+if (!function_exists('inspectorEnrollmentMergeKey')) {
+    function inspectorEnrollmentMergeKey(string $studentId, string $courseNameNorm, int $schemeId): string
+    {
+        return strtolower(trim($studentId)) . '|' . $courseNameNorm . '|' . (int) $schemeId;
+    }
+}
+
+if (!function_exists('inspectorEnrollmentRowScore')) {
+    function inspectorEnrollmentRowScore(mysqli $conn, int $recordId, string $rowName, string $accountNameNorm): int
+    {
+        $score = 0;
+        if ($recordId > 0 && function_exists('studentRecordHasBatchLink') && studentRecordHasBatchLink($conn, $recordId)) {
+            $score += 1000;
+        }
+        if ($accountNameNorm !== '' && strtolower(trim($rowName)) === $accountNameNorm) {
+            $score += 100;
+        }
+        return $score;
+    }
+}
+
 if (!function_exists('inspectorBuildEnrollmentContext')) {
     /**
      * @param array<int, array<string, mixed>> $studentRows
@@ -35,104 +76,153 @@ if (!function_exists('inspectorBuildEnrollmentContext')) {
     ): array {
         $primaryStudentId = '';
         $primaryName = '';
+        $accountNameNorm = '';
+        if (!empty($accountRows[0])) {
+            $primaryStudentId = (string) ($accountRows[0]['student_id'] ?? '');
+            $primaryName = (string) ($accountRows[0]['name'] ?? '');
+            $accountNameNorm = strtolower(trim($primaryName));
+        }
         $items = [];
         $seen = [];
+        $nameByStudentId = [];
+
+        $pushItem = static function (
+            mysqli $conn,
+            array &$items,
+            array &$seen,
+            string $sid,
+            int $courseId,
+            int $recordId,
+            int $schemeId,
+            string $courseLabel,
+            string $status,
+            bool $isOrphan,
+            string $accountNameNorm,
+            string $rowName = ''
+        ): void {
+            if ($courseId <= 0) {
+                return;
+            }
+            $courseNorm = inspectorNormalizedCourseName($conn, $courseId, $courseLabel);
+            $key = inspectorEnrollmentMergeKey($sid, $courseNorm, $schemeId);
+            $linkedSchemes = getSchemesForCourse($conn, $courseId);
+            $payload = [
+                'student_id' => $sid,
+                'student_record_id' => $recordId,
+                'course_id' => $courseId,
+                'course_name' => $courseLabel,
+                'scheme_id' => $schemeId,
+                'has_linked_schemes' => !empty($linkedSchemes),
+                'status' => $status,
+                'is_orphan' => $isOrphan,
+                '_score' => inspectorEnrollmentRowScore($conn, $recordId, $rowName, $accountNameNorm),
+            ];
+            if (isset($seen[$key])) {
+                $existingIdx = $seen[$key];
+                $existingScore = (int) ($items[$existingIdx]['_score'] ?? 0);
+                $newScore = inspectorEnrollmentRowScore($conn, $recordId, $rowName, $accountNameNorm);
+                if ($newScore > $existingScore) {
+                    $items[$existingIdx] = $payload;
+                }
+                return;
+            }
+            $seen[$key] = count($items);
+            $items[] = $payload;
+        };
 
         $allStudents = array_merge($studentRows, $hiddenStudentRows, $relatedRecords['students_all'] ?? []);
         foreach ($allStudents as $row) {
             if ($primaryStudentId === '' && !empty($row['student_id'])) {
-                $primaryStudentId = (string)$row['student_id'];
-                $primaryName = (string)($row['name'] ?? '');
+                $primaryStudentId = (string) $row['student_id'];
+                $primaryName = (string) ($row['name'] ?? '');
             }
-            $courseId = (int)($row['course_id'] ?? 0);
-            $recordId = (int)($row['id'] ?? 0);
+            $sid = (string) ($row['student_id'] ?? $primaryStudentId);
+            if ($sid !== '') {
+                $nm = strtolower(trim((string) ($row['name'] ?? '')));
+                if ($nm !== '') {
+                    $nameByStudentId[$sid][$nm] = true;
+                }
+            }
+            $courseId = (int) ($row['course_id'] ?? 0);
+            $recordId = (int) ($row['id'] ?? 0);
             if ($courseId <= 0 || $recordId <= 0) {
                 continue;
             }
-            $sid = (string)($row['student_id'] ?? $primaryStudentId);
-            $key = $sid . ':' . $courseId . ':' . (int)($row['scheme_id'] ?? 0);
-            if (isset($seen[$key])) {
-                $existingIdx = $seen[$key];
-                if ($recordId > (int)($items[$existingIdx]['student_record_id'] ?? 0)) {
-                    $linkedSchemes = getSchemesForCourse($conn, $courseId);
-                    $items[$existingIdx] = [
-                        'student_id' => $sid,
-                        'student_record_id' => $recordId,
-                        'course_id' => $courseId,
-                        'course_name' => (string)($row['course_name'] ?? ('Course #' . $courseId)),
-                        'scheme_id' => (int)($row['scheme_id'] ?? 0),
-                        'has_linked_schemes' => !empty($linkedSchemes),
-                        'status' => (string)($row['status'] ?? ''),
-                    ];
-                }
-                continue;
+            $courseLabel = (string) ($row['course_name'] ?? ('Course #' . $courseId));
+            if (!empty($row['course_code'])) {
+                $courseLabel .= ' (' . $row['course_code'] . ')';
             }
-            $seen[$key] = count($items);
-            $linkedSchemes = getSchemesForCourse($conn, $courseId);
-            $items[] = [
-                'student_id' => (string)$row['student_id'],
-                'student_record_id' => $recordId,
-                'course_id' => $courseId,
-                'course_name' => (string)($row['course_name'] ?? ('Course #' . $courseId)),
-                'scheme_id' => (int)($row['scheme_id'] ?? 0),
-                'has_linked_schemes' => !empty($linkedSchemes),
-                'status' => (string)($row['status'] ?? ''),
-            ];
+            $pushItem(
+                $conn,
+                $items,
+                $seen,
+                $sid,
+                $courseId,
+                $recordId,
+                (int) ($row['scheme_id'] ?? 0),
+                $courseLabel,
+                (string) ($row['status'] ?? ''),
+                false,
+                $accountNameNorm,
+                (string) ($row['name'] ?? '')
+            );
         }
 
         if ($primaryStudentId === '' && !empty($accountRows)) {
-            $primaryStudentId = (string)($accountRows[0]['student_id'] ?? '');
-            $primaryName = (string)($accountRows[0]['name'] ?? '');
+            $primaryStudentId = (string) ($accountRows[0]['student_id'] ?? '');
+            $primaryName = (string) ($accountRows[0]['name'] ?? '');
+            $accountNameNorm = strtolower(trim($primaryName));
         }
 
         foreach (array_merge($enrollmentRows, $relatedRecords['enrollments_all'] ?? []) as $row) {
             if ($primaryStudentId === '' && !empty($row['student_id'])) {
-                $primaryStudentId = (string)$row['student_id'];
-                $primaryName = (string)($row['name'] ?? '');
+                $primaryStudentId = (string) $row['student_id'];
+                $primaryName = (string) ($row['name'] ?? '');
             }
-            $courseId = (int)($row['course_id'] ?? 0);
-            $recordId = (int)($row['student_record_id'] ?? 0);
-            if ($courseId <= 0) {
-                continue;
+            $courseId = (int) ($row['course_id'] ?? 0);
+            $recordId = (int) ($row['student_record_id'] ?? 0);
+            $sid = (string) ($row['student_id'] ?? $primaryStudentId);
+            $courseLabel = (string) ($row['course_name'] ?? ('Course #' . $courseId));
+            if (!empty($row['course_code'])) {
+                $courseLabel .= ' (' . $row['course_code'] . ')';
             }
-            $sid = (string)($row['student_id'] ?? $primaryStudentId);
-            $schemeKey = (int)($row['scheme_id'] ?? 0);
-            $key = $sid . ':' . $courseId . ':' . $schemeKey;
-            if (isset($seen[$key])) {
-                $existingIdx = $seen[$key];
-                if ($recordId > (int)($items[$existingIdx]['student_record_id'] ?? 0)) {
-                    $linkedSchemes = getSchemesForCourse($conn, $courseId);
-                    $items[$existingIdx] = [
-                        'student_id' => $sid,
-                        'student_record_id' => $recordId,
-                        'course_id' => $courseId,
-                        'course_name' => (string)($row['course_name'] ?? ('Course #' . $courseId)),
-                        'scheme_id' => $schemeKey,
-                        'has_linked_schemes' => !empty($linkedSchemes),
-                        'status' => (string)($row['status'] ?? 'orphan'),
-                        'is_orphan' => $recordId <= 0,
-                    ];
-                }
-                continue;
+            $pushItem(
+                $conn,
+                $items,
+                $seen,
+                $sid,
+                $courseId,
+                $recordId,
+                (int) ($row['scheme_id'] ?? 0),
+                $courseLabel,
+                (string) ($row['status'] ?? 'orphan'),
+                $recordId <= 0,
+                $accountNameNorm,
+                (string) ($row['name'] ?? '')
+            );
+        }
+
+        foreach ($items as &$item) {
+            unset($item['_score']);
+        }
+        unset($item);
+
+        $nameConflicts = [];
+        foreach ($nameByStudentId as $sid => $names) {
+            if (count($names) > 1) {
+                $nameConflicts[$sid] = array_keys($names);
             }
-            $seen[$key] = count($items);
-            $linkedSchemes = getSchemesForCourse($conn, $courseId);
-            $items[] = [
-                'student_id' => $sid,
-                'student_record_id' => $recordId,
-                'course_id' => $courseId,
-                'course_name' => (string)($row['course_name'] ?? ('Course #' . $courseId)),
-                'scheme_id' => 0,
-                'has_linked_schemes' => !empty($linkedSchemes),
-                'status' => (string)($row['status'] ?? 'orphan'),
-                'is_orphan' => $recordId <= 0,
-            ];
+        }
+        if ($primaryStudentId !== '' && $primaryName !== '' && $accountNameNorm !== ''
+            && strtolower(trim($primaryName)) !== $accountNameNorm) {
+            $primaryName = (string) ($accountRows[0]['name'] ?? $primaryName);
         }
 
         return [
             'primary_student_id' => $primaryStudentId,
             'primary_name' => $primaryName,
             'course_items' => array_values($items),
+            'name_conflicts' => $nameConflicts,
         ];
     }
 }
