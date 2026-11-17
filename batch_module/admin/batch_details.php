@@ -550,6 +550,117 @@ $active_theme = loadActiveTheme($conn);
             flex-wrap: wrap;
             gap: 4px;
         }
+        .batch-details-page .bd-scroll-table {
+            position: relative;
+            width: 100%;
+            max-width: 100%;
+        }
+        .batch-details-page .bd-scroll-hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 0 8px;
+            padding: 8px 12px;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #eff6ff, #f8fafc);
+            border: 1px solid #bfdbfe;
+            color: #334155;
+            font-size: 12px;
+        }
+        .batch-details-page .bd-scroll-hint[hidden] {
+            display: none !important;
+        }
+        .batch-details-page .bd-scroll-table-top {
+            overflow-x: auto;
+            overflow-y: hidden;
+            height: 14px;
+            margin-bottom: 6px;
+            border-radius: 8px;
+            background: #e2e8f0;
+            scrollbar-width: thin;
+            scrollbar-color: #64748b #e2e8f0;
+        }
+        .batch-details-page .bd-scroll-table-top.bd-hidden {
+            display: none;
+        }
+        .batch-details-page .bd-scroll-table-top-inner {
+            height: 1px;
+        }
+        .batch-details-page .bd-scroll-table-viewport {
+            overflow: auto;
+            max-height: min(72vh, 820px);
+            scroll-behavior: smooth;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #fff;
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 #f1f5f9;
+        }
+        .batch-details-page .bd-scroll-table-viewport::-webkit-scrollbar,
+        .batch-details-page .bd-scroll-table-top::-webkit-scrollbar {
+            height: 10px;
+            width: 10px;
+        }
+        .batch-details-page .bd-scroll-table-viewport::-webkit-scrollbar-track,
+        .batch-details-page .bd-scroll-table-top::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        .batch-details-page .bd-scroll-table-viewport::-webkit-scrollbar-thumb,
+        .batch-details-page .bd-scroll-table-top::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #64748b, #475569);
+            border-radius: 10px;
+            border: 2px solid #f1f5f9;
+        }
+        .batch-details-page .bd-scroll-table-viewport::-webkit-scrollbar-thumb:hover,
+        .batch-details-page .bd-scroll-table-top::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #475569, #334155);
+        }
+        .batch-details-page .bd-scroll-table-viewport .modern-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 6;
+            background: #f1f5f9;
+            box-shadow: 0 1px 0 #e2e8f0;
+        }
+        .batch-details-page .bd-scroll-table-viewport .modern-table td.bd-sticky-col,
+        .batch-details-page .bd-scroll-table-viewport .modern-table th.bd-sticky-col {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: #fff;
+            box-shadow: 2px 0 6px rgba(15, 23, 42, 0.06);
+        }
+        .batch-details-page .bd-scroll-table-viewport .modern-table thead th.bd-sticky-col {
+            z-index: 7;
+            background: #f1f5f9;
+        }
+        .batch-details-page .bd-scroll-table.bd-can-scroll-x::before,
+        .batch-details-page .bd-scroll-table.bd-can-scroll-x::after {
+            content: '';
+            position: absolute;
+            top: 36px;
+            bottom: 8px;
+            width: 28px;
+            pointer-events: none;
+            z-index: 8;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .batch-details-page .bd-scroll-table.bd-can-scroll-x::before {
+            left: 0;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.95), transparent);
+        }
+        .batch-details-page .bd-scroll-table.bd-can-scroll-x::after {
+            right: 0;
+            background: linear-gradient(270deg, rgba(255, 255, 255, 0.95), transparent);
+        }
+        .batch-details-page .bd-scroll-table.bd-shadow-left::before {
+            opacity: 1;
+        }
+        .batch-details-page .bd-scroll-table.bd-shadow-right::after {
+            opacity: 1;
+        }
         @media (max-width: 1100px) {
             .batch-details-page .admin-main {
                 padding: 16px;
@@ -577,6 +688,23 @@ $active_theme = loadActiveTheme($conn);
             }
             .batch-details-page .table-responsive {
                 overflow-x: visible;
+            }
+            .batch-details-page .bd-scroll-table-top {
+                display: none !important;
+            }
+            .batch-details-page .bd-scroll-hint {
+                display: none !important;
+            }
+            .batch-details-page .bd-scroll-table-viewport {
+                max-height: none;
+                overflow-x: visible;
+                border: none;
+            }
+            .batch-details-page .bd-scroll-table-viewport .modern-table thead th,
+            .batch-details-page .bd-scroll-table-viewport .modern-table td.bd-sticky-col,
+            .batch-details-page .bd-scroll-table-viewport .modern-table th.bd-sticky-col {
+                position: static;
+                box-shadow: none;
             }
             .batch-details-page .responsive-stack-table {
                 width: 100%;
@@ -1698,7 +1826,13 @@ function downloadScannedOrder(batchId) {
                 <?php endif; ?>
                 
                 <?php if (!empty($students)): ?>
-                    <div class="table-responsive">
+                    <div class="bd-scroll-table" data-bd-scroll-table>
+                        <p class="bd-scroll-hint" hidden>
+                            <i class="fas fa-arrows-alt-h text-primary"></i>
+                            <span>Table is wide — use the <strong>top scrollbar</strong> or drag sideways to see module results, placement, and actions.</span>
+                        </p>
+                        <div class="bd-scroll-table-top bd-hidden" aria-label="Horizontal scroll (top)"><div class="bd-scroll-table-top-inner"></div></div>
+                        <div class="table-responsive bd-scroll-table-viewport">
                         <table class="modern-table responsive-stack-table">
                             <thead>
                                 <tr>
@@ -1710,7 +1844,7 @@ function downloadScannedOrder(batchId) {
                                     <th style="width:60px;">SL.</th>
                                     <th>Student ID</th>
                                     <th>NIELIT Portal Reg. No.</th>
-                                    <th>Name</th>
+                                    <th class="bd-sticky-col" style="min-width:160px;">Name</th>
                                     <th>Email</th>
                                     <th>Mobile</th>
                                     <th>Enrollment Date</th>
@@ -1771,7 +1905,7 @@ function downloadScannedOrder(batchId) {
                                                 <?php endif; ?>
                                             </div>
                                         </td>
-                                        <td><?php echo htmlspecialchars($student['name']); ?></td>
+                                        <td class="bd-sticky-col"><?php echo htmlspecialchars($student['name']); ?></td>
                                         <td><?php echo htmlspecialchars($student['email']); ?></td>
                                         <td><?php echo htmlspecialchars($student['mobile']); ?></td>
                                         <td><?php echo date('d M Y', strtotime($student['enrollment_date'])); ?></td>
@@ -1962,6 +2096,7 @@ function downloadScannedOrder(batchId) {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                        </div>
                     </div>
                 <?php else: ?>
                     <div style="text-align: center; padding: 40px; color: #64748b;">
@@ -2186,6 +2321,81 @@ document.querySelectorAll('.responsive-stack-table').forEach(function (table) {
         });
     });
 });
+
+(function () {
+    function syncScrollShadows(outer, viewport) {
+        var max = viewport.scrollWidth - viewport.clientWidth;
+        if (max <= 4) {
+            outer.classList.remove('bd-can-scroll-x', 'bd-shadow-left', 'bd-shadow-right');
+            return;
+        }
+        outer.classList.add('bd-can-scroll-x');
+        outer.classList.toggle('bd-shadow-left', viewport.scrollLeft > 4);
+        outer.classList.toggle('bd-shadow-right', viewport.scrollLeft < max - 4);
+    }
+
+    function initBdScrollTable(outer) {
+        var viewport = outer.querySelector('.bd-scroll-table-viewport');
+        var topBar = outer.querySelector('.bd-scroll-table-top');
+        var topInner = outer.querySelector('.bd-scroll-table-top-inner');
+        var hint = outer.querySelector('.bd-scroll-hint');
+        var table = viewport ? viewport.querySelector('table') : null;
+        if (!viewport || !table) {
+            return;
+        }
+
+        function positionStickyColumns() {
+            var firstRow = viewport.querySelector('tbody tr');
+            if (!firstRow) {
+                return;
+            }
+            viewport.querySelectorAll('thead th.bd-sticky-col').forEach(function (th) {
+                var idx = Array.prototype.indexOf.call(th.parentNode.children, th);
+                var sample = firstRow.children[idx];
+                if (sample) {
+                    th.style.left = sample.offsetLeft + 'px';
+                }
+            });
+            viewport.querySelectorAll('tbody td.bd-sticky-col').forEach(function (td) {
+                td.style.left = td.offsetLeft + 'px';
+            });
+        }
+
+        function refreshLayout() {
+            positionStickyColumns();
+            if (topInner) {
+                topInner.style.width = table.scrollWidth + 'px';
+            }
+            var overflowX = table.scrollWidth > viewport.clientWidth + 4;
+            var overflowY = table.scrollHeight > viewport.clientHeight + 4;
+            if (topBar) {
+                topBar.classList.toggle('bd-hidden', !overflowX);
+            }
+            if (hint) {
+                hint.hidden = !(overflowX || overflowY);
+            }
+            syncScrollShadows(outer, viewport);
+        }
+
+        if (topBar) {
+            topBar.addEventListener('scroll', function () {
+                viewport.scrollLeft = topBar.scrollLeft;
+                syncScrollShadows(outer, viewport);
+            });
+        }
+        viewport.addEventListener('scroll', function () {
+            if (topBar && !topBar.classList.contains('bd-hidden')) {
+                topBar.scrollLeft = viewport.scrollLeft;
+            }
+            syncScrollShadows(outer, viewport);
+        });
+        window.addEventListener('resize', refreshLayout);
+        refreshLayout();
+        setTimeout(refreshLayout, 350);
+    }
+
+    document.querySelectorAll('[data-bd-scroll-table]').forEach(initBdScrollTable);
+})();
 </script>
 
 </body>
