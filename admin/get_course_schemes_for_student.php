@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
+require_once __DIR__ . '/../includes/batch_assignment_helper.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -49,12 +50,18 @@ foreach ($allSchemes as $sch) {
 }
 
 $orphanCount = 0;
+$equivCourseIds = getCourseIdsWithSameName($conn, $courseId);
+$equivCourseIds = array_values(array_unique(array_filter(array_map('intval', $equivCourseIds), static fn (int $id): bool => $id > 0)));
+if ($equivCourseIds === []) {
+    $equivCourseIds = [$courseId];
+}
+$orphanIn = implode(',', $equivCourseIds);
 $orphanStmt = $conn->prepare("SELECT COUNT(*) AS c FROM students
-    WHERE student_id = ? AND course_id = ?
+    WHERE student_id = ? AND course_id IN ({$orphanIn})
     AND scheme_id IS NULL
     AND LOWER(status) NOT IN ('rejected', 'inactive')");
 if ($orphanStmt) {
-    $orphanStmt->bind_param('si', $studentId, $courseId);
+    $orphanStmt->bind_param('s', $studentId);
     $orphanStmt->execute();
     $orphanCount = (int)($orphanStmt->get_result()->fetch_assoc()['c'] ?? 0);
     $orphanStmt->close();

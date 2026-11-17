@@ -424,17 +424,29 @@ if (!function_exists('isMultiCourseSystemInstalled')) {
         if (!$table || $table->num_rows === 0) {
             return [];
         }
-        $sql = "SELECT s.id, s.scheme_name, s.scheme_code, s.status
+        if (!function_exists('getCourseIdsWithSameName')) {
+            require_once __DIR__ . '/batch_assignment_helper.php';
+        }
+        $courseIds = function_exists('getCourseIdsWithSameName')
+            ? getCourseIdsWithSameName($conn, $courseId)
+            : [$courseId];
+        $courseIds = array_values(array_unique(array_filter(array_map('intval', $courseIds), static fn (int $id): bool => $id > 0)));
+        if ($courseIds === []) {
+            $courseIds = [$courseId];
+        }
+        $placeholders = implode(',', array_fill(0, count($courseIds), '?'));
+        $sql = "SELECT DISTINCT s.id, s.scheme_name, s.scheme_code, s.status
                 FROM schemes s
                 INNER JOIN course_schemes cs ON cs.scheme_id = s.id
-                WHERE cs.course_id = ?
+                WHERE cs.course_id IN ({$placeholders})
                 AND LOWER(s.status) = 'active'
                 ORDER BY s.scheme_name ASC";
         $stmt = $conn->prepare($sql);
         if (!$stmt) {
             return [];
         }
-        $stmt->bind_param('i', $courseId);
+        $types = str_repeat('i', count($courseIds));
+        $stmt->bind_param($types, ...$courseIds);
         $stmt->execute();
         $res = $stmt->get_result();
         $rows = [];
