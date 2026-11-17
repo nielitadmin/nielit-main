@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../includes/batch_certificate_helper.php';
 require_once __DIR__ . '/../includes/batch_placement_helper.php';
 require_once __DIR__ . '/../includes/batch_result_helper.php';
+require_once __DIR__ . '/../../includes/nsqf_exam_results_helper.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login.php");
@@ -92,6 +93,17 @@ $can_manage_result = canManageBatchResultStatus($admin_role);
 $can_view_result = canViewBatchResultStatus($admin_role);
 $result_status_options = batch_result_status_options();
 $result_stats = getBatchResultStats($conn, (int) $batch_id);
+
+ensureNsqfExamResultsSchema($conn);
+$batch_course_id = (int) ($batch['course_id'] ?? 0);
+$exam_components = $batch_course_id > 0 ? nsqf_get_course_exam_components($conn, $batch_course_id) : [];
+$has_module_results = $exam_components !== [];
+$module_results_map = $has_module_results
+    ? nsqf_get_batch_module_results_map($conn, (int) $batch_id, array_column($exam_components, 'id'))
+    : [];
+$exam_components_setup_url = $batch_course_id > 0
+    ? app_url('admin/nsqf_exam_results') . '?tab=components&course_id=' . $batch_course_id
+    : '';
 
 $message = $_SESSION['batch_details_message'] ?? '';
 $message_type = $_SESSION['batch_details_message_type'] ?? 'success';
@@ -871,6 +883,43 @@ function saveBatchPlacement() {
     });
 }
 
+function saveBatchModuleResult(selectEl) {
+    if (!selectEl) return;
+    const batchStudentId = selectEl.getAttribute('data-batch-student-id');
+    const componentId = selectEl.getAttribute('data-component-id');
+    const previous = selectEl.getAttribute('data-previous') || selectEl.value;
+    const status = selectEl.value;
+    const formData = new FormData();
+    formData.append('batch_id', <?php echo (int) $batch_id; ?>);
+    formData.append('batch_student_id', batchStudentId);
+    formData.append('component_id', componentId);
+    formData.append('result_status', status);
+    selectEl.disabled = true;
+    showToast('Saving module result...', 'info');
+    fetch('save_batch_module_result.php', { method: 'POST', body: formData })
+    .then(async response => {
+        const text = await response.text();
+        try { return JSON.parse(text); } catch (e) { throw new Error(text || 'Invalid server response'); }
+    })
+    .then(data => {
+        selectEl.disabled = false;
+        if (data.success) {
+            selectEl.setAttribute('data-previous', status);
+            showToast(data.message || 'Module result saved.', 'success');
+            setTimeout(() => window.location.reload(), 600);
+        } else {
+            selectEl.value = previous;
+            showToast(data.message || 'Could not save module result.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error(error);
+        selectEl.disabled = false;
+        selectEl.value = previous;
+        showToast(error.message || 'Could not save module result.', 'error');
+    });
+}
+
 function saveBatchResultStatus(selectEl) {
     if (!selectEl) return;
     const studentRecordId = selectEl.getAttribute('data-student-record-id');
@@ -1618,7 +1667,18 @@ function downloadScannedOrder(batchId) {
                         <?php echo (int) ($result_stats['failed'] ?? 0); ?> failed,
                         <?php echo (int) ($result_stats['absent'] ?? 0); ?> absent,
                         <?php echo (int) ($result_stats['exam_not_applied'] ?? 0); ?> exam-not applied.
-                        <?php if ($can_manage_result): ?>
+                        <?php if ($has_module_results): ?>
+                            <span class="d-block mt-1 small">
+                                <strong>Module / semester columns</strong> (e.g. O-Level M1–M4) are shown below.
+                                <?php if ($can_manage_result): ?>
+                                    Course coordinators can update each module from this batch list; overall Pass/Certified syncs when all required modules pass.
+                                <?php endif; ?>
+                            </span>
+                        <?php elseif ($can_manage_result): ?>
+                            For O-Level style courses, define modules in
+                            <a href="<?php echo htmlspecialchars($exam_components_setup_url, ENT_QUOTES, 'UTF-8'); ?>">NSQF Results → Exam structure</a>
+                            (e.g. M1–M4), then reopen this batch.
+                        <?php else: ?>
                             Use the <strong>Result Status</strong> column to update each student.
                         <?php endif; ?>
                     </div>
@@ -1658,6 +1718,14 @@ function downloadScannedOrder(batchId) {
                                     <th>Attendance</th>
                                     <?php if ($show_certificate_column): ?>
                                     <th>Certificate</th>
+                                    <?php endif; ?>
+                                    <?php if ($can_view_result && $has_module_results): ?>
+                                        <?php foreach ($exam_components as $comp): ?>
+                                            <th title="<?php echo htmlspecialchars((string) $comp['component_label'], ENT_QUOTES, 'UTF-8'); ?>">
+                                                <?php echo htmlspecialchars((string) $comp['component_code']); ?>
+                                            </th>
+                                        <?php endforeach; ?>
+                                        <th>Cert.</th>
                                     <?php endif; ?>
                                     <?php if ($can_view_result): ?>
                                     <th>Result Status</th>
@@ -1748,6 +1816,47 @@ function downloadScannedOrder(batchId) {
                                                 <span class="text-muted small">Not uploaded</span>
                                             <?php endif; ?>
                                         </td>
+                                        <?php endif; ?>
+                                        <?php if ($can_view_result && $has_module_results):
+                                            $bsLinkId = (int) ($student['batch_student_link_id'] ?? 0);
+                                            $byComp = $module_results_map[$bsLinkId] ?? [];
+                                            $modState = nsqf_student_modules_certification_state($exam_components, $byComp);
+                                        ?>
+                                            <?php foreach ($exam_components as $comp):
+                                                $cid = (int) $comp['id'];
+                                                $mStatus = nsqf_normalize_exam_result_status($byComp[$cid]['result_status'] ?? 'exam_not_applied');
+                                                $mBadge = batch_result_status_badge_class($mStatus);
+                                            ?>
+                                            <td>
+                                                <?php if ($can_manage_result && $bsLinkId > 0): ?>
+                                                    <select class="form-control form-control-sm module-result-select badge-tone-<?php echo htmlspecialchars($mBadge); ?>"
+                                                            data-batch-student-id="<?php echo $bsLinkId; ?>"
+                                                            data-component-id="<?php echo $cid; ?>"
+                                                            data-previous="<?php echo htmlspecialchars($mStatus, ENT_QUOTES, 'UTF-8'); ?>"
+                                                            onchange="saveBatchModuleResult(this)"
+                                                            style="min-width:120px;font-size:0.8rem;">
+                                                        <?php foreach ($result_status_options as $value => $label): ?>
+                                                            <option value="<?php echo htmlspecialchars($value, ENT_QUOTES, 'UTF-8'); ?>" <?php echo $mStatus === $value ? 'selected' : ''; ?>>
+                                                                <?php echo htmlspecialchars($label); ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                <?php else: ?>
+                                                    <span class="badge badge-<?php echo htmlspecialchars($mBadge); ?>">
+                                                        <?php echo htmlspecialchars($result_status_options[$mStatus] ?? $mStatus); ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <?php endforeach; ?>
+                                            <td>
+                                                <?php if ($modState['all_required_pass']): ?>
+                                                    <span class="badge badge-success" title="All required modules passed">Certified</span>
+                                                <?php else: ?>
+                                                    <span class="badge badge-secondary">
+                                                        <?php echo (int) $modState['passed_count']; ?>/<?php echo (int) $modState['required_count']; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </td>
                                         <?php endif; ?>
                                         <?php if ($can_view_result):
                                             $rStatus = batch_result_normalize_status($student['result_status'] ?? 'exam_not_applied');
