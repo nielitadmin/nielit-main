@@ -227,55 +227,89 @@ while ($row = $courses_result->fetch_assoc()) {
 
 // (role and admin ID already resolved above)
 
-// Build batch query with role-based filtering
-if ($can_see_all_batches) {
-    // Master admin and placement coordinator see all batches
-    $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
-                    (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
-                    CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
-                    FROM batches b 
-                    LEFT JOIN courses c ON b.course_id = c.id 
-                    ORDER BY b.created_at DESC";
-    $batches_result = $conn->query($batches_sql);
-} else {
-    // Course coordinators see only batches they created
-    $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
-                    (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
-                    CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END as is_locked
-                    FROM batches b 
-                    LEFT JOIN courses c ON b.course_id = c.id 
-                    WHERE " . batch_assignment_coordinator_sql($conn, 'b') . "
-                    ORDER BY b.created_at DESC";
-    $stmt = $conn->prepare($batches_sql);
-    $stmt->bind_param("ii", $current_admin_id, $current_admin_id);
-    $stmt->execute();
-    $batches_result = $stmt->get_result();
+$filter_q = trim((string) ($_GET['q'] ?? ''));
+$filter_course_id = max(0, (int) ($_GET['course_id'] ?? 0));
+$filter_status = trim((string) ($_GET['status'] ?? ''));
+$filter_lock = trim((string) ($_GET['lock'] ?? ''));
+$batch_status_options = ['Active', 'Completed', 'Cancelled'];
+if ($filter_status !== '' && !in_array($filter_status, $batch_status_options, true)) {
+    $filter_status = '';
+}
+if (!in_array($filter_lock, ['', 'locked', 'unlocked'], true)) {
+    $filter_lock = '';
 }
 
-// If the query fails (is_locked column doesn't exist), try without it
-if (!$batches_result) {
-    if ($can_see_all_batches) {
-        $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
-                        (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
-                        0 as is_locked
-                        FROM batches b 
-                        LEFT JOIN courses c ON b.course_id = c.id 
-                        ORDER BY b.created_at DESC";
-        $batches_result = $conn->query($batches_sql);
-    } else {
-        $batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
-                        (SELECT COUNT(*) FROM students WHERE batch_id = b.id) as enrolled_count,
-                        0 as is_locked
-                        FROM batches b 
-                        LEFT JOIN courses c ON b.course_id = c.id 
-                        WHERE " . batch_assignment_coordinator_sql($conn, 'b') . "
-                        ORDER BY b.created_at DESC";
-        $stmt = $conn->prepare($batches_sql);
-        $stmt->bind_param("ii", $current_admin_id, $current_admin_id);
-        $stmt->execute();
-        $batches_result = $stmt->get_result();
+$lock_col = $conn->query("SHOW COLUMNS FROM batches LIKE 'is_locked'");
+$has_lock_column = ($lock_col && $lock_col->num_rows > 0);
+$is_locked_select = $has_lock_column
+    ? 'CASE WHEN b.is_locked = 1 THEN 1 ELSE 0 END AS is_locked'
+    : '0 AS is_locked';
+
+$whereParts = [];
+$filterTypes = '';
+$filterParams = [];
+
+if (!$can_see_all_batches && $current_admin_id) {
+    $whereParts[] = batch_assignment_coordinator_sql($conn, 'b');
+    $filterTypes .= 'ii';
+    $filterParams[] = $current_admin_id;
+    $filterParams[] = $current_admin_id;
+}
+
+if ($filter_course_id > 0) {
+    $whereParts[] = 'b.course_id = ?';
+    $filterTypes .= 'i';
+    $filterParams[] = $filter_course_id;
+}
+
+if ($filter_status !== '') {
+    $whereParts[] = 'b.status = ?';
+    $filterTypes .= 's';
+    $filterParams[] = $filter_status;
+}
+
+if ($has_lock_column) {
+    if ($filter_lock === 'locked') {
+        $whereParts[] = 'b.is_locked = 1';
+    } elseif ($filter_lock === 'unlocked') {
+        $whereParts[] = '(b.is_locked = 0 OR b.is_locked IS NULL)';
     }
 }
+
+if ($filter_q !== '') {
+    $like = '%' . $filter_q . '%';
+    $whereParts[] = '(b.batch_name LIKE ? OR b.batch_code LIKE ? OR b.batch_coordinator LIKE ?
+        OR c.course_name LIKE ? OR c.course_code LIKE ?)';
+    $filterTypes .= 'sssss';
+    for ($i = 0; $i < 5; $i++) {
+        $filterParams[] = $like;
+    }
+}
+
+$whereSql = $whereParts === [] ? '1=1' : implode(' AND ', $whereParts);
+
+$batches_sql = "SELECT b.*, c.course_name, c.course_code, c.course_description,
+                (SELECT COUNT(*) FROM students WHERE batch_id = b.id) AS enrolled_count,
+                {$is_locked_select}
+                FROM batches b
+                LEFT JOIN courses c ON b.course_id = c.id
+                WHERE {$whereSql}
+                ORDER BY b.created_at DESC";
+
+if ($filterTypes !== '') {
+    $stmt = $conn->prepare($batches_sql);
+    if ($stmt) {
+        $stmt->bind_param($filterTypes, ...$filterParams);
+        $stmt->execute();
+        $batches_result = $stmt->get_result();
+    } else {
+        $batches_result = false;
+    }
+} else {
+    $batches_result = $conn->query($batches_sql);
+}
+
+$filters_active = $filter_q !== '' || $filter_course_id > 0 || $filter_status !== '' || $filter_lock !== '';
 
 // Check if query failed (tables don't exist)
 if (!$batches_result) {
@@ -330,6 +364,23 @@ $active_theme = loadActiveTheme($conn);
             color: #0f172a !important;
             background-color: #ffffff !important;
             white-space: normal;
+        }
+        .batch-filter-bar {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: #f8fafc;
+        }
+        .batch-filter-bar .form-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 0.25rem;
+        }
+        .batch-filter-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
         }
     </style>
 </head>
@@ -513,7 +564,61 @@ $active_theme = loadActiveTheme($conn);
                             My Batches
                         <?php endif; ?>
                         <span class="badge badge-primary"><?php echo count($batches); ?></span>
+                        <?php if ($filters_active): ?>
+                            <span class="badge badge-secondary">Filtered</span>
+                        <?php endif; ?>
                     </h5>
+                </div>
+
+                <div class="batch-filter-bar">
+                    <form method="get" action="" class="row g-2 align-items-end">
+                        <div class="col-lg-3 col-md-6">
+                            <label class="form-label" for="batch_filter_q">Search</label>
+                            <input type="search" class="form-control form-control-sm" name="q" id="batch_filter_q"
+                                   value="<?php echo htmlspecialchars($filter_q, ENT_QUOTES, 'UTF-8'); ?>"
+                                   placeholder="Batch name, code, course, coordinator…">
+                        </div>
+                        <div class="col-lg-3 col-md-6">
+                            <label class="form-label" for="batch_filter_course">Course</label>
+                            <select class="form-control form-control-sm" name="course_id" id="batch_filter_course">
+                                <option value="0">All courses</option>
+                                <?php foreach ($courses as $course): ?>
+                                    <option value="<?php echo (int) $course['id']; ?>"
+                                        <?php echo (int) $course['id'] === $filter_course_id ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($course['course_name'] . (!empty($course['course_code']) ? ' (' . $course['course_code'] . ')' : '')); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4">
+                            <label class="form-label" for="batch_filter_status">Batch status</label>
+                            <select class="form-control form-control-sm" name="status" id="batch_filter_status">
+                                <option value="">All statuses</option>
+                                <?php foreach ($batch_status_options as $st): ?>
+                                    <option value="<?php echo htmlspecialchars($st, ENT_QUOTES, 'UTF-8'); ?>"
+                                        <?php echo $filter_status === $st ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($st); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4">
+                            <label class="form-label" for="batch_filter_lock">Lock</label>
+                            <select class="form-control form-control-sm" name="lock" id="batch_filter_lock">
+                                <option value="" <?php echo $filter_lock === '' ? 'selected' : ''; ?>>All</option>
+                                <option value="locked" <?php echo $filter_lock === 'locked' ? 'selected' : ''; ?>>Locked only</option>
+                                <option value="unlocked" <?php echo $filter_lock === 'unlocked' ? 'selected' : ''; ?>>Unlocked only</option>
+                            </select>
+                        </div>
+                        <div class="col-lg-2 col-md-4 batch-filter-actions">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="fas fa-filter"></i> Apply
+                            </button>
+                            <?php if ($filters_active): ?>
+                                <a href="manage_batches.php" class="btn btn-outline-secondary btn-sm">Clear</a>
+                            <?php endif; ?>
+                        </div>
+                    </form>
                 </div>
                 
                 <?php if (!empty($batches)): ?>
@@ -668,7 +773,12 @@ $active_theme = loadActiveTheme($conn);
                 <?php else: ?>
                     <div style="text-align: center; padding: 40px; color: #64748b;">
                         <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 16px; display: block; opacity: 0.3;"></i>
-                        <?php if ($is_placement_coordinator): ?>
+                        <?php if ($filters_active): ?>
+                            <p style="margin: 0; font-size: 16px;">No batches match your filters.</p>
+                            <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.7;">
+                                <a href="manage_batches.php">Clear filters</a> or try another search.
+                            </p>
+                        <?php elseif ($is_placement_coordinator): ?>
                             <p style="margin: 0; font-size: 16px;">No batches found yet.</p>
                         <?php elseif ($is_master_admin): ?>
                             <p style="margin: 0; font-size: 16px;">No batches found. Create your first batch above.</p>
