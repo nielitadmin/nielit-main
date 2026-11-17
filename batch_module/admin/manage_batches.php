@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../../includes/session_manager.php';
 require_once __DIR__ . '/../includes/batch_functions.php';
 require_once __DIR__ . '/../../includes/batch_assignment_helper.php';
+require_once __DIR__ . '/../../includes/institute_branding.php';
 
 if (!isset($_SESSION['admin'])) {
     header("Location: ../../admin/login.php");
@@ -102,25 +103,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 break;
                 
             case 'update_batch':
-                // Validate and sanitize seats_total
-                $seats_total = intval($_POST['seats_total']);
+                $batch_id_upd = (int) ($_POST['batch_id'] ?? 0);
+                if ($batch_id_upd <= 0) {
+                    $message = 'Invalid batch.';
+                    $message_type = 'danger';
+                    break;
+                }
+                if (isBatchLocked($batch_id_upd, $conn)) {
+                    $message = 'Cannot update: this batch is locked.';
+                    $message_type = 'danger';
+                    break;
+                }
+                $seats_total = (int) ($_POST['seats_total'] ?? 0);
                 if ($seats_total < 1) {
-                    $message = "Total seats must be at least 1";
+                    $message = 'Total seats must be at least 1';
                     $message_type = 'danger';
                 } else {
                     $data = [
-                        'batch_name' => $_POST['batch_name'],
+                        'batch_name' => trim((string) ($_POST['batch_name'] ?? '')),
                         'batch_description' => $_POST['batch_description'] ?? null,
                         'start_date' => $_POST['start_date'],
                         'end_date' => $_POST['end_date'],
                         'training_fees' => $_POST['training_fees'],
                         'seats_total' => $seats_total,
-                        'batch_coordinator' => $_POST['batch_coordinator'],
-                        'status' => $_POST['status']
+                        'batch_coordinator' => trim((string) ($_POST['batch_coordinator'] ?? '')),
+                        'status' => $_POST['status'],
+                        'scheme_id' => !empty($_POST['scheme_id']) ? (int) $_POST['scheme_id'] : null,
+                        'admission_order_ref' => $_POST['admission_order_ref'] ?? null,
+                        'admission_order_date' => $_POST['admission_order_date'] ?? null,
+                        'examination_month' => $_POST['examination_month'] ?? null,
+                        'class_time' => $_POST['class_time'] ?? '9:00 AM to 1:30 PM',
+                        'copy_to_list' => $_POST['copy_to_list'] ?? null,
+                        'location' => $_POST['location'] ?? 'NIELIT Bhubaneswar',
                     ];
-                    
-                    $result = updateBatch($_POST['batch_id'], $data, $conn);
-                    $message = $result ? "Batch updated successfully" : "Error updating batch";
+                    $result = updateBatch($batch_id_upd, $data, $conn);
+                    $message = $result ? 'Batch updated successfully.' : 'Error updating batch.';
                     $message_type = $result ? 'success' : 'danger';
                 }
                 break;
@@ -338,10 +355,82 @@ while ($row = $batches_result->fetch_assoc()) {
     $row['enrolled_count'] = getBatchEnrolledCount((int)$row['id'], $conn);
     $batches[] = $row;
 }
+
+$schemes = [];
+$schemeTable = $conn->query("SHOW TABLES LIKE 'schemes'");
+if ($schemeTable && $schemeTable->num_rows > 0) {
+    $schemesRes = $conn->query("SELECT id, scheme_name, scheme_code FROM schemes WHERE status = 'Active' ORDER BY scheme_name");
+    if ($schemesRes) {
+        while ($sRow = $schemesRes->fetch_assoc()) {
+            $schemes[] = $sRow;
+        }
+    }
+}
+$location_options = nielit_batch_location_options($conn, 'NIELIT Bhubaneswar');
+
+$batch_edit_data = [];
+foreach ($batches as $batch) {
+    $bid = (int) ($batch['id'] ?? 0);
+    if ($bid <= 0) {
+        continue;
+    }
+    $batch_edit_data[$bid] = [
+        'id' => $bid,
+        'batch_code' => (string) ($batch['batch_code'] ?? ''),
+        'course_name' => (string) ($batch['course_name'] ?? ''),
+        'course_code' => (string) ($batch['course_code'] ?? ''),
+        'batch_name' => (string) ($batch['batch_name'] ?? ''),
+        'batch_description' => (string) ($batch['batch_description'] ?? ''),
+        'start_date' => (string) ($batch['start_date'] ?? ''),
+        'end_date' => (string) ($batch['end_date'] ?? ''),
+        'training_fees' => (string) ($batch['training_fees'] ?? ''),
+        'seats_total' => (int) ($batch['seats_total'] ?? 0),
+        'seats_filled' => (int) ($batch['enrolled_count'] ?? 0),
+        'batch_coordinator' => (string) ($batch['batch_coordinator'] ?? ''),
+        'status' => (string) ($batch['status'] ?? 'Active'),
+        'scheme_id' => (int) ($batch['scheme_id'] ?? 0),
+        'admission_order_ref' => (string) ($batch['admission_order_ref'] ?? ''),
+        'admission_order_date' => (string) ($batch['admission_order_date'] ?? ''),
+        'examination_month' => (string) ($batch['examination_month'] ?? ''),
+        'class_time' => (string) ($batch['class_time'] ?? '9:00 AM to 1:30 PM'),
+        'copy_to_list' => (string) ($batch['copy_to_list'] ?? ''),
+        'location' => normalize_nielit_batch_location($batch['location'] ?? 'NIELIT Bhubaneswar'),
+        'is_locked' => !empty($batch['is_locked']),
+    ];
+}
+
+$filter_query = $_GET;
+unset($filter_query['delete']);
+$manage_batches_action = 'manage_batches.php' . ($filter_query !== [] ? '?' . http_build_query($filter_query) : '');
+
 $active_theme = loadActiveTheme($conn);
 $reopen_create_modal = $_SERVER['REQUEST_METHOD'] === 'POST'
     && ($_POST['action'] ?? '') === 'create_batch'
     && $message_type === 'danger';
+$reopen_edit_batch_id = $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'update_batch'
+    && $message_type === 'danger'
+    ? (int) ($_POST['batch_id'] ?? 0)
+    : 0;
+if ($reopen_edit_batch_id > 0 && isset($batch_edit_data[$reopen_edit_batch_id])) {
+    $batch_edit_data[$reopen_edit_batch_id] = array_merge($batch_edit_data[$reopen_edit_batch_id], [
+        'batch_name' => trim((string) ($_POST['batch_name'] ?? '')),
+        'batch_description' => trim((string) ($_POST['batch_description'] ?? '')),
+        'start_date' => trim((string) ($_POST['start_date'] ?? '')),
+        'end_date' => trim((string) ($_POST['end_date'] ?? '')),
+        'training_fees' => trim((string) ($_POST['training_fees'] ?? '')),
+        'seats_total' => (int) ($_POST['seats_total'] ?? 0),
+        'batch_coordinator' => trim((string) ($_POST['batch_coordinator'] ?? '')),
+        'status' => trim((string) ($_POST['status'] ?? 'Active')),
+        'scheme_id' => (int) ($_POST['scheme_id'] ?? 0),
+        'admission_order_ref' => trim((string) ($_POST['admission_order_ref'] ?? '')),
+        'admission_order_date' => trim((string) ($_POST['admission_order_date'] ?? '')),
+        'examination_month' => trim((string) ($_POST['examination_month'] ?? '')),
+        'class_time' => trim((string) ($_POST['class_time'] ?? '9:00 AM to 1:30 PM')),
+        'copy_to_list' => trim((string) ($_POST['copy_to_list'] ?? '')),
+        'location' => trim((string) ($_POST['location'] ?? 'NIELIT Bhubaneswar')),
+    ]);
+}
 $create_form_defaults = [
     'course_id' => $reopen_create_modal ? (int) ($_POST['course_id'] ?? 0) : ($filter_course_id > 0 ? $filter_course_id : 0),
     'batch_name' => $reopen_create_modal ? trim((string) ($_POST['batch_name'] ?? '')) : '',
@@ -422,9 +511,32 @@ $create_form_defaults = [
             background: #f8fafc;
             border-top: 1px solid #e2e8f0;
         }
-        #createBatchModal select option {
+        #createBatchModal select option,
+        #editBatchModal select option {
             color: #0f172a;
             background: #fff;
+        }
+        #editBatchModal .modal-header {
+            background: linear-gradient(135deg, #0c4a6e 0%, #0369a1 100%);
+            color: #fff;
+            border-bottom: none;
+        }
+        #editBatchModal .modal-header .btn-close {
+            filter: invert(1);
+        }
+        #editBatchModal .modal-title i {
+            color: #7dd3fc;
+            margin-right: 0.35rem;
+        }
+        #editBatchModal .modal-footer {
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+        #editBatchModal .edit-batch-meta {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
         }
     </style>
 </head>
@@ -697,9 +809,12 @@ $create_form_defaults = [
                                                 <?php endif; ?>
                                                 
                                                 <?php if (!$is_placement_coordinator): ?>
-                                                <a href="edit_batch.php?id=<?php echo $batch['id']; ?>" class="btn btn-info btn-sm" title="Edit">
+                                                <button type="button"
+                                                        class="btn btn-info btn-sm edit-batch-btn"
+                                                        title="Edit batch"
+                                                        data-batch-id="<?php echo (int) $batch['id']; ?>">
                                                     <i class="fas fa-edit"></i>
-                                                </a>
+                                                </button>
                                                 <a href="javascript:void(0);" 
                                                    class="btn btn-danger btn-sm delete-batch-btn" 
                                                    title="Delete Batch"
@@ -752,7 +867,7 @@ $create_form_defaults = [
 <div class="modal fade" id="createBatchModal" tabindex="-1" aria-labelledby="createBatchModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content border-0 shadow-lg">
-            <form method="POST" action="">
+            <form method="POST" action="<?php echo htmlspecialchars($manage_batches_action, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" name="action" value="create_batch">
                 <div class="modal-header">
                     <h5 class="modal-title" id="createBatchModalLabel">
@@ -857,6 +972,147 @@ $create_form_defaults = [
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="editBatchModal" tabindex="-1" aria-labelledby="editBatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <form method="POST" action="<?php echo htmlspecialchars($manage_batches_action, ENT_QUOTES, 'UTF-8'); ?>" id="editBatchForm">
+                <input type="hidden" name="action" value="update_batch">
+                <input type="hidden" name="batch_id" id="edit_batch_id" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editBatchModalLabel">
+                        <i class="fas fa-edit"></i> Edit Batch
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="edit-batch-meta mb-3">
+                        <strong>Course:</strong> <span id="edit_meta_course">—</span>
+                        &nbsp;·&nbsp;
+                        <strong>Batch code:</strong> <code id="edit_meta_code">—</code>
+                        &nbsp;·&nbsp;
+                        <strong>Enrolled:</strong> <span id="edit_meta_seats">0</span>
+                    </div>
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="edit-tab-general-btn" data-bs-toggle="tab"
+                                    data-bs-target="#edit-tab-general" type="button" role="tab">General</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="edit-tab-admission-btn" data-bs-toggle="tab"
+                                    data-bs-target="#edit-tab-admission" type="button" role="tab">Admission order</button>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="edit-tab-general" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Batch name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="batch_name" id="edit_batch_name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Batch coordinator <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="batch_coordinator" id="edit_batch_coordinator" required>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Description</label>
+                                    <textarea class="form-control" name="batch_description" id="edit_batch_description" rows="2"></textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Start date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="start_date" id="edit_start_date" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">End date <span class="text-danger">*</span></label>
+                                    <input type="date" class="form-control" name="end_date" id="edit_end_date" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Training fees (₹) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" class="form-control" name="training_fees" id="edit_training_fees" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Total seats <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" name="seats_total" id="edit_seats_total" min="1" required>
+                                    <div class="form-text">Filled: <span id="edit_seats_filled_hint">0</span></div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Status <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="status" id="edit_status" required>
+                                        <?php foreach ($batch_status_options as $st): ?>
+                                            <option value="<?php echo htmlspecialchars($st, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <?php echo htmlspecialchars($st); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Scheme / project</label>
+                                    <select class="form-select" name="scheme_id" id="edit_scheme_id">
+                                        <option value="">— No scheme —</option>
+                                        <?php foreach ($schemes as $scheme): ?>
+                                            <option value="<?php echo (int) $scheme['id']; ?>">
+                                                <?php echo htmlspecialchars($scheme['scheme_name'] . ' (' . $scheme['scheme_code'] . ')'); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="edit-tab-admission" role="tabpanel">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Admission order ref.</label>
+                                    <input type="text" class="form-control" name="admission_order_ref" id="edit_admission_order_ref"
+                                           placeholder="NIELIT/BBSR/AO/2026/001">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Order date</label>
+                                    <input type="date" class="form-control" name="admission_order_date" id="edit_admission_order_date">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Location</label>
+                                    <select class="form-select" name="location" id="edit_location">
+                                        <?php foreach ($location_options as $loc): ?>
+                                            <option value="<?php echo htmlspecialchars($loc, ENT_QUOTES, 'UTF-8'); ?>">
+                                                <?php echo htmlspecialchars($loc); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Examination month</label>
+                                    <input type="text" class="form-control" name="examination_month" id="edit_examination_month"
+                                           placeholder="March 2026">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Class time</label>
+                                    <input type="text" class="form-control" name="class_time" id="edit_class_time"
+                                           placeholder="9:00 AM to 1:30 PM">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Copy to (recipients)</label>
+                                    <textarea class="form-control" name="copy_to_list" id="edit_copy_to_list" rows="3"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <a href="#" class="btn btn-outline-primary btn-sm" id="edit_view_details_link">
+                        <i class="fas fa-eye"></i> Batch details
+                    </a>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save changes
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script type="application/json" id="batch-edit-json"><?php echo json_encode($batch_edit_data, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script>
 <?php endif; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -876,11 +1132,73 @@ $create_form_defaults = [
 <?php endif; ?>
 
 document.addEventListener('DOMContentLoaded', function() {
+    const batchEditRaw = document.getElementById('batch-edit-json');
+    const batchEditData = batchEditRaw ? JSON.parse(batchEditRaw.textContent || '{}') : {};
+
+    function setVal(id, val) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = val == null ? '' : String(val);
+        }
+    }
+
+    function openEditBatchModal(batchId) {
+        const b = batchEditData[String(batchId)] || batchEditData[batchId];
+        if (!b || !b.id) {
+            showToast('Could not load batch data.', 'error');
+            return;
+        }
+        setVal('edit_batch_id', b.id);
+        const courseLabel = (b.course_name || '') + (b.course_code ? ' (' + b.course_code + ')' : '');
+        const metaCourse = document.getElementById('edit_meta_course');
+        const metaCode = document.getElementById('edit_meta_code');
+        const metaSeats = document.getElementById('edit_meta_seats');
+        if (metaCourse) metaCourse.textContent = courseLabel || '—';
+        if (metaCode) metaCode.textContent = b.batch_code || '—';
+        if (metaSeats) metaSeats.textContent = (b.seats_filled || 0) + ' / ' + (b.seats_total || 0);
+        setVal('edit_batch_name', b.batch_name);
+        setVal('edit_batch_coordinator', b.batch_coordinator);
+        setVal('edit_batch_description', b.batch_description);
+        setVal('edit_start_date', b.start_date);
+        setVal('edit_end_date', b.end_date);
+        setVal('edit_training_fees', b.training_fees);
+        setVal('edit_seats_total', b.seats_total);
+        const hint = document.getElementById('edit_seats_filled_hint');
+        if (hint) hint.textContent = String(b.seats_filled || 0);
+        setVal('edit_status', b.status);
+        setVal('edit_scheme_id', b.scheme_id ? String(b.scheme_id) : '');
+        setVal('edit_admission_order_ref', b.admission_order_ref);
+        setVal('edit_admission_order_date', b.admission_order_date);
+        setVal('edit_location', b.location);
+        setVal('edit_examination_month', b.examination_month);
+        setVal('edit_class_time', b.class_time || '9:00 AM to 1:30 PM');
+        setVal('edit_copy_to_list', b.copy_to_list);
+        const detailsLink = document.getElementById('edit_view_details_link');
+        if (detailsLink) detailsLink.href = 'batch_details.php?id=' + encodeURIComponent(b.id);
+        const tabBtn = document.getElementById('edit-tab-general-btn');
+        if (tabBtn && typeof bootstrap !== 'undefined') {
+            bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+        }
+        const modalEl = document.getElementById('editBatchModal');
+        if (modalEl && typeof bootstrap !== 'undefined') {
+            (new bootstrap.Modal(modalEl)).show();
+        }
+    }
+
+    document.querySelectorAll('.edit-batch-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            openEditBatchModal(this.getAttribute('data-batch-id'));
+        });
+    });
+
     <?php if ($reopen_create_modal && !$is_placement_coordinator): ?>
     const createModalEl = document.getElementById('createBatchModal');
     if (createModalEl && typeof bootstrap !== 'undefined') {
         (new bootstrap.Modal(createModalEl)).show();
     }
+    <?php endif; ?>
+    <?php if ($reopen_edit_batch_id > 0 && !$is_placement_coordinator): ?>
+    openEditBatchModal(<?php echo (int) $reopen_edit_batch_id; ?>);
     <?php endif; ?>
 
     const deleteButtons = document.querySelectorAll('.delete-batch-btn');
