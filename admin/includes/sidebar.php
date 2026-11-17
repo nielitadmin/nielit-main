@@ -193,6 +193,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
                 <i class="fas fa-graduation-cap"></i> Manage NSQF Course
             </a>
         </div>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/nsqf_exam_results'); ?>" class="nav-link <?php echo ($current_page === 'nsqf_exam_results.php') ? 'active' : ''; ?>">
+                <i class="fas fa-award"></i> Results &amp; Certification
+            </a>
+        </div>
         <?php elseif (!$is_faculty && !$is_front_office && !$is_placement_coordinator): ?>
         <!-- Other Roles - Full Course Management -->
         <div class="nav-item">
@@ -203,6 +208,11 @@ $sidebarStyleClass = sidebarThemeBodyClass($sidebarStyleKey);
         <?php endif; ?>
         
         <?php if (!$is_faculty && !$is_nsqf_manager && !$is_front_office && !$is_placement_coordinator): ?>
+        <div class="nav-item">
+            <a href="<?php echo app_url('admin/nsqf_exam_results'); ?>" class="nav-link <?php echo ($current_page === 'nsqf_exam_results.php') ? 'active' : ''; ?>">
+                <i class="fas fa-award"></i> NSQF Results
+            </a>
+        </div>
         <div class="nav-item">
             <a href="<?php echo app_url('batch_module/admin/manage_batches'); ?>" class="nav-link <?php echo ($current_page === 'manage_batches.php') ? 'active' : ''; ?>">
                 <i class="fas fa-layer-group"></i> Batches

@@ -59,6 +59,7 @@ if (!function_exists('batch_result_status_options')) {
         return in_array((string) $role, [
             'master_admin',
             'course_coordinator',
+            'nsqf_course_manager',
         ], true);
     }
 
