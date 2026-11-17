@@ -41,7 +41,8 @@ if (!in_array($tab, ['results', 'components', 'certified'], true)) {
 
 $courseId = (int) ($_GET['course_id'] ?? 0);
 $batchId = (int) ($_GET['batch_id'] ?? 0);
-$courses = nsqf_list_exam_courses($conn, $role, $adminId);
+$showAllCourses = isset($_GET['all_courses']) && $_GET['all_courses'] === '1' && $role === 'master_admin';
+$courses = nsqf_list_exam_courses($conn, $role, $adminId, !$showAllCourses);
 $resultOptions = nsqfExamResultStatusOptions();
 
 if ($courseId > 0 && !nsqf_exam_user_can_access_course($conn, $role, $adminId, $courseId)) {
@@ -131,23 +132,45 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
         <h1 class="h4 mb-1"><i class="fas fa-award text-primary"></i> NSQF Module / Semester Results</h1>
         <p class="text-muted small mb-3">
             Configure modules (e.g. O-Level M1–M4) per course, enter results by batch, and review certified candidates.
+            The course list shows <strong>live coordinator courses</strong> (batches, assigned coordinators, or enrolled students)—not unused NSQF template catalog entries.
         </p>
 
         <div class="ner-toolbar">
             <form method="get" class="row g-2 align-items-end">
                 <input type="hidden" name="tab" value="<?php echo htmlspecialchars($tab, ENT_QUOTES, 'UTF-8'); ?>">
+                <?php if ($showAllCourses): ?>
+                    <input type="hidden" name="all_courses" value="1">
+                <?php endif; ?>
                 <div class="col-md-4">
                     <label class="form-label small mb-0">Course</label>
                     <select name="course_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <?php if ($courses === []): ?>
+                            <option value="0">No active coordinator courses found</option>
+                        <?php endif; ?>
                         <?php foreach ($courses as $c): ?>
+                            <?php
+                            $label = trim((string) ($c['course_name'] ?? ''));
+                            if (!empty($c['course_code'])) {
+                                $label .= ' · ' . $c['course_code'];
+                            }
+                            $batchesN = (int) ($c['batch_count'] ?? 0);
+                            if ($batchesN > 0) {
+                                $label .= ' · ' . $batchesN . ' batch' . ($batchesN === 1 ? '' : 'es');
+                            }
+                            ?>
                             <option value="<?php echo (int) $c['id']; ?>" <?php echo (int) $c['id'] === $courseId ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars((string) $c['course_name']); ?>
-                                <?php if (!empty($c['course_code'])): ?>
-                                    (<?php echo htmlspecialchars((string) $c['course_code']); ?>)
-                                <?php endif; ?>
+                                <?php echo htmlspecialchars($label); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
+                    <?php if ($role === 'master_admin'): ?>
+                        <div class="form-check form-check-inline mt-1">
+                            <input class="form-check-input" type="checkbox" name="all_courses" value="1" id="all_courses"
+                                <?php echo $showAllCourses ? 'checked' : ''; ?>
+                                onchange="this.form.submit()">
+                            <label class="form-check-label small" for="all_courses">Show full catalog (include unused NSQF rows)</label>
+                        </div>
+                    <?php endif; ?>
                 </div>
                 <?php if ($tab !== 'components'): ?>
                 <div class="col-md-4">

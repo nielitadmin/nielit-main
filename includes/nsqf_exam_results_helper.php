@@ -103,6 +103,29 @@ if (!function_exists('nsqf_default_olevel_components')) {
     }
 }
 
+if (!function_exists('nsqf_exam_operational_course_exists_sql')) {
+    /**
+     * Live courses coordinators run — excludes unused NSQF catalog/template-only rows.
+     */
+    function nsqf_exam_operational_course_exists_sql(mysqli $conn, string $courseAlias = 'c'): string
+    {
+        $alias = preg_replace('/[^A-Za-z0-9_]/', '', $courseAlias);
+        if ($alias === '') {
+            $alias = 'c';
+        }
+        $parts = [
+            "EXISTS (SELECT 1 FROM batches b WHERE b.course_id = {$alias}.id)",
+            "EXISTS (SELECT 1 FROM admin_course_assignments aca WHERE aca.course_id = {$alias}.id AND aca.is_active = 1)",
+            "EXISTS (SELECT 1 FROM students s WHERE s.course_id = {$alias}.id AND LOWER(IFNULL(s.status,'')) NOT IN ('inactive','rejected'))",
+        ];
+        $enr = $conn->query("SHOW TABLES LIKE 'student_enrollments'");
+        if ($enr && $enr->num_rows > 0) {
+            $parts[] = "EXISTS (SELECT 1 FROM student_enrollments se WHERE se.course_id = {$alias}.id AND LOWER(IFNULL(se.status,'')) NOT IN ('inactive','rejected'))";
+        }
+        return '(' . implode(' OR ', $parts) . ')';
+    }
+}
+
 if (!function_exists('nsqf_exam_course_access_clause')) {
     /**
      * @return array{sql:string, types:string, params:array<int,mixed>}|null null = no extra filter (master admin)
@@ -159,11 +182,12 @@ if (!function_exists('nsqf_exam_user_can_access_course')) {
 
 if (!function_exists('nsqf_list_exam_courses')) {
     /** @return array<int, array<string, mixed>> */
-    function nsqf_list_exam_courses(mysqli $conn, string $role, int $adminId): array
+    function nsqf_list_exam_courses(mysqli $conn, string $role, int $adminId, bool $operationalOnly = true): array
     {
         ensureNsqfExamResultsSchema($conn);
         $clause = nsqf_exam_course_access_clause($conn, $role, $adminId);
-        $sql = "SELECT c.id, c.course_name, c.course_code, c.is_nsqf
+        $sql = "SELECT c.id, c.course_name, c.course_code, c.is_nsqf, c.course_sub_category,
+                (SELECT COUNT(*) FROM batches b WHERE b.course_id = c.id) AS batch_count
                 FROM courses c
                 WHERE 1=1";
         $types = '';
@@ -176,7 +200,10 @@ if (!function_exists('nsqf_list_exam_courses')) {
             $types .= $clause['types'];
             $params = $clause['params'];
         }
-        $sql .= ' ORDER BY c.course_name ASC';
+        if ($operationalOnly) {
+            $sql .= ' AND ' . nsqf_exam_operational_course_exists_sql($conn, 'c');
+        }
+        $sql .= ' ORDER BY batch_count DESC, c.course_name ASC';
         $stmt = $types !== '' ? $conn->prepare($sql) : $conn->prepare($sql);
         if (!$stmt) {
             return [];
