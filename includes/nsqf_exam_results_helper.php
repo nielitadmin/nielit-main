@@ -12,7 +12,8 @@ if (!function_exists('ensureNsqfExamResultsSchema')) {
 
         $sqlComponents = "CREATE TABLE IF NOT EXISTS course_exam_components (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-            course_id INT NOT NULL,
+            course_id INT NULL DEFAULT NULL,
+            nsqf_template_id INT UNSIGNED NULL DEFAULT NULL,
             component_code VARCHAR(32) NOT NULL,
             component_label VARCHAR(120) NOT NULL,
             component_type ENUM('module','semester') NOT NULL DEFAULT 'module',
@@ -23,11 +24,13 @@ if (!function_exists('ensureNsqfExamResultsSchema')) {
             updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
             UNIQUE KEY uniq_course_code (course_id, component_code),
-            KEY idx_course_active (course_id, is_active, sort_order)
+            KEY idx_course_active (course_id, is_active, sort_order),
+            KEY idx_nsqf_template (nsqf_template_id, is_active, sort_order)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
         if (!$conn->query($sqlComponents)) {
             return false;
         }
+        nsqf_exam_results_migrate_component_columns($conn);
 
         $sqlResults = "CREATE TABLE IF NOT EXISTS batch_student_exam_results (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -43,6 +46,319 @@ if (!function_exists('ensureNsqfExamResultsSchema')) {
             KEY idx_status (result_status)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
         return (bool) $conn->query($sqlResults);
+    }
+
+    function nsqf_exam_results_migrate_component_columns(mysqli $conn): void
+    {
+        $col = $conn->query("SHOW COLUMNS FROM course_exam_components LIKE 'nsqf_template_id'");
+        if (!$col || $col->num_rows === 0) {
+            @$conn->query('ALTER TABLE course_exam_components MODIFY course_id INT NULL DEFAULT NULL');
+            @$conn->query('ALTER TABLE course_exam_components ADD COLUMN nsqf_template_id INT UNSIGNED NULL DEFAULT NULL AFTER course_id');
+        }
+        $idxTpl = $conn->query("SHOW INDEX FROM course_exam_components WHERE Key_name = 'idx_nsqf_template'");
+        if (!$idxTpl || $idxTpl->num_rows === 0) {
+            @$conn->query('ALTER TABLE course_exam_components ADD KEY idx_nsqf_template (nsqf_template_id, is_active, sort_order)');
+        }
+        $idx = $conn->query("SHOW INDEX FROM course_exam_components WHERE Key_name = 'uniq_nsqf_tpl_code'");
+        if (!$idx || $idx->num_rows === 0) {
+            @$conn->query('ALTER TABLE course_exam_components ADD UNIQUE KEY uniq_nsqf_tpl_code (nsqf_template_id, component_code)');
+        }
+    }
+}
+
+if (!function_exists('nsqf_component_applies_to_batch_course')) {
+    function nsqf_component_applies_to_batch_course(
+        mysqli $conn,
+        int $componentId,
+        int $batchId,
+        int $batchStudentId
+    ): bool {
+        $stmt = $conn->prepare(
+            'SELECT cec.id, cec.course_id, cec.nsqf_template_id, b.course_id AS batch_course_id
+             FROM course_exam_components cec
+             INNER JOIN batch_students bs ON bs.id = ? AND bs.batch_id = ?
+             INNER JOIN batches b ON b.id = bs.batch_id
+             WHERE cec.id = ? LIMIT 1'
+        );
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('iii', $batchStudentId, $batchId, $componentId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) {
+            return false;
+        }
+        $batchCourseId = (int) ($row['batch_course_id'] ?? 0);
+        $compCourseId = (int) ($row['course_id'] ?? 0);
+        if ($compCourseId > 0 && $compCourseId === $batchCourseId) {
+            return true;
+        }
+        $tplId = (int) ($row['nsqf_template_id'] ?? 0);
+        if ($tplId > 0) {
+            return nsqf_resolve_template_id_for_course($conn, $batchCourseId) === $tplId;
+        }
+        return false;
+    }
+}
+
+if (!function_exists('nsqf_template_course_name_match_sql')) {
+    function nsqf_template_course_name_match_sql(string $courseAlias = 'c', string $templateAlias = 't'): string
+    {
+        $c = preg_replace('/[^A-Za-z0-9_]/', '', $courseAlias) ?: 'c';
+        $t = preg_replace('/[^A-Za-z0-9_]/', '', $templateAlias) ?: 't';
+        $collate = function_exists('sqlUtf8mb4Collate') ? sqlUtf8mb4Collate() : 'utf8mb4_unicode_ci';
+        if (!function_exists('sqlUtf8mb4Collate')) {
+            require_once __DIR__ . '/student_form_helpers.php';
+        }
+        return "LOWER(TRIM({$c}.course_name)) COLLATE {$collate} = LOWER(TRIM({$t}.course_name)) COLLATE {$collate}";
+    }
+}
+
+if (!function_exists('nsqf_list_nsqf_templates_for_exam')) {
+    /** @return array<int, array<string, mixed>> */
+    function nsqf_list_nsqf_templates_for_exam(mysqli $conn): array
+    {
+        ensureNsqfExamResultsSchema($conn);
+        $table = $conn->query("SHOW TABLES LIKE 'nsqf_course_templates'");
+        if (!$table || $table->num_rows === 0) {
+            return [];
+        }
+        $hasActive = $conn->query("SHOW COLUMNS FROM nsqf_course_templates LIKE 'is_active'");
+        $sql = 'SELECT id, course_name, category, nsqf_type, eligibility, created_at FROM nsqf_course_templates WHERE 1=1';
+        if ($hasActive && $hasActive->num_rows > 0) {
+            $sql .= ' AND is_active = 1';
+        }
+        $sql .= ' ORDER BY course_name ASC';
+        $res = $conn->query($sql);
+        if (!$res) {
+            return [];
+        }
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        return $rows;
+    }
+}
+
+if (!function_exists('nsqf_resolve_template_id_for_course')) {
+    function nsqf_resolve_template_id_for_course(mysqli $conn, int $courseId): int
+    {
+        if ($courseId <= 0) {
+            return 0;
+        }
+        $table = $conn->query("SHOW TABLES LIKE 'nsqf_course_templates'");
+        if (!$table || $table->num_rows === 0) {
+            return 0;
+        }
+        $match = nsqf_template_course_name_match_sql('c', 't');
+        $sql = "SELECT t.id FROM courses c
+                INNER JOIN nsqf_course_templates t ON {$match}
+                WHERE c.id = ? AND (t.is_active = 1 OR t.is_active IS NULL)
+                ORDER BY t.id DESC LIMIT 1";
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('i', $courseId);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        return (int) ($row['id'] ?? 0);
+    }
+}
+
+if (!function_exists('nsqf_get_template_exam_components')) {
+    /** @return array<int, array<string, mixed>> */
+    function nsqf_get_template_exam_components(mysqli $conn, int $templateId, bool $activeOnly = true): array
+    {
+        ensureNsqfExamResultsSchema($conn);
+        if ($templateId <= 0) {
+            return [];
+        }
+        $sql = 'SELECT * FROM course_exam_components WHERE nsqf_template_id = ? AND (course_id IS NULL OR course_id = 0)';
+        if ($activeOnly) {
+            $sql .= ' AND is_active = 1';
+        }
+        $sql .= ' ORDER BY sort_order ASC, id ASC';
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        $stmt->bind_param('i', $templateId);
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+        return $rows;
+    }
+}
+
+if (!function_exists('nsqf_get_exam_components_for_course')) {
+    /** Template modules apply when no per-intake override exists. */
+    function nsqf_get_exam_components_for_course(mysqli $conn, int $courseId, bool $activeOnly = true): array
+    {
+        $courseOnly = nsqf_get_course_exam_components($conn, $courseId, $activeOnly);
+        if ($courseOnly !== []) {
+            return $courseOnly;
+        }
+        $templateId = nsqf_resolve_template_id_for_course($conn, $courseId);
+        if ($templateId > 0) {
+            return nsqf_get_template_exam_components($conn, $templateId, $activeOnly);
+        }
+        return [];
+    }
+}
+
+if (!function_exists('nsqf_save_template_exam_components')) {
+    /**
+     * @param array<int, array<string, mixed>> $components
+     */
+    function nsqf_save_template_exam_components(mysqli $conn, int $templateId, array $components): int
+    {
+        ensureNsqfExamResultsSchema($conn);
+        if ($templateId <= 0) {
+            return 0;
+        }
+        $stmt = $conn->prepare(
+            'UPDATE course_exam_components SET is_active = 0
+             WHERE nsqf_template_id = ? AND (course_id IS NULL OR course_id = 0)'
+        );
+        if ($stmt) {
+            $stmt->bind_param('i', $templateId);
+            $stmt->execute();
+            $stmt->close();
+        }
+        $saved = 0;
+        $sort = 0;
+        foreach ($components as $comp) {
+            $code = strtoupper(trim((string) ($comp['code'] ?? $comp['component_code'] ?? '')));
+            $label = trim((string) ($comp['label'] ?? $comp['component_label'] ?? $code));
+            $type = strtolower(trim((string) ($comp['type'] ?? $comp['component_type'] ?? 'module')));
+            if (!in_array($type, ['module', 'semester'], true)) {
+                $type = 'module';
+            }
+            if ($code === '' || $label === '') {
+                continue;
+            }
+            $required = !empty($comp['required_for_cert']) || !isset($comp['required_for_cert']) ? 1 : 0;
+            $ins = $conn->prepare(
+                'INSERT INTO course_exam_components
+                    (course_id, nsqf_template_id, component_code, component_label, component_type, sort_order, required_for_cert, is_active)
+                 VALUES (NULL, ?, ?, ?, ?, ?, ?, 1)
+                 ON DUPLICATE KEY UPDATE
+                    component_label = VALUES(component_label),
+                    component_type = VALUES(component_type),
+                    sort_order = VALUES(sort_order),
+                    required_for_cert = VALUES(required_for_cert),
+                    is_active = 1,
+                    nsqf_template_id = VALUES(nsqf_template_id)'
+            );
+            if (!$ins) {
+                continue;
+            }
+            $ins->bind_param('isssii', $templateId, $code, $label, $type, $sort, $required);
+            if ($ins->execute()) {
+                $saved++;
+            }
+            $ins->close();
+            $sort++;
+        }
+        return $saved;
+    }
+}
+
+if (!function_exists('nsqf_seed_olevel_template_components_if_empty')) {
+    function nsqf_seed_olevel_template_components_if_empty(mysqli $conn, int $templateId): int
+    {
+        if (nsqf_get_template_exam_components($conn, $templateId, false) !== []) {
+            return 0;
+        }
+        return nsqf_save_template_exam_components($conn, $templateId, nsqf_default_olevel_components());
+    }
+}
+
+if (!function_exists('nsqf_list_intake_courses')) {
+    /**
+     * Coordinator live intakes: course rows matching an NSQF template name and having batches.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    function nsqf_list_intake_courses(
+        mysqli $conn,
+        string $role,
+        int $adminId,
+        int $templateId = 0,
+        bool $requireBatch = true
+    ): array {
+        $table = $conn->query("SHOW TABLES LIKE 'nsqf_course_templates'");
+        if (!$table || $table->num_rows === 0) {
+            return [];
+        }
+        $match = nsqf_template_course_name_match_sql('c', 't');
+        $sql = "SELECT c.id, c.course_name, c.course_code, t.id AS nsqf_template_id, t.course_name AS nsqf_template_name,
+                (SELECT COUNT(*) FROM batches b WHERE b.course_id = c.id) AS batch_count
+                FROM courses c
+                INNER JOIN nsqf_course_templates t ON {$match}";
+        if ($hasActive = $conn->query("SHOW COLUMNS FROM nsqf_course_templates LIKE 'is_active'")) {
+            if ($hasActive->num_rows > 0) {
+                $sql .= ' AND t.is_active = 1';
+            }
+        }
+        $types = '';
+        $params = [];
+        if ($templateId > 0) {
+            $sql .= ' AND t.id = ?';
+            $types .= 'i';
+            $params[] = $templateId;
+        }
+        if ($requireBatch) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM batches b WHERE b.course_id = c.id)';
+        }
+        $clause = nsqf_exam_course_access_clause($conn, $role, $adminId);
+        if ($role !== 'master_admin' && $clause !== null && ($clause['sql'] ?? '') !== ' AND 1=0') {
+            $sql .= $clause['sql'];
+            $types .= $clause['types'];
+            $params = array_merge($params, $clause['params']);
+        } elseif ($role !== 'master_admin' && $role !== 'nsqf_course_manager') {
+            if ($clause === null || ($clause['sql'] ?? '') === ' AND 1=0') {
+                return [];
+            }
+        }
+        $sql .= ' ORDER BY t.course_name ASC, c.course_code ASC, c.id DESC';
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return [];
+        }
+        if ($types !== '') {
+            $stmt->bind_param($types, ...$params);
+        }
+        $stmt->execute();
+        $res = $stmt->get_result();
+        $rows = [];
+        while ($row = $res->fetch_assoc()) {
+            $rows[] = $row;
+        }
+        $stmt->close();
+        return $rows;
+    }
+}
+
+if (!function_exists('nsqf_exam_user_can_access_template')) {
+    function nsqf_exam_user_can_access_template(mysqli $conn, string $role, int $adminId, int $templateId): bool
+    {
+        if ($templateId <= 0) {
+            return false;
+        }
+        if (in_array($role, ['master_admin', 'nsqf_course_manager'], true)) {
+            return true;
+        }
+        return nsqf_list_intake_courses($conn, $role, $adminId, $templateId, false) !== [];
     }
 }
 
@@ -438,20 +754,7 @@ if (!function_exists('nsqf_save_batch_student_component_result')) {
         if ($batchId <= 0 || $batchStudentId <= 0 || $componentId <= 0) {
             return ['success' => false, 'message' => 'Invalid batch, student, or module.'];
         }
-        $chk = $conn->prepare(
-            'SELECT bs.id FROM batch_students bs
-             INNER JOIN course_exam_components cec ON cec.id = ?
-             INNER JOIN batches b ON b.id = bs.batch_id AND b.course_id = cec.course_id
-             WHERE bs.id = ? AND bs.batch_id = ? LIMIT 1'
-        );
-        if (!$chk) {
-            return ['success' => false, 'message' => 'Could not validate enrollment.'];
-        }
-        $chk->bind_param('iii', $componentId, $batchStudentId, $batchId);
-        $chk->execute();
-        $valid = (bool) $chk->get_result()->fetch_row();
-        $chk->close();
-        if (!$valid) {
+        if (!nsqf_component_applies_to_batch_course($conn, $componentId, $batchId, $batchStudentId)) {
             return ['success' => false, 'message' => 'Module does not belong to this batch course.'];
         }
         $status = nsqf_normalize_exam_result_status($status);
@@ -546,7 +849,7 @@ if (!function_exists('nsqf_sync_overall_result_from_modules')) {
         $batchRow = $bStmt->get_result()->fetch_assoc();
         $bStmt->close();
         $courseId = (int) ($batchRow['course_id'] ?? 0);
-        $components = nsqf_get_course_exam_components($conn, $courseId);
+        $components = nsqf_get_exam_components_for_course($conn, $courseId);
         if ($components === []) {
             return;
         }
@@ -593,7 +896,7 @@ if (!function_exists('nsqf_list_certified_candidates')) {
         string $role = 'master_admin',
         int $adminId = 0
     ): array {
-        $components = nsqf_get_course_exam_components($conn, $courseId);
+        $components = nsqf_get_exam_components_for_course($conn, $courseId);
         if ($components === []) {
             return [];
         }

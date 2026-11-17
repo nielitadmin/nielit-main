@@ -96,7 +96,7 @@ $result_stats = getBatchResultStats($conn, (int) $batch_id);
 
 ensureNsqfExamResultsSchema($conn);
 $batch_course_id = (int) ($batch['course_id'] ?? 0);
-$exam_components = $batch_course_id > 0 ? nsqf_get_course_exam_components($conn, $batch_course_id) : [];
+$exam_components = $batch_course_id > 0 ? nsqf_get_exam_components_for_course($conn, $batch_course_id) : [];
 $has_module_results = $exam_components !== [];
 $module_results_map = $has_module_results
     ? nsqf_get_batch_module_results_map($conn, (int) $batch_id, array_column($exam_components, 'id'))

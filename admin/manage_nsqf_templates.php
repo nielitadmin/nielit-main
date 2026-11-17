@@ -186,6 +186,10 @@ $templates = $stmt->get_result();
                                     <td><?= htmlspecialchars($template['eligibility']) ?></td>
                                     <td><?= date('d M Y', strtotime($template['created_at'])) ?></td>
                                     <td>
+                                        <a class="btn btn-sm btn-primary" title="Exam modules M1–M4, etc."
+                                           href="<?php echo htmlspecialchars(app_url('admin/nsqf_exam_results?tab=components&template_id=' . (int) $template['id']), ENT_QUOTES, 'UTF-8'); ?>">
+                                            <i class="fas fa-award"></i>
+                                        </a>
                                         <button class="btn btn-sm btn-info" onclick="editTemplate(<?= htmlspecialchars(json_encode($template)) ?>)">
                                             <i class="fas fa-edit"></i>
                                         </button>

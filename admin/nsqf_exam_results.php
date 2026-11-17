@@ -39,23 +39,58 @@ if (!in_array($tab, ['results', 'components', 'certified'], true)) {
     $tab = 'results';
 }
 
+$templateId = (int) ($_GET['template_id'] ?? 0);
 $courseId = (int) ($_GET['course_id'] ?? 0);
 $batchId = (int) ($_GET['batch_id'] ?? 0);
-$showAllCourses = isset($_GET['all_courses']) && $_GET['all_courses'] === '1' && $role === 'master_admin';
-$courses = nsqf_list_exam_courses($conn, $role, $adminId, !$showAllCourses);
+$includeAllIntakes = isset($_GET['all_intakes']) && $_GET['all_intakes'] === '1' && $role === 'master_admin';
+$templates = nsqf_list_nsqf_templates_for_exam($conn);
 $resultOptions = nsqfExamResultStatusOptions();
+$batches = [];
+$courses = [];
 
-if ($courseId > 0 && !nsqf_exam_user_can_access_course($conn, $role, $adminId, $courseId)) {
-    $courseId = 0;
-    $batchId = 0;
-}
-
-if ($courseId <= 0 && $courses !== []) {
+if ($tab === 'components') {
+  if ($templateId > 0 && !nsqf_exam_user_can_access_template($conn, $role, $adminId, $templateId)) {
+    $templateId = 0;
+  }
+  if ($templateId <= 0 && $templates !== []) {
+    $templateId = (int) ($templates[0]['id'] ?? 0);
+  }
+  $courseId = 0;
+  $batchId = 0;
+  $components = $templateId > 0 ? nsqf_get_template_exam_components($conn, $templateId) : [];
+} else {
+  if ($templateId > 0 && !nsqf_exam_user_can_access_template($conn, $role, $adminId, $templateId)) {
+    $templateId = 0;
+  }
+  $courses = nsqf_list_intake_courses(
+    $conn,
+    $role,
+    $adminId,
+    $templateId,
+    !$includeAllIntakes
+  );
+  if ($courseId > 0) {
+    $courseInList = false;
+    foreach ($courses as $c) {
+      if ((int) ($c['id'] ?? 0) === $courseId) {
+        $courseInList = true;
+        break;
+      }
+    }
+    if (!$courseInList || !nsqf_exam_user_can_access_course($conn, $role, $adminId, $courseId)) {
+      $courseId = 0;
+      $batchId = 0;
+    }
+  }
+  if ($courseId <= 0 && $courses !== []) {
     $courseId = (int) ($courses[0]['id'] ?? 0);
+  }
+  if ($templateId <= 0 && $courseId > 0) {
+    $templateId = nsqf_resolve_template_id_for_course($conn, $courseId);
+  }
+  $components = $courseId > 0 ? nsqf_get_exam_components_for_course($conn, $courseId) : [];
+  $batches = $courseId > 0 ? nsqf_list_batches_for_exam_panel($conn, $courseId, $role, $adminId) : [];
 }
-
-$components = $courseId > 0 ? nsqf_get_course_exam_components($conn, $courseId) : [];
-$batches = $courseId > 0 ? nsqf_list_batches_for_exam_panel($conn, $courseId, $role, $adminId) : [];
 
 if ($batchId <= 0 && $batches !== []) {
     $batchId = (int) ($batches[0]['id'] ?? 0);
@@ -87,6 +122,19 @@ $certified = ($tab === 'certified' && $courseId > 0)
     : [];
 
 $courseName = '';
+$templateName = '';
+if ($templateId > 0) {
+    $tStmt = $conn->prepare('SELECT course_name FROM nsqf_course_templates WHERE id = ? LIMIT 1');
+    if ($tStmt) {
+        $tStmt->bind_param('i', $templateId);
+        $tStmt->execute();
+        $tRow = $tStmt->get_result()->fetch_assoc();
+        $tStmt->close();
+        if ($tRow) {
+            $templateName = trim((string) $tRow['course_name']);
+        }
+    }
+}
 if ($courseId > 0) {
     $cStmt = $conn->prepare('SELECT course_name, course_code FROM courses WHERE id = ? LIMIT 1');
     if ($cStmt) {
@@ -131,27 +179,58 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
     <div class="container-fluid py-4">
         <h1 class="h4 mb-1"><i class="fas fa-award text-primary"></i> NSQF Module / Semester Results</h1>
         <p class="text-muted small mb-3">
-            Configure modules (e.g. O-Level M1–M4) per course, enter results by batch, and review certified candidates.
-            The course list shows <strong>live coordinator courses</strong> (batches, assigned coordinators, or enrolled students)—not unused NSQF template catalog entries.
+            <strong>Exam structure</strong> follows the same programs as
+            <a href="<?php echo htmlspecialchars(app_url('admin/manage_nsqf_templates'), ENT_QUOTES, 'UTF-8'); ?>">Manage NSQF Course</a>
+            (templates). <strong>Results</strong> use coordinator <em>live intakes</em> (matching course name + at least one batch)—not every row in the general course catalog.
         </p>
 
         <div class="ner-toolbar">
             <form method="get" class="row g-2 align-items-end">
                 <input type="hidden" name="tab" value="<?php echo htmlspecialchars($tab, ENT_QUOTES, 'UTF-8'); ?>">
-                <?php if ($showAllCourses): ?>
-                    <input type="hidden" name="all_courses" value="1">
+                <?php if ($includeAllIntakes): ?>
+                    <input type="hidden" name="all_intakes" value="1">
                 <?php endif; ?>
+                <?php if ($tab === 'components'): ?>
+                <div class="col-md-6">
+                    <label class="form-label small mb-0">NSQF program (template)</label>
+                    <select name="template_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <?php if ($templates === []): ?>
+                            <option value="0">No NSQF programs — add them under Manage NSQF Course</option>
+                        <?php endif; ?>
+                        <?php foreach ($templates as $t): ?>
+                            <option value="<?php echo (int) $t['id']; ?>" <?php echo (int) $t['id'] === $templateId ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars((string) ($t['course_name'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php else: ?>
                 <div class="col-md-4">
-                    <label class="form-label small mb-0">Course</label>
+                    <label class="form-label small mb-0">Filter by program</label>
+                    <select name="template_id" class="form-select form-select-sm" onchange="this.form.querySelector('[name=course_id]').value=\'0\';this.form.submit()">
+                        <option value="0" <?php echo $templateId === 0 ? 'selected' : ''; ?>>All programs</option>
+                        <?php foreach ($templates as $t): ?>
+                            <option value="<?php echo (int) $t['id']; ?>" <?php echo (int) $t['id'] === $templateId ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars((string) ($t['course_name'] ?? '')); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label small mb-0">Live intake (batch course)</label>
                     <select name="course_id" class="form-select form-select-sm" onchange="this.form.submit()">
                         <?php if ($courses === []): ?>
-                            <option value="0">No active coordinator courses found</option>
+                            <option value="0">No intakes with batches for this filter</option>
                         <?php endif; ?>
                         <?php foreach ($courses as $c): ?>
                             <?php
-                            $label = trim((string) ($c['course_name'] ?? ''));
-                            if (!empty($c['course_code'])) {
-                                $label .= ' · ' . $c['course_code'];
+                            $label = trim((string) ($c['course_code'] ?? ''));
+                            if ($label === '') {
+                                $label = '#' . (int) ($c['id'] ?? 0);
+                            }
+                            $tpl = trim((string) ($c['nsqf_template_name'] ?? $c['course_name'] ?? ''));
+                            if ($templateId <= 0 && $tpl !== '') {
+                                $label = $tpl . ' · ' . $label;
                             }
                             $batchesN = (int) ($c['batch_count'] ?? 0);
                             if ($batchesN > 0) {
@@ -165,13 +244,14 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
                     </select>
                     <?php if ($role === 'master_admin'): ?>
                         <div class="form-check form-check-inline mt-1">
-                            <input class="form-check-input" type="checkbox" name="all_courses" value="1" id="all_courses"
-                                <?php echo $showAllCourses ? 'checked' : ''; ?>
+                            <input class="form-check-input" type="checkbox" name="all_intakes" value="1" id="all_intakes"
+                                <?php echo $includeAllIntakes ? 'checked' : ''; ?>
                                 onchange="this.form.submit()">
-                            <label class="form-check-label small" for="all_courses">Show full catalog (include unused NSQF rows)</label>
+                            <label class="form-check-label small" for="all_intakes">Include intakes without batches</label>
                         </div>
                     <?php endif; ?>
                 </div>
+                <?php endif; ?>
                 <?php if ($tab !== 'components'): ?>
                 <div class="col-md-4">
                     <label class="form-label small mb-0">Batch</label>
@@ -193,26 +273,28 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
             <ul class="nav nav-pills mt-3 gap-1">
                 <li class="nav-item">
                     <a class="nav-link <?php echo $tab === 'results' ? 'active' : ''; ?>"
-                       href="?tab=results&amp;course_id=<?php echo $courseId; ?>&amp;batch_id=<?php echo $batchId; ?>">Update results</a>
+                       href="?tab=results&amp;template_id=<?php echo $templateId; ?>&amp;course_id=<?php echo $courseId; ?>&amp;batch_id=<?php echo $batchId; ?>">Update results</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $tab === 'components' ? 'active' : ''; ?>"
-                       href="?tab=components&amp;course_id=<?php echo $courseId; ?>">Exam structure</a>
+                       href="?tab=components&amp;template_id=<?php echo $templateId; ?>">Exam structure</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?php echo $tab === 'certified' ? 'active' : ''; ?>"
-                       href="?tab=certified&amp;course_id=<?php echo $courseId; ?>&amp;batch_id=<?php echo $batchId; ?>">Certified candidates</a>
+                       href="?tab=certified&amp;template_id=<?php echo $templateId; ?>&amp;course_id=<?php echo $courseId; ?>&amp;batch_id=<?php echo $batchId; ?>">Certified candidates</a>
                 </li>
             </ul>
         </div>
 
-        <?php if ($courseId <= 0): ?>
-            <div class="alert alert-warning">No NSQF / assigned course available for your account.</div>
+        <?php if ($tab === 'components' && $templateId <= 0): ?>
+            <div class="alert alert-warning">Select or create an NSQF program under Manage NSQF Course first.</div>
+        <?php elseif ($tab !== 'components' && $courseId <= 0): ?>
+            <div class="alert alert-warning">No live intake with batches is available for your account. Coordinators must create batches on a course whose name matches an NSQF program.</div>
         <?php elseif ($tab === 'components'): ?>
             <div class="card ner-toolbar">
                 <div class="card-body">
-                    <h2 class="h6"><?php echo htmlspecialchars($courseName); ?> — modules / semesters</h2>
-                    <p class="small text-muted">Add M1, M2, … or Semester 1, 2, … Dynamically. Code must be unique per course.</p>
+                    <h2 class="h6"><?php echo htmlspecialchars($templateName !== '' ? $templateName : 'Program'); ?> — modules / semesters</h2>
+                    <p class="small text-muted">Applies to all live intakes with the same course name. Codes must be unique per program.</p>
                     <div class="d-flex flex-wrap gap-2 mb-3">
                         <button type="button" class="btn btn-outline-primary btn-sm" id="btnSeedOlevel">
                             <i class="fas fa-magic"></i> Apply O-Level default (M1–M4)
@@ -295,7 +377,7 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
             <?php if ($components === []): ?>
                 <div class="alert alert-info">
                     No modules defined for this course.
-                    <a href="?tab=components&amp;course_id=<?php echo $courseId; ?>">Configure exam structure</a>
+                    <a href="?tab=components&amp;template_id=<?php echo $templateId; ?>">Configure exam structure</a>
                     or click Apply O-Level default there.
                 </div>
             <?php elseif ($batchId <= 0): ?>
@@ -381,7 +463,9 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
 (function () {
     const apiUrl = <?php echo json_encode($apiUrl); ?>;
     const courseId = <?php echo (int) $courseId; ?>;
+    const templateId = <?php echo (int) $templateId; ?>;
     const batchId = <?php echo (int) $batchId; ?>;
+    const isComponentsTab = <?php echo $tab === 'components' ? 'true' : 'false'; ?>;
 
     function postForm(data) {
         const body = new URLSearchParams(data);
@@ -507,12 +591,13 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
             }
             postForm({
                 action: 'save_components',
+                template_id: templateId,
                 course_id: courseId,
                 components: JSON.stringify(components)
             }).then(res => {
                 if (res.success) {
                     toastOk(res.message);
-                    window.location.href = '?tab=components&course_id=' + courseId;
+                    window.location.href = '?tab=components&template_id=' + templateId;
                 } else {
                     toastErr(res.message);
                 }
@@ -523,7 +608,7 @@ $apiUrl = app_url('admin/ajax/nsqf_exam_results_api');
     const btnSeed = document.getElementById('btnSeedOlevel');
     if (btnSeed) {
         btnSeed.addEventListener('click', () => {
-            postForm({ action: 'seed_olevel', course_id: courseId }).then(res => {
+            postForm({ action: 'seed_olevel', template_id: templateId, course_id: courseId }).then(res => {
                 if (res.success) {
                     toastOk(res.message);
                     window.location.reload();

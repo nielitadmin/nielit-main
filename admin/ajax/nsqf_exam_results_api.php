@@ -28,8 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $action = strtolower(trim((string) ($_POST['action'] ?? '')));
+$templateId = (int) ($_POST['template_id'] ?? 0);
 $courseId = (int) ($_POST['course_id'] ?? 0);
 $batchId = (int) ($_POST['batch_id'] ?? 0);
+
+if ($templateId > 0 && !nsqf_exam_user_can_access_template($conn, $role, $adminId, $templateId)) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'message' => 'You cannot access this NSQF program.']);
+    exit();
+}
 
 if ($courseId > 0 && !nsqf_exam_user_can_access_course($conn, $role, $adminId, $courseId)) {
     http_response_code(403);
@@ -47,13 +54,21 @@ switch ($action) {
             echo json_encode(['success' => false, 'message' => 'Invalid components payload.']);
             exit();
         }
-        $n = nsqf_save_course_exam_components($conn, $courseId, $decoded);
+        if ($templateId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Select an NSQF program.']);
+            exit();
+        }
+        $n = nsqf_save_template_exam_components($conn, $templateId, $decoded);
         echo json_encode(['success' => true, 'message' => 'Exam structure saved.', 'count' => $n]);
         break;
 
     case 'seed_olevel':
-        $n = nsqf_seed_olevel_components_if_empty($conn, $courseId);
-        if ($n === 0 && nsqf_get_course_exam_components($conn, $courseId) !== []) {
+        if ($templateId <= 0) {
+            echo json_encode(['success' => false, 'message' => 'Select an NSQF program.']);
+            exit();
+        }
+        $n = nsqf_seed_olevel_template_components_if_empty($conn, $templateId);
+        if ($n === 0 && nsqf_get_template_exam_components($conn, $templateId) !== []) {
             echo json_encode(['success' => true, 'message' => 'O-Level modules (M1–M4) already exist.', 'count' => 0]);
         } else {
             echo json_encode(['success' => true, 'message' => 'Applied default O-Level modules M1–M4.', 'count' => $n]);
