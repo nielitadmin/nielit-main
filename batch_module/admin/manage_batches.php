@@ -339,6 +339,20 @@ while ($row = $batches_result->fetch_assoc()) {
     $batches[] = $row;
 }
 $active_theme = loadActiveTheme($conn);
+$reopen_create_modal = $_SERVER['REQUEST_METHOD'] === 'POST'
+    && ($_POST['action'] ?? '') === 'create_batch'
+    && $message_type === 'danger';
+$create_form_defaults = [
+    'course_id' => $reopen_create_modal ? (int) ($_POST['course_id'] ?? 0) : ($filter_course_id > 0 ? $filter_course_id : 0),
+    'batch_name' => $reopen_create_modal ? trim((string) ($_POST['batch_name'] ?? '')) : '',
+    'batch_description' => $reopen_create_modal ? trim((string) ($_POST['batch_description'] ?? '')) : '',
+    'start_date' => $reopen_create_modal ? trim((string) ($_POST['start_date'] ?? '')) : '',
+    'end_date' => $reopen_create_modal ? trim((string) ($_POST['end_date'] ?? '')) : '',
+    'training_fees' => $reopen_create_modal ? trim((string) ($_POST['training_fees'] ?? '')) : '',
+    'seats_total' => $reopen_create_modal ? trim((string) ($_POST['seats_total'] ?? '')) : '30',
+    'batch_coordinator' => $reopen_create_modal ? trim((string) ($_POST['batch_coordinator'] ?? '')) : '',
+    'status' => $reopen_create_modal ? trim((string) ($_POST['status'] ?? 'Active')) : 'Active',
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -381,6 +395,36 @@ $active_theme = loadActiveTheme($conn);
             gap: 0.5rem;
             flex-wrap: wrap;
             align-items: flex-end;
+        }
+        .batch-list-card-header {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+        .batch-list-card-header .card-title {
+            margin: 0;
+        }
+        #createBatchModal .modal-header {
+            background: linear-gradient(135deg, #0c2340 0%, #123a66 100%);
+            color: #fff;
+            border-bottom: none;
+        }
+        #createBatchModal .modal-header .btn-close {
+            filter: invert(1);
+        }
+        #createBatchModal .modal-title i {
+            color: #fbbf24;
+            margin-right: 0.35rem;
+        }
+        #createBatchModal .modal-footer {
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+        #createBatchModal select option {
+            color: #0f172a;
+            background: #fff;
         }
     </style>
 </head>
@@ -451,113 +495,11 @@ $active_theme = loadActiveTheme($conn);
                 </div>
             <?php endif; ?>
 
-            <!-- Create New Batch -->
-            <?php if (!$is_placement_coordinator): ?>
-            <div class="content-card manage-batches-card" style="overflow: visible;">
-                <div class="card-header">
-                    <h5 class="card-title">
-                        <i class="fas fa-plus-circle"></i> Create New Batch
-                    </h5>
-                </div>
-                
-                <div class="card-body">
-                    <form method="POST" action="">
-                        <input type="hidden" name="action" value="create_batch">
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                            <div class="form-group" style="position: relative; z-index: 20;">
-                                <label class="form-label">Course *</label>
-                                <select class="form-control" name="course_id" required style="width: 100%;">
-                                    <option value="">Select Course</option>
-                                    <?php foreach ($courses as $course): ?>
-                                        <?php
-                                        $cname = trim((string)($course['course_name'] ?? ''));
-                                        $cdesc = trim((string)($course['course_description'] ?? ''));
-                                        $ccode = trim((string)($course['course_code'] ?? ''));
-                                        $fullLabel = $cname;
-                                        if ($cdesc !== '') {
-                                            $fullLabel .= ' (' . $cdesc . ')';
-                                        } elseif ($ccode !== '') {
-                                            $fullLabel .= ' (' . $ccode . ')';
-                                        }
-                                        $shortLabel = $fullLabel;
-                                        if (function_exists('mb_strlen') && mb_strlen($shortLabel) > 110) {
-                                            $shortLabel = mb_substr($shortLabel, 0, 107) . '…';
-                                        } elseif (strlen($shortLabel) > 110) {
-                                            $shortLabel = substr($shortLabel, 0, 107) . '…';
-                                        }
-                                        ?>
-                                        <option value="<?php echo (int)$course['id']; ?>" title="<?php echo htmlspecialchars($fullLabel, ENT_QUOTES, 'UTF-8'); ?>">
-                                            <?php echo htmlspecialchars($shortLabel, ENT_QUOTES, 'UTF-8'); ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
-                                <?php if (!$is_master_admin && empty($courses)): ?>
-                                    <small class="text-danger"><i class="fas fa-exclamation-circle"></i> No courses assigned to you yet. Contact Master Admin to assign courses.</small>
-                                <?php endif; ?>
-                            </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Batch Name *</label>
-                            <input type="text" class="form-control" name="batch_name" placeholder="e.g., DBC Batch 25" required>
-                        </div>
-
-                        <div class="form-group" style="grid-column: span 2;">
-                            <label class="form-label">Batch Description <small class="text-muted">(optional)</small></label>
-                            <textarea class="form-control" name="batch_description" rows="2" placeholder="Short notes about this batch, e.g. evening batch, special intake"></textarea>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Start Date *</label>
-                            <input type="date" class="form-control" name="start_date" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">End Date *</label>
-                            <input type="date" class="form-control" name="end_date" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Training Fees (₹) *</label>
-                            <input type="number" step="0.01" class="form-control" name="training_fees" placeholder="15000.00" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Total Seats *</label>
-                            <input type="number" class="form-control" name="seats_total" min="1" step="1" placeholder="30" required>
-                            <small class="text-muted">Enter the total number of available seats</small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Batch Coordinator *</label>
-                            <input type="text" class="form-control" name="batch_coordinator" placeholder="Dr. Kumar Singh" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="form-label">Status *</label>
-                            <select class="form-control" name="status" required>
-                                <option value="Active">Active</option>
-                                <option value="Completed">Completed</option>
-                                <option value="Cancelled">Cancelled</option>
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-top: 16px;">
-                        <button type="submit" class="btn btn-success">
-                            <i class="fas fa-save"></i> Create Batch
-                        </button>
-                    </div>
-                </form>
-                </div>
-            </div>
-            <?php endif; ?>
-
             <!-- Existing Batches -->
             <div class="content-card">
-                <div class="card-header">
+                <div class="card-header batch-list-card-header">
                     <h5 class="card-title">
-                        <i class="fas fa-list"></i> 
+                        <i class="fas fa-list"></i>
                         <?php if ($can_see_all_batches): ?>
                             All Batches
                         <?php else: ?>
@@ -568,6 +510,11 @@ $active_theme = loadActiveTheme($conn);
                             <span class="badge badge-secondary">Filtered</span>
                         <?php endif; ?>
                     </h5>
+                    <?php if (!$is_placement_coordinator): ?>
+                        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#createBatchModal">
+                            <i class="fas fa-plus"></i> New Batch
+                        </button>
+                    <?php endif; ?>
                 </div>
 
                 <div class="batch-filter-bar">
@@ -781,9 +728,17 @@ $active_theme = loadActiveTheme($conn);
                         <?php elseif ($is_placement_coordinator): ?>
                             <p style="margin: 0; font-size: 16px;">No batches found yet.</p>
                         <?php elseif ($is_master_admin): ?>
-                            <p style="margin: 0; font-size: 16px;">No batches found. Create your first batch above.</p>
+                            <p style="margin: 0; font-size: 16px;">No batches found.</p>
+                            <?php if (!$is_placement_coordinator): ?>
+                                <button type="button" class="btn btn-success btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#createBatchModal">
+                                    <i class="fas fa-plus"></i> Create your first batch
+                                </button>
+                            <?php endif; ?>
                         <?php else: ?>
-                            <p style="margin: 0; font-size: 16px;">You haven't created any batches yet. Create your first batch above.</p>
+                            <p style="margin: 0; font-size: 16px;">You haven't created any batches yet.</p>
+                            <button type="button" class="btn btn-success btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#createBatchModal">
+                                <i class="fas fa-plus"></i> Create your first batch
+                            </button>
                             <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.7;">You can only see batches that you created.</p>
                         <?php endif; ?>
                     </div>
@@ -793,6 +748,118 @@ $active_theme = loadActiveTheme($conn);
     </main>
 </div>
 
+<?php if (!$is_placement_coordinator): ?>
+<div class="modal fade" id="createBatchModal" tabindex="-1" aria-labelledby="createBatchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg">
+            <form method="POST" action="">
+                <input type="hidden" name="action" value="create_batch">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="createBatchModalLabel">
+                        <i class="fas fa-plus-circle"></i> Create New Batch
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Add a batch for your course. Batch code is generated automatically after you save.</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Course <span class="text-danger">*</span></label>
+                            <select class="form-select" name="course_id" required>
+                                <option value="">Select course</option>
+                                <?php foreach ($courses as $course): ?>
+                                    <?php
+                                    $cname = trim((string) ($course['course_name'] ?? ''));
+                                    $cdesc = trim((string) ($course['course_description'] ?? ''));
+                                    $ccode = trim((string) ($course['course_code'] ?? ''));
+                                    $fullLabel = $cname;
+                                    if ($cdesc !== '') {
+                                        $fullLabel .= ' (' . $cdesc . ')';
+                                    } elseif ($ccode !== '') {
+                                        $fullLabel .= ' (' . $ccode . ')';
+                                    }
+                                    $shortLabel = $fullLabel;
+                                    if (function_exists('mb_strlen') && mb_strlen($shortLabel) > 90) {
+                                        $shortLabel = mb_substr($shortLabel, 0, 87) . '…';
+                                    } elseif (strlen($shortLabel) > 90) {
+                                        $shortLabel = substr($shortLabel, 0, 87) . '…';
+                                    }
+                                    $sel = (int) $course['id'] === (int) $create_form_defaults['course_id'];
+                                    ?>
+                                    <option value="<?php echo (int) $course['id']; ?>" <?php echo $sel ? 'selected' : ''; ?>
+                                            title="<?php echo htmlspecialchars($fullLabel, ENT_QUOTES, 'UTF-8'); ?>">
+                                        <?php echo htmlspecialchars($shortLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if (!$is_master_admin && empty($courses)): ?>
+                                <div class="form-text text-danger">No courses assigned — contact Master Admin.</div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Batch name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="batch_name" required
+                                   placeholder="e.g., DBC Batch 25"
+                                   value="<?php echo htmlspecialchars($create_form_defaults['batch_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Description <span class="text-muted fw-normal">(optional)</span></label>
+                            <textarea class="form-control" name="batch_description" rows="2"
+                                      placeholder="Evening batch, special intake, etc."><?php echo htmlspecialchars($create_form_defaults['batch_description'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Start date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="start_date" required
+                                   value="<?php echo htmlspecialchars($create_form_defaults['start_date'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">End date <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="end_date" required
+                                   value="<?php echo htmlspecialchars($create_form_defaults['end_date'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Training fees (₹) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" name="training_fees"
+                                   placeholder="15000.00" required
+                                   value="<?php echo htmlspecialchars($create_form_defaults['training_fees'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Total seats <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="seats_total" min="1" step="1" required
+                                   value="<?php echo htmlspecialchars($create_form_defaults['seats_total'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Batch coordinator <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="batch_coordinator" required
+                                   placeholder="Dr. Kumar Singh"
+                                   value="<?php echo htmlspecialchars($create_form_defaults['batch_coordinator'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status <span class="text-danger">*</span></label>
+                            <select class="form-select" name="status" required>
+                                <?php foreach ($batch_status_options as $st): ?>
+                                    <option value="<?php echo htmlspecialchars($st, ENT_QUOTES, 'UTF-8'); ?>"
+                                        <?php echo $create_form_defaults['status'] === $st ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($st); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-save"></i> Create batch
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="<?php echo APP_URL; ?>/assets/js/toast-notifications.js"></script>
 <script>
 // Show toast notification if there's a session message
@@ -808,8 +875,14 @@ $active_theme = loadActiveTheme($conn);
     });
 <?php endif; ?>
 
-// Handle delete batch buttons with modern confirmation
 document.addEventListener('DOMContentLoaded', function() {
+    <?php if ($reopen_create_modal && !$is_placement_coordinator): ?>
+    const createModalEl = document.getElementById('createBatchModal');
+    if (createModalEl && typeof bootstrap !== 'undefined') {
+        (new bootstrap.Modal(createModalEl)).show();
+    }
+    <?php endif; ?>
+
     const deleteButtons = document.querySelectorAll('.delete-batch-btn');
     deleteButtons.forEach(button => {
         button.addEventListener('click', async function(e) {
