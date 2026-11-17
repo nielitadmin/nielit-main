@@ -110,6 +110,23 @@ if ($is_course_coordinator) {
 
 // Get filter parameter
 $filter_category = $_GET['category'] ?? 'all';
+$filter_centre_id = (int) ($_GET['centre_id'] ?? 0);
+$filter_centre_name = '';
+if ($filter_centre_id > 0) {
+    $centreFilterStmt = $conn->prepare('SELECT id, name FROM centres WHERE id = ? AND is_active = 1 LIMIT 1');
+    if ($centreFilterStmt) {
+        $centreFilterStmt->bind_param('i', $filter_centre_id);
+        $centreFilterStmt->execute();
+        $centreFilterRow = $centreFilterStmt->get_result()->fetch_assoc();
+        $centreFilterStmt->close();
+        if ($centreFilterRow) {
+            $filter_centre_name = normalize_nielit_centre_name($centreFilterRow['name']);
+        } else {
+            $filter_centre_id = 0;
+        }
+    }
+}
+$has_active_course_filter = $filter_category !== 'all' || $filter_centre_id > 0;
 // Get courses tab (all, ongoing, upcoming, past)
 $courses_tab = $_GET['courses_tab'] ?? 'all';
 $valid_tabs = ['all','ongoing','upcoming','past'];
@@ -146,6 +163,10 @@ if ($filter_category !== 'all') {
     }
 }
 
+if ($filter_centre_id > 0 && $filter_centre_name !== '') {
+    $sql .= ' AND (courses.centre_id = ? OR LOWER(TRIM(courses.training_center)) = LOWER(TRIM(?)))';
+}
+
 // Add courses tab filter (date based)
 if ($courses_tab !== 'all') {
     if ($courses_tab === 'ongoing') {
@@ -179,6 +200,12 @@ if ($filter_category !== 'all') {
         $bind_types .= 's';
         $bind_values[] = $filter_category;
     }
+}
+
+if ($filter_centre_id > 0 && $filter_centre_name !== '') {
+    $bind_types .= 'is';
+    $bind_values[] = $filter_centre_id;
+    $bind_values[] = $filter_centre_name;
 }
 
 // Add courses tab bind values (date based)
@@ -1971,16 +1998,34 @@ $dashboard_payload = [
             <div class="content-card" style="margin-bottom: 1.25rem; padding: 1rem 1.25rem;">
                 <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
                     <div style="flex:1; min-width:240px;">
-                        <div style="font-weight:800; font-size:1rem; color:#0f172a; margin-bottom:0.5rem;">
+                        <div style="font-weight:800; font-size:1rem; color:#0f172a; margin-bottom:0.25rem;">
                             <i class="fas fa-map-marker-alt" style="color:#2563eb;"></i> Training Centre Names
                         </div>
+                        <div style="color:#64748b; font-size:0.78rem; margin-bottom:0.5rem;">Click a centre to filter the course list below.</div>
                         <div style="display:flex; flex-wrap:wrap; gap:0.5rem;">
-                            <?php foreach ($centres as $centre): ?>
-                                <span style="display:inline-flex; align-items:center; gap:0.35rem; padding:0.45rem 0.75rem; border-radius:999px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:0.82rem; font-weight:600;">
+                            <?php foreach ($centres as $centre):
+                                $centreChipId = (int) ($centre['id'] ?? 0);
+                                $centreChipActive = $filter_centre_id > 0 && $filter_centre_id === $centreChipId;
+                                $centreChipQuery = array_filter([
+                                    'centre_id' => $centreChipId,
+                                    'category' => $filter_category !== 'all' ? $filter_category : null,
+                                    'courses_tab' => $courses_tab !== 'all' ? $courses_tab : null,
+                                ]);
+                                $centreChipHref = 'dashboard.php?' . http_build_query($centreChipQuery) . '#courses-section';
+                                $centreChipStyle = $centreChipActive
+                                    ? 'display:inline-flex; align-items:center; gap:0.35rem; padding:0.45rem 0.75rem; border-radius:999px; background:#2563eb; border:1px solid #1d4ed8; color:#fff; font-size:0.82rem; font-weight:600; text-decoration:none; box-shadow:0 2px 8px rgba(37,99,235,0.25);'
+                                    : 'display:inline-flex; align-items:center; gap:0.35rem; padding:0.45rem 0.75rem; border-radius:999px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:0.82rem; font-weight:600; text-decoration:none; transition:background 0.15s ease, border-color 0.15s ease;';
+                                ?>
+                                <a href="<?php echo htmlspecialchars($centreChipHref, ENT_QUOTES, 'UTF-8'); ?>"
+                                   class="dashboard-centre-chip"
+                                   title="Show courses at this centre"
+                                   style="<?php echo $centreChipStyle; ?>"
+                                   onmouseover="if(!<?php echo $centreChipActive ? 'true' : 'false'; ?>){this.style.background='#dbeafe';this.style.borderColor='#93c5fd';}"
+                                   onmouseout="if(!<?php echo $centreChipActive ? 'true' : 'false'; ?>){this.style.background='#eff6ff';this.style.borderColor='#bfdbfe';}">
                                     <i class="fas fa-building" style="font-size:0.75rem;"></i>
                                     <?php echo htmlspecialchars(normalize_nielit_centre_name($centre['name'])); ?>
-                                    <span style="opacity:0.75; font-weight:500;">(<?php echo htmlspecialchars($centre['code']); ?>)</span>
-                                </span>
+                                    <span style="opacity:<?php echo $centreChipActive ? '0.9' : '0.75'; ?>; font-weight:500;">(<?php echo htmlspecialchars($centre['code']); ?>)</span>
+                                </a>
                             <?php endforeach; ?>
                         </div>
                         <?php
@@ -2053,7 +2098,12 @@ $dashboard_payload = [
                             ];
                             foreach ($tabs as $key => $info) {
                                 $active = $tab === $key ? 'background: linear-gradient(135deg,#2563eb,#7c3aed); color: #fff;' : 'background: #f3f4f6; color: #374151;';
-                                $url = 'dashboard.php?courses_tab=' . $key;
+                                $tabQuery = array_filter([
+                                    'courses_tab' => $key,
+                                    'category' => $filter_category !== 'all' ? $filter_category : null,
+                                    'centre_id' => $filter_centre_id > 0 ? $filter_centre_id : null,
+                                ]);
+                                $url = 'dashboard.php?' . http_build_query($tabQuery);
                                 echo "<a href=\"$url\" class=\"btn\" style=\"padding:8px 12px; border-radius:12px; $active\">{$info['label']} <span style='margin-left:8px; font-weight:700;'>({$info['count']})</span></a> ";
                             }
                         ?>
@@ -2069,7 +2119,21 @@ $dashboard_payload = [
                     </h5>
                 </div>
                 <div style="padding: 20px;">
-                    <form method="GET" style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: end;">
+                    <form method="GET" style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 16px; align-items: end;">
+                        <?php if ($courses_tab !== 'all'): ?>
+                            <input type="hidden" name="courses_tab" value="<?php echo htmlspecialchars($courses_tab, ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php endif; ?>
+                        <div class="form-group" style="margin: 0;">
+                            <label class="form-label"><i class="fas fa-building"></i> Training Centre</label>
+                            <select name="centre_id" class="form-select" onchange="this.form.submit()" style="width: 100%;">
+                                <option value="" <?= $filter_centre_id <= 0 ? 'selected' : '' ?>>All centres</option>
+                                <?php foreach ($centres as $centre): ?>
+                                    <option value="<?= (int) $centre['id'] ?>" <?= $filter_centre_id === (int) $centre['id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars(normalize_nielit_centre_name($centre['name'])) ?> (<?= htmlspecialchars($centre['code']) ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                         <div class="form-group" style="margin: 0;">
                             <label class="form-label"><i class="fas fa-tag"></i> Filter by Category</label>
                             <select name="category" class="form-select" onchange="this.form.submit()" style="width: 100%;">
@@ -2101,8 +2165,11 @@ $dashboard_payload = [
                             <span>
                                 <?php 
                                 $total_filtered = $result->num_rows;
-                                if ($filter_category !== 'all') {
+                                if ($has_active_course_filter) {
                                     echo '<strong style="color: #0d47a1;">' . $total_filtered . ' results</strong> found';
+                                    if ($filter_centre_id > 0 && $filter_centre_name !== '') {
+                                        echo ' at <strong>' . htmlspecialchars($filter_centre_name) . '</strong>';
+                                    }
                                 } else {
                                     echo '<strong style="color: #64748b;">' . $total_filtered . ' total</strong> courses';
                                 }
@@ -2110,8 +2177,12 @@ $dashboard_payload = [
                             </span>
                         </div>
                         <div>
-                            <?php if ($filter_category !== 'all'): ?>
-                                <a href="dashboard.php" class="btn btn-secondary" style="width: 100%;">
+                            <?php if ($has_active_course_filter): ?>
+                                <?php
+                                $clearQuery = $courses_tab !== 'all' ? ['courses_tab' => $courses_tab] : [];
+                                $clearHref = 'dashboard.php' . ($clearQuery !== [] ? '?' . http_build_query($clearQuery) : '');
+                                ?>
+                                <a href="<?php echo htmlspecialchars($clearHref, ENT_QUOTES, 'UTF-8'); ?>" class="btn btn-secondary" style="width: 100%;">
                                     <i class="fas fa-redo"></i> Clear Filter
                                 </a>
                             <?php else: ?>
