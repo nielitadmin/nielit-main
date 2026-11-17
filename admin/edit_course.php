@@ -113,6 +113,12 @@ if (isset($_GET['id'])) {
     exit();
 }
 
+$editCourseSchemeShowAll = in_array(
+    (string) ($_SESSION['admin_role'] ?? ''),
+    ['master_admin', 'nsqf_course_manager'],
+    true
+);
+
 // Handle Remove PDF
 if (isset($_GET['remove_pdf']) && $_GET['remove_pdf'] == $course_id) {
     if (!empty($course['description_pdf']) && file_exists(__DIR__ . '/../' . $course['description_pdf'])) {
@@ -1186,6 +1192,7 @@ $active_theme = loadActiveTheme($conn);
 <style>
 #editSchemeList .scheme-centre-option { display: none; }
 #editSchemeList .scheme-centre-option.is-shown { display: flex; }
+#editSchemeList .scheme-centre-option.scheme-other-centre { opacity: 0.92; border-left: 3px solid #f59e0b; padding-left: 6px; }
 </style>
 <script>
 function toggleEditCourseMode() {
@@ -1202,6 +1209,18 @@ function toggleEditCourseMode() {
         mode.value = '';
     }
 }
+var editCourseShowAllSchemes = <?php echo !empty($editCourseSchemeShowAll) ? 'true' : 'false'; ?>;
+
+function schemeOptionMatchesCentre(centreIds, centreId) {
+    if (centreId === '' || centreId === null) {
+        return false;
+    }
+    if (!centreIds || centreIds.length === 0) {
+        return true;
+    }
+    return centreIds.indexOf(String(centreId)) !== -1;
+}
+
 function filterEditCourseSchemes() {
     var select = document.getElementById('edit_training_centre');
     var root = document.getElementById('editSchemeList');
@@ -1213,20 +1232,28 @@ function filterEditCourseSchemes() {
     root.querySelectorAll('.scheme-centre-option').forEach(function (label) {
         var ids = (label.getAttribute('data-centres') || '').split(',').filter(Boolean);
         var box = label.querySelector('input[type="checkbox"]');
-        var match = centreId !== '' && ids.indexOf(centreId) !== -1;
-        var keepChecked = box && box.checked && centreId !== '';
-        label.classList.toggle('is-shown', match || keepChecked);
-        if (match || keepChecked) {
+        var match = schemeOptionMatchesCentre(ids, centreId);
+        var keepChecked = box && box.checked;
+        var visible = editCourseShowAllSchemes ? (centreId !== '' || keepChecked) : (match || keepChecked);
+        if (editCourseShowAllSchemes && centreId === '' && !keepChecked) {
+            visible = false;
+        }
+        label.classList.toggle('is-shown', visible);
+        label.classList.toggle('scheme-other-centre', !!(editCourseShowAllSchemes && centreId !== '' && !match && visible));
+        if (visible) {
             shown += 1;
         }
     });
     var hint = document.getElementById('editSchemeCentreHint');
     if (hint) {
         if (centreId === '') {
-            hint.textContent = 'Select a training centre to see the schemes and projects for that centre.';
+            hint.textContent = 'Select a training centre to see the schemes and projects for this centre.';
             hint.hidden = false;
         } else if (shown === 0) {
-            hint.textContent = 'No schemes or projects are linked to this training centre. Open the scheme and tick this centre.';
+            hint.textContent = 'No schemes are linked to this training centre. In Schemes/Projects, edit each scheme and tick this centre — or ask Master Admin to link them.';
+            hint.hidden = false;
+        } else if (editCourseShowAllSchemes) {
+            hint.textContent = 'All active schemes are listed. Schemes not linked to this centre are still available for admins.';
             hint.hidden = false;
         } else {
             hint.hidden = true;

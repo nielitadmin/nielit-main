@@ -2993,6 +2993,18 @@ function toggleAddCourseMode() {
     }
 }
 
+var addCourseShowAllSchemes = <?php echo in_array((string) ($_SESSION['admin_role'] ?? ''), ['master_admin', 'nsqf_course_manager'], true) ? 'true' : 'false'; ?>;
+
+function schemeOptionMatchesCentre(centreIds, centreId) {
+    if (centreId === '' || centreId === null) {
+        return false;
+    }
+    if (!centreIds || centreIds.length === 0) {
+        return true;
+    }
+    return centreIds.indexOf(String(centreId)) !== -1;
+}
+
 function filterAddCourseSchemes() {
     var select = document.getElementById('add_training_center_dash');
     var root = document.getElementById('addCourseModal');
@@ -3005,12 +3017,13 @@ function filterAddCourseSchemes() {
     root.querySelectorAll('.scheme-centre-option').forEach(function (label) {
         var ids = (label.getAttribute('data-centres') || '').split(',').filter(Boolean);
         var box = label.querySelector('input[type="checkbox"]');
-        var match = centreId !== '' && ids.indexOf(centreId) !== -1;
-        label.classList.toggle('is-shown', match);
-        if (!match && box) {
+        var match = schemeOptionMatchesCentre(ids, centreId);
+        var visible = addCourseShowAllSchemes ? centreId !== '' : match;
+        if (!addCourseShowAllSchemes && !match && box) {
             box.checked = false;
         }
-        if (match) {
+        label.classList.toggle('is-shown', visible);
+        if (visible) {
             shown += 1;
         }
     });
@@ -3021,6 +3034,9 @@ function filterAddCourseSchemes() {
             hint.hidden = false;
         } else if (shown === 0) {
             hint.textContent = 'No schemes or projects are linked to this training centre. Open the scheme and tick this centre.';
+            hint.hidden = false;
+        } else if (addCourseShowAllSchemes) {
+            hint.textContent = 'All active schemes are listed for admins. Link schemes to centres in Schemes/Projects if coordinators should see fewer options.';
             hint.hidden = false;
         } else {
             hint.hidden = true;
