@@ -57,13 +57,25 @@ if ($batch_id > 0) {
     $return_label = 'Back to Students';
 }
 
-// Fetch this enrollment. Batch pages pass record_id so we do not open the original O-Level row.
+// Fetch this enrollment. Batch / Manage Students pass record_id so we open the same row as the list.
+$filter_course_id = 0;
+if (isset($return_query['filter_course']) && $return_query['filter_course'] !== 'All') {
+    $filter_course_id = (int) $return_query['filter_course'];
+}
 if ($record_id > 0) {
     $sql = "SELECT * FROM students WHERE id = ? AND student_id = ? LIMIT 1";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("is", $record_id, $student_id);
+} elseif ($filter_course_id > 0) {
+    $sql = "SELECT * FROM students WHERE student_id = ? AND course_id = ?
+            AND LOWER(IFNULL(status,'')) NOT IN ('inactive','rejected')
+            ORDER BY id DESC LIMIT 1";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("si", $student_id, $filter_course_id);
 } else {
-    $sql = "SELECT * FROM students WHERE student_id = ? ORDER BY id DESC LIMIT 1";
+    $sql = "SELECT * FROM students WHERE student_id = ?
+            AND LOWER(IFNULL(status,'')) NOT IN ('inactive','rejected')
+            ORDER BY id DESC LIMIT 1";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $student_id);
 }

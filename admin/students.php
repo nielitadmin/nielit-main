@@ -2475,7 +2475,7 @@ if ($other_gender_count > 0) {
                                     </a>
                                 <?php endif; ?>
 
-                                <a href="<?php echo htmlspecialchars(relative_url('view_student_documents.php')); ?>?id=<?php echo urlencode($row['student_id']); ?><?php echo $filter_suffix; ?>"
+                                <a href="<?php echo htmlspecialchars(relative_url('view_student_documents.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&amp;record_id=<?php echo (int) $row['id']; ?><?php echo $filter_suffix; ?>"
                                    class="btn btn-info btn-sm" title="View Documents">
                                     <i class="fas fa-folder-open"></i>
                                 </a>
