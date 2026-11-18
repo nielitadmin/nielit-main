@@ -9,6 +9,37 @@ if (file_exists(__DIR__ . '/../../includes/nielit_registration_helper.php')) {
 }
 
 /**
+ * Use portal account name for batch rosters (and optional one-time DB sync per Student ID per request).
+ */
+function batch_apply_student_portal_name(mysqli $conn, array $row, array &$syncedStudentIds): array
+{
+    static $helpersLoaded = false;
+    if (!$helpersLoaded) {
+        $multiPath = __DIR__ . '/../../includes/multi_course_helper.php';
+        $helperPath = __DIR__ . '/../../includes/student_form_helpers.php';
+        if (file_exists($multiPath)) {
+            require_once $multiPath;
+        }
+        if (file_exists($helperPath)) {
+            require_once $helperPath;
+        }
+        $helpersLoaded = true;
+    }
+    $sid = trim((string) ($row['student_id'] ?? ''));
+    if ($sid === '') {
+        return $row;
+    }
+    if (!isset($syncedStudentIds[$sid]) && function_exists('syncStudentEnrollmentNamesFromAccount')) {
+        $syncedStudentIds[$sid] = true;
+        syncStudentEnrollmentNamesFromAccount($conn, $sid);
+    }
+    if (function_exists('resolveStudentPortalDisplayName')) {
+        $row['name'] = resolveStudentPortalDisplayName($conn, $sid, (string) ($row['name'] ?? ''));
+    }
+    return $row;
+}
+
+/**
  * Ensure batches.batch_description column exists (optional notes about the batch).
  */
 function ensureBatchDescriptionColumn(mysqli $conn): void
@@ -516,6 +547,7 @@ function getBatchStudents($batch_id, $conn) {
         $stmt->execute();
         $result = $stmt->get_result();
         $students = [];
+        $syncedStudentIds = [];
         while ($row = $result->fetch_assoc()) {
             if (function_exists('syncNielitRegistrationNoDefault')
                 && trim((string) ($row['nielit_registration_no'] ?? '')) === ''
@@ -523,6 +555,7 @@ function getBatchStudents($batch_id, $conn) {
                 syncNielitRegistrationNoDefault($conn, (int) $row['id'], $batch_id);
                 $row['nielit_registration_no'] = $row['student_id'];
             }
+            $row = batch_apply_student_portal_name($conn, $row, $syncedStudentIds);
             $students[] = $row;
         }
         $stmt->close();
@@ -547,6 +580,7 @@ function getBatchStudents($batch_id, $conn) {
     $stmt->execute();
     $result = $stmt->get_result();
     $students = [];
+    $syncedStudentIds = [];
     while ($row = $result->fetch_assoc()) {
         if (function_exists('syncNielitRegistrationNoDefault')
             && trim((string) ($row['nielit_registration_no'] ?? '')) === ''
@@ -554,6 +588,7 @@ function getBatchStudents($batch_id, $conn) {
             syncNielitRegistrationNoDefault($conn, (int) $row['id'], $batch_id);
             $row['nielit_registration_no'] = $row['student_id'];
         }
+        $row = batch_apply_student_portal_name($conn, $row, $syncedStudentIds);
         $students[] = $row;
     }
     $stmt->close();
@@ -633,7 +668,9 @@ function getEligibleStudentsForBatch($batch_id, $conn) {
     $stmt->execute();
     $result = $stmt->get_result();
     $students = [];
+    $syncedStudentIds = [];
     while ($row = $result->fetch_assoc()) {
+        $row = batch_apply_student_portal_name($conn, $row, $syncedStudentIds);
         $students[] = $row;
     }
     $stmt->close();

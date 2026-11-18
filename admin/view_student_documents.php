@@ -90,6 +90,9 @@ if ($result->num_rows == 0) {
 
 $student = $result->fetch_assoc();
 require_once __DIR__ . '/../includes/student_form_helpers.php';
+if (function_exists('resolveStudentPortalDisplayName')) {
+    $student['name'] = resolveStudentPortalDisplayName($conn, $student_id, (string) ($student['name'] ?? ''));
+}
 if ($batch_id > 0 && function_exists('applyBatchCourseToAdmissionForm')) {
     $student = applyBatchCourseToAdmissionForm($conn, $student, $batch_id);
 }

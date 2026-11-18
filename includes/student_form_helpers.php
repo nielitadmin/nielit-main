@@ -590,4 +590,49 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
         }
         return $student;
     }
+
+    /**
+     * Prefer student_accounts.name (portal login identity) when set so list and forms match email/login.
+     */
+    function resolveStudentPortalDisplayName(mysqli $conn, string $studentIdStr, string $enrollmentName): string
+    {
+        $enrollmentName = trim($enrollmentName);
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '' || !function_exists('resolveStudentAccount')) {
+            return $enrollmentName;
+        }
+        $account = resolveStudentAccount($conn, $studentIdStr);
+        $accountName = trim((string) ($account['name'] ?? ''));
+        return $accountName !== '' ? $accountName : $enrollmentName;
+    }
+
+    /**
+     * Align every enrollment row's name with student_accounts (fixes Narender vs Narendra typos).
+     */
+    function syncStudentEnrollmentNamesFromAccount(mysqli $conn, string $studentIdStr): int
+    {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '' || !function_exists('resolveStudentAccount')) {
+            return 0;
+        }
+        $account = resolveStudentAccount($conn, $studentIdStr);
+        $canonical = trim((string) ($account['name'] ?? ''));
+        if ($canonical === '') {
+            return 0;
+        }
+        $c = sqlUtf8mb4Collate();
+        $stmt = $conn->prepare(
+            "UPDATE students SET name = ?
+             WHERE student_id = ?
+             AND TRIM(name) COLLATE {$c} != TRIM(?) COLLATE {$c}"
+        );
+        if (!$stmt) {
+            return 0;
+        }
+        $stmt->bind_param('sss', $canonical, $studentIdStr, $canonical);
+        $stmt->execute();
+        $updated = (int) $stmt->affected_rows;
+        $stmt->close();
+        return $updated;
+    }
 }

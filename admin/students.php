@@ -2174,6 +2174,9 @@ if ($other_gender_count > 0) {
                                 $batch_assign_enrollments = $batch_assign_enrollments_cache[$batch_assign_key] ?? [];
 
                                 $record_id = (int)$row['id'];
+                                $display_name = function_exists('resolveStudentPortalDisplayName')
+                                    ? resolveStudentPortalDisplayName($conn, (string) $row['student_id'], (string) ($row['name'] ?? ''))
+                                    : (string) ($row['name'] ?? '');
 
                                 $course_batches_key = $row['student_id'] . ':' . $row_course_id;
                                 if ($row_course_id > 0 && !isset($student_course_batches_cache[$course_batches_key])) {
@@ -2281,7 +2284,7 @@ if ($other_gender_count > 0) {
                             </td>
                             <td class="student-id-cell"><strong><?php echo htmlspecialchars($row['student_id']); ?></strong></td>
                             <td class="student-contact-cell">
-                                <span class="student-name"><?php echo htmlspecialchars($row['name']); ?></span>
+                                <span class="student-name"><?php echo htmlspecialchars($display_name); ?></span>
                                 <?php if (!empty($row['email'])): ?>
                                     <span class="student-meta" title="<?php echo htmlspecialchars($row['email']); ?>"><?php echo htmlspecialchars($row['email']); ?></span>
                                 <?php endif; ?>
@@ -2423,7 +2426,7 @@ if ($other_gender_count > 0) {
                                             <i class="fas fa-times"></i>
                                         </a>
                                     <?php elseif (in_array($status, ['active', 'approved'], true)): ?>
-                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $primary_record_id; ?><?php echo $filter_suffix; ?>"
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $record_id; ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -2443,12 +2446,12 @@ if ($other_gender_count > 0) {
                                            data-student-name="<?php echo htmlspecialchars($row['name']); ?>">
                                             <i class="fas fa-undo"></i>
                                         </a>
-                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $primary_record_id; ?><?php echo $filter_suffix; ?>"
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $record_id; ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                     <?php else: ?>
-                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $primary_record_id; ?><?php echo $filter_suffix; ?>"
+                                        <a href="<?php echo htmlspecialchars(relative_url('edit_student.php')); ?>?id=<?php echo urlencode($row['student_id']); ?>&record_id=<?php echo $record_id; ?><?php echo $filter_suffix; ?>"
                                            class="btn btn-warning btn-sm" title="Edit Student">
                                             <i class="fas fa-edit"></i>
                                         </a>
@@ -2479,7 +2482,7 @@ if ($other_gender_count > 0) {
                                    class="btn btn-info btn-sm" title="View Documents">
                                     <i class="fas fa-folder-open"></i>
                                 </a>
-                                <a href="<?php echo htmlspecialchars(relative_url('download_student_form.php')); ?>?record_id=<?php echo $primary_record_id; ?>"
+                                <a href="<?php echo htmlspecialchars(relative_url('download_student_form.php')); ?>?record_id=<?php echo $record_id; ?>"
                                    class="btn btn-success btn-sm" title="Download Form" target="_blank">
                                     <i class="fas fa-download"></i>
                                 </a>
