@@ -592,47 +592,204 @@ if (!function_exists('fetchStudentEnrollmentByRecordId')) {
     }
 
     /**
-     * Prefer student_accounts.name (portal login identity) when set so list and forms match email/login.
+     * Best full name whose tokens appear in the email local-part (e.g. narendra in beheranarendra255@…).
      */
-    function resolveStudentPortalDisplayName(mysqli $conn, string $studentIdStr, string $enrollmentName): string
+    function pickStudentNameMatchingEmail(string $email, array $candidateFullNames): ?string
     {
-        $enrollmentName = trim($enrollmentName);
-        $studentIdStr = trim($studentIdStr);
-        if ($studentIdStr === '' || !function_exists('resolveStudentAccount')) {
-            return $enrollmentName;
+        $parts = explode('@', strtolower(trim($email)), 2);
+        $local = $parts[0] ?? '';
+        if ($local === '') {
+            return null;
         }
-        $account = resolveStudentAccount($conn, $studentIdStr);
-        $accountName = trim((string) ($account['name'] ?? ''));
-        return $accountName !== '' ? $accountName : $enrollmentName;
+        $bestName = null;
+        $bestScore = 0;
+        foreach ($candidateFullNames as $full) {
+            $full = trim((string) $full);
+            if ($full === '') {
+                continue;
+            }
+            foreach (preg_split('/\s+/', strtolower($full)) as $token) {
+                if (strlen($token) < 4 || !str_contains($local, $token)) {
+                    continue;
+                }
+                $score = strlen($token);
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestName = $full;
+                } elseif ($score === $bestScore && $bestName !== null && strlen($full) > strlen($bestName)) {
+                    $bestName = $full;
+                }
+            }
+        }
+        return $bestName;
     }
 
     /**
-     * Align every enrollment row's name with student_accounts (fixes Narender vs Narendra typos).
+     * Write canonical name to every enrollment row and student_accounts for this Student ID.
      */
-    function syncStudentEnrollmentNamesFromAccount(mysqli $conn, string $studentIdStr): int
+    function persistCanonicalStudentName(mysqli $conn, string $studentIdStr, string $canonical): int
     {
         $studentIdStr = trim($studentIdStr);
-        if ($studentIdStr === '' || !function_exists('resolveStudentAccount')) {
+        $canonical = trim($canonical);
+        if ($studentIdStr === '' || $canonical === '') {
             return 0;
         }
-        $account = resolveStudentAccount($conn, $studentIdStr);
-        $canonical = trim((string) ($account['name'] ?? ''));
-        if ($canonical === '') {
-            return 0;
-        }
+        $updated = 0;
         $c = sqlUtf8mb4Collate();
         $stmt = $conn->prepare(
             "UPDATE students SET name = ?
              WHERE student_id = ?
              AND TRIM(name) COLLATE {$c} != TRIM(?) COLLATE {$c}"
         );
-        if (!$stmt) {
+        if ($stmt) {
+            $stmt->bind_param('sss', $canonical, $studentIdStr, $canonical);
+            $stmt->execute();
+            $updated += (int) $stmt->affected_rows;
+            $stmt->close();
+        }
+        if (function_exists('isMultiCourseSystemInstalled') && isMultiCourseSystemInstalled($conn)) {
+            $acc = $conn->prepare(
+                "UPDATE student_accounts SET name = ?
+                 WHERE student_id = ?
+                 AND TRIM(name) COLLATE {$c} != TRIM(?) COLLATE {$c}"
+            );
+            if ($acc) {
+                $acc->bind_param('sss', $canonical, $studentIdStr, $canonical);
+                $acc->execute();
+                $updated += (int) $acc->affected_rows;
+                $acc->close();
+            }
+        }
+        return $updated;
+    }
+
+    /**
+     * Collect distinct enrollment names + account name for one Student ID.
+     *
+     * @return array{names: list<string>, email: string}
+     */
+    function gatherStudentNameCandidates(mysqli $conn, string $studentIdStr, string $enrollmentName, string $email): array
+    {
+        $candidates = [];
+        $enrollmentName = trim($enrollmentName);
+        if ($enrollmentName !== '') {
+            $candidates[] = $enrollmentName;
+        }
+        $email = trim($email);
+        $stmt = $conn->prepare(
+            'SELECT DISTINCT TRIM(name) AS name, TRIM(email) AS email
+             FROM students
+             WHERE student_id = ? AND TRIM(name) != \'\''
+        );
+        if ($stmt) {
+            $stmt->bind_param('s', $studentIdStr);
+            $stmt->execute();
+            $res = $stmt->get_result();
+            while ($r = $res->fetch_assoc()) {
+                $n = trim((string) ($r['name'] ?? ''));
+                if ($n !== '') {
+                    $candidates[] = $n;
+                }
+                if ($email === '' && !empty($r['email'])) {
+                    $email = trim((string) $r['email']);
+                }
+            }
+            $stmt->close();
+        }
+        if (function_exists('resolveStudentAccount')) {
+            $account = resolveStudentAccount($conn, $studentIdStr);
+            if ($account) {
+                $an = trim((string) ($account['name'] ?? ''));
+                if ($an !== '') {
+                    $candidates[] = $an;
+                }
+                if ($email === '' && !empty($account['email'])) {
+                    $email = trim((string) $account['email']);
+                }
+            }
+        }
+        $unique = [];
+        $seen = [];
+        foreach ($candidates as $n) {
+            $k = strtolower($n);
+            if (isset($seen[$k])) {
+                continue;
+            }
+            $seen[$k] = true;
+            $unique[] = $n;
+        }
+        return ['names' => $unique, 'email' => $email];
+    }
+
+    /**
+     * One canonical display name: email hint beats conflicting account/enrollment typos.
+     */
+    function resolveStudentPortalDisplayName(
+        mysqli $conn,
+        string $studentIdStr,
+        string $enrollmentName,
+        string $email = ''
+    ): string {
+        static $cache = [];
+        $studentIdStr = trim($studentIdStr);
+        $enrollmentName = trim($enrollmentName);
+        if ($studentIdStr === '') {
+            return $enrollmentName;
+        }
+        if (isset($cache[$studentIdStr])) {
+            return $cache[$studentIdStr];
+        }
+
+        $gathered = gatherStudentNameCandidates($conn, $studentIdStr, $enrollmentName, $email);
+        $candidates = $gathered['names'];
+        $email = $gathered['email'];
+
+        if (count($candidates) > 1 && $email !== '') {
+            $fromEmail = pickStudentNameMatchingEmail($email, $candidates);
+            if ($fromEmail !== null) {
+                static $persisted = [];
+                if (!isset($persisted[$studentIdStr])) {
+                    $persisted[$studentIdStr] = true;
+                    persistCanonicalStudentName($conn, $studentIdStr, $fromEmail);
+                }
+                $cache[$studentIdStr] = $fromEmail;
+                return $fromEmail;
+            }
+        }
+
+        if (function_exists('resolveStudentAccount')) {
+            $account = resolveStudentAccount($conn, $studentIdStr);
+            $accountName = trim((string) ($account['name'] ?? ''));
+            if ($accountName !== '') {
+                $cache[$studentIdStr] = $accountName;
+                return $accountName;
+            }
+        }
+
+        foreach ($candidates as $n) {
+            if ($n !== '') {
+                $cache[$studentIdStr] = $n;
+                return $n;
+            }
+        }
+
+        $cache[$studentIdStr] = $enrollmentName;
+        return $enrollmentName;
+    }
+
+    /**
+     * Align every enrollment row's name with student_accounts (account name, or email hint if mismatched).
+     */
+    function syncStudentEnrollmentNamesFromAccount(mysqli $conn, string $studentIdStr): int
+    {
+        $studentIdStr = trim($studentIdStr);
+        if ($studentIdStr === '') {
             return 0;
         }
-        $stmt->bind_param('sss', $canonical, $studentIdStr, $canonical);
-        $stmt->execute();
-        $updated = (int) $stmt->affected_rows;
-        $stmt->close();
-        return $updated;
+        $canonical = resolveStudentPortalDisplayName($conn, $studentIdStr, '', '');
+        if ($canonical === '') {
+            return 0;
+        }
+        return persistCanonicalStudentName($conn, $studentIdStr, $canonical);
     }
 }

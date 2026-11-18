@@ -2175,7 +2175,12 @@ if ($other_gender_count > 0) {
 
                                 $record_id = (int)$row['id'];
                                 $display_name = function_exists('resolveStudentPortalDisplayName')
-                                    ? resolveStudentPortalDisplayName($conn, (string) $row['student_id'], (string) ($row['name'] ?? ''))
+                                    ? resolveStudentPortalDisplayName(
+                                        $conn,
+                                        (string) $row['student_id'],
+                                        (string) ($row['name'] ?? ''),
+                                        (string) ($row['email'] ?? '')
+                                    )
                                     : (string) ($row['name'] ?? '');
 
                                 $course_batches_key = $row['student_id'] . ':' . $row_course_id;

@@ -192,7 +192,12 @@ if (isset($_GET['id'])) {
     $student = resolveStudentEnrollmentForForm($conn, $resolveParams);
     if ($student) {
         if (function_exists('resolveStudentPortalDisplayName')) {
-            $student['name'] = resolveStudentPortalDisplayName($conn, $student_id, (string) ($student['name'] ?? ''));
+            $student['name'] = resolveStudentPortalDisplayName(
+                $conn,
+                $student_id,
+                (string) ($student['name'] ?? ''),
+                (string) ($student['email'] ?? '')
+            );
         }
         ensureDgeRegistrationDocumentColumns($conn);
         ensureTwelfthCertificateDocColumn($conn);

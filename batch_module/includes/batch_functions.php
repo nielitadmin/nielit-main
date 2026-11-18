@@ -34,7 +34,12 @@ function batch_apply_student_portal_name(mysqli $conn, array $row, array &$synce
         syncStudentEnrollmentNamesFromAccount($conn, $sid);
     }
     if (function_exists('resolveStudentPortalDisplayName')) {
-        $row['name'] = resolveStudentPortalDisplayName($conn, $sid, (string) ($row['name'] ?? ''));
+        $row['name'] = resolveStudentPortalDisplayName(
+            $conn,
+            $sid,
+            (string) ($row['name'] ?? ''),
+            (string) ($row['email'] ?? '')
+        );
     }
     return $row;
 }
