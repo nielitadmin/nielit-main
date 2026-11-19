@@ -577,6 +577,116 @@ if ($resultStatusFilterCentre === '' && $resultStatusFilterCourse <= 0) {
     $resultStatusTotals = $resultStatusTotalsAll;
 }
 
+$nsqfExamPaperSummary = report_monitor_get_nsqf_exam_paper_summary(
+    $conn,
+    $scopedCourseIds,
+    $centreId,
+    $monthFilter
+);
+$nsqfExamTotals = $nsqfExamPaperSummary['totals'] ?? [];
+$nsqfExamBatchesAll = $nsqfExamPaperSummary['batches'] ?? [];
+$nsqfExamCoursesAll = $nsqfExamPaperSummary['courses'] ?? [];
+$nsqfExamAvailable = !empty($nsqfExamPaperSummary['available']);
+$nsqfExamDetailsOpen = ($resultStatusFilterCentre !== '' || $resultStatusFilterCourse > 0);
+
+$nsqfExamBatches = [];
+$nsqfExamCourses = [];
+$nsqfExamTotalsFiltered = [
+    'batches_with_structure' => 0,
+    'students' => 0,
+    'fully_certified' => 0,
+    'paper_slots' => 0,
+    'pass' => 0,
+    'failed' => 0,
+    'absent' => 0,
+    'exam_not_applied' => 0,
+];
+
+foreach ($nsqfExamBatchesAll as $nsqfBatchRow) {
+    $centreMatch = $resultStatusFilterCentre === ''
+        || strcasecmp((string) ($nsqfBatchRow['centre_name'] ?? ''), $resultStatusFilterCentre) === 0
+        || (
+            ctype_digit($resultStatusFilterCentre)
+            && (int) ($nsqfBatchRow['centre_id'] ?? 0) === (int) $resultStatusFilterCentre
+        );
+    $courseMatch = $resultStatusFilterCourse <= 0
+        || (int) ($nsqfBatchRow['course_id'] ?? 0) === $resultStatusFilterCourse;
+    if (!$centreMatch || !$courseMatch) {
+        continue;
+    }
+    $nsqfExamBatches[] = $nsqfBatchRow;
+    $nsqfExamTotalsFiltered['batches_with_structure']++;
+    $nsqfExamTotalsFiltered['students'] += (int) ($nsqfBatchRow['students'] ?? 0);
+    $nsqfExamTotalsFiltered['fully_certified'] += (int) ($nsqfBatchRow['fully_certified'] ?? 0);
+    foreach (($nsqfBatchRow['papers'] ?? []) as $paperRow) {
+        $nsqfExamTotalsFiltered['pass'] += (int) ($paperRow['pass'] ?? 0);
+        $nsqfExamTotalsFiltered['failed'] += (int) ($paperRow['failed'] ?? 0);
+        $nsqfExamTotalsFiltered['absent'] += (int) ($paperRow['absent'] ?? 0);
+        $nsqfExamTotalsFiltered['exam_not_applied'] += (int) ($paperRow['exam_not_applied'] ?? 0);
+        $nsqfExamTotalsFiltered['paper_slots'] += (int) ($paperRow['students'] ?? 0);
+    }
+}
+
+if ($resultStatusFilterCentre === '' && $resultStatusFilterCourse <= 0) {
+    $nsqfExamTotalsFiltered = $nsqfExamTotals;
+    $nsqfExamCourses = $nsqfExamCoursesAll;
+    $nsqfExamBatches = $nsqfExamBatchesAll;
+} else {
+    $courseAgg = [];
+    foreach ($nsqfExamBatches as $batchRow) {
+        $courseId = (int) ($batchRow['course_id'] ?? 0);
+        if ($courseId <= 0) {
+            continue;
+        }
+        if (!isset($courseAgg[$courseId])) {
+            $courseAgg[$courseId] = [
+                'course_id' => $courseId,
+                'course_name' => (string) ($batchRow['course_name'] ?? ''),
+                'course_code' => (string) ($batchRow['course_code'] ?? ''),
+                'paper_count' => (int) ($batchRow['paper_count'] ?? 0),
+                'batches' => 0,
+                'students' => 0,
+                'fully_certified' => 0,
+                'papers' => [],
+            ];
+        }
+        $courseAgg[$courseId]['batches']++;
+        $courseAgg[$courseId]['students'] += (int) ($batchRow['students'] ?? 0);
+        $courseAgg[$courseId]['fully_certified'] += (int) ($batchRow['fully_certified'] ?? 0);
+        foreach (($batchRow['papers'] ?? []) as $paperRow) {
+            $pKey = (int) ($paperRow['component_id'] ?? 0);
+            if ($pKey <= 0) {
+                continue;
+            }
+            if (!isset($courseAgg[$courseId]['papers'][$pKey])) {
+                $courseAgg[$courseId]['papers'][$pKey] = [
+                    'component_id' => $pKey,
+                    'component_code' => (string) ($paperRow['component_code'] ?? ''),
+                    'component_label' => (string) ($paperRow['component_label'] ?? ''),
+                    'pass' => 0,
+                    'failed' => 0,
+                    'absent' => 0,
+                    'exam_not_applied' => 0,
+                    'students' => 0,
+                ];
+            }
+            $courseAgg[$courseId]['papers'][$pKey]['pass'] += (int) ($paperRow['pass'] ?? 0);
+            $courseAgg[$courseId]['papers'][$pKey]['failed'] += (int) ($paperRow['failed'] ?? 0);
+            $courseAgg[$courseId]['papers'][$pKey]['absent'] += (int) ($paperRow['absent'] ?? 0);
+            $courseAgg[$courseId]['papers'][$pKey]['exam_not_applied'] += (int) ($paperRow['exam_not_applied'] ?? 0);
+            $courseAgg[$courseId]['papers'][$pKey]['students'] += (int) ($paperRow['students'] ?? 0);
+        }
+    }
+    foreach ($courseAgg as &$courseRow) {
+        $courseRow['papers'] = array_values($courseRow['papers']);
+    }
+    unset($courseRow);
+    uasort($courseAgg, static function ($a, $b) {
+        return strcasecmp((string) ($a['course_name'] ?? ''), (string) ($b['course_name'] ?? ''));
+    });
+    $nsqfExamCourses = array_values($courseAgg);
+}
+
 /*------------------------------------------------------------
 | KPI
 -------------------------------------------------------------*/
@@ -3680,6 +3790,154 @@ if ($resultStatusFilterCourse > 0) {
     </div>
 </div>
 
+<!-- NSQF EXAM / PAPER RESULTS -->
+<?php if ($nsqfExamAvailable): ?>
+<div class="card table-card mb-4" id="nsqfExamPapersCard">
+    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <strong>NSQF Exam Papers (<?php echo htmlspecialchars($monthScopeLabel); ?>)</strong>
+            <span class="badge bg-primary ms-2"><?php echo number_format((int) ($nsqfExamTotalsFiltered['students'] ?? 0)); ?> students</span>
+            <?php if (!empty($nsqfExamBatches)): ?>
+                <span class="badge bg-secondary ms-1"><?php echo number_format(count($nsqfExamBatches)); ?> batches</span>
+            <?php endif; ?>
+            <div class="small text-muted mt-1">
+                From <strong>NSQF Results</strong> (per paper/module).
+                <?php echo number_format((int) ($nsqfExamTotalsFiltered['fully_certified'] ?? 0)); ?> fully certified (all required papers passed);
+                <?php echo number_format((int) ($nsqfExamTotalsFiltered['pass'] ?? 0)); ?> paper passes recorded
+                (<?php echo number_format((int) ($nsqfExamTotalsFiltered['failed'] ?? 0)); ?> failed,
+                <?php echo number_format((int) ($nsqfExamTotalsFiltered['absent'] ?? 0)); ?> absent,
+                <?php echo number_format((int) ($nsqfExamTotalsFiltered['exam_not_applied'] ?? 0)); ?> not applied).
+                Overall batch status above uses <em>Result Status</em> after module sync.
+            </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <?php if (!$isPublicReportView): ?>
+                <a class="btn btn-outline-primary btn-sm" href="<?php echo htmlspecialchars(app_url('admin/nsqf_exam_results')); ?>" target="_blank" rel="noopener">
+                    <i class="fas fa-external-link-alt"></i> NSQF Results
+                </a>
+            <?php endif; ?>
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    id="nsqfExamPapersToggle"
+                    aria-expanded="<?php echo $nsqfExamDetailsOpen ? 'true' : 'false'; ?>"
+                    aria-controls="nsqfExamPapersBody">
+                <i class="fas fa-chevron-<?php echo $nsqfExamDetailsOpen ? 'up' : 'down'; ?> me-1" id="nsqfExamPapersToggleIcon"></i>
+                <span id="nsqfExamPapersToggleLabel"><?php echo $nsqfExamDetailsOpen ? 'Hide Details' : 'Show Details'; ?></span>
+            </button>
+        </div>
+    </div>
+    <div class="card-body p-0 <?php echo $nsqfExamDetailsOpen ? '' : 'd-none'; ?>" id="nsqfExamPapersBody">
+        <?php if (empty($nsqfExamCourses) && empty($nsqfExamBatches)): ?>
+            <div class="p-4 text-center text-muted">
+                No batches with exam structure in this period.
+                Define papers under <strong>NSQF Results → Exam structure</strong>, then enter results on the Results tab.
+            </div>
+        <?php else: ?>
+            <?php if (!empty($nsqfExamCourses)): ?>
+            <div class="table-responsive border-bottom">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>Course</th>
+                        <th class="text-center">Papers</th>
+                        <th class="text-end">Students</th>
+                        <th class="text-end text-success">Fully certified</th>
+                        <th>Paper pass counts</th>
+                        <?php if (!$isPublicReportView): ?>
+                            <th></th>
+                        <?php endif; ?>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($nsqfExamCourses as $nsqfCourseRow): ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars((string) ($nsqfCourseRow['course_code'] ?? '')); ?></strong>
+                                <?php echo htmlspecialchars((string) ($nsqfCourseRow['course_name'] ?? '')); ?>
+                            </td>
+                            <td class="text-center"><?php echo number_format((int) ($nsqfCourseRow['paper_count'] ?? 0)); ?></td>
+                            <td class="text-end"><?php echo number_format((int) ($nsqfCourseRow['students'] ?? 0)); ?></td>
+                            <td class="text-end text-success fw-semibold"><?php echo number_format((int) ($nsqfCourseRow['fully_certified'] ?? 0)); ?></td>
+                            <td>
+                                <?php foreach (($nsqfCourseRow['papers'] ?? []) as $paperIdx => $paperRow): ?>
+                                    <?php if ($paperIdx > 0): ?><span class="text-muted"> · </span><?php endif; ?>
+                                    <span class="badge bg-light text-dark border" title="<?php echo htmlspecialchars((string) ($paperRow['component_label'] ?? '')); ?>">
+                                        <?php echo htmlspecialchars((string) ($paperRow['component_code'] ?? '')); ?>
+                                        <strong class="text-success"><?php echo number_format((int) ($paperRow['pass'] ?? 0)); ?></strong>
+                                    </span>
+                                <?php endforeach; ?>
+                            </td>
+                            <?php if (!$isPublicReportView): ?>
+                                <td class="text-end">
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="<?php echo htmlspecialchars(app_url('admin/nsqf_exam_results') . '?tab=results&course_id=' . (int) ($nsqfCourseRow['course_id'] ?? 0)); ?>"
+                                       target="_blank" rel="noopener">Open</a>
+                                </td>
+                            <?php endif; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>Batch</th>
+                        <th>Course</th>
+                        <th>Centre</th>
+                        <th class="text-end">Students</th>
+                        <th class="text-end text-success">Fully certified</th>
+                        <th>Per-paper pass</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <?php foreach ($nsqfExamBatches as $nsqfBatchRow): ?>
+                        <tr>
+                            <td>
+                                <strong><?php echo htmlspecialchars((string) ($nsqfBatchRow['batch_name'] ?? '')); ?></strong>
+                                <br><small class="text-muted"><?php echo htmlspecialchars((string) ($nsqfBatchRow['batch_code'] ?? '')); ?></small>
+                            </td>
+                            <td>
+                                <strong><?php echo htmlspecialchars((string) ($nsqfBatchRow['course_code'] ?? '')); ?></strong>
+                                <?php echo htmlspecialchars((string) ($nsqfBatchRow['course_name'] ?? '')); ?>
+                            </td>
+                            <td><?php echo htmlspecialchars((string) ($nsqfBatchRow['centre_name'] ?? '')); ?></td>
+                            <td class="text-end"><?php echo number_format((int) ($nsqfBatchRow['students'] ?? 0)); ?></td>
+                            <td class="text-end text-success"><?php echo number_format((int) ($nsqfBatchRow['fully_certified'] ?? 0)); ?></td>
+                            <td>
+                                <?php foreach (($nsqfBatchRow['papers'] ?? []) as $pIdx => $paperRow): ?>
+                                    <?php if ($pIdx > 0): ?><span class="text-muted"> · </span><?php endif; ?>
+                                    <span title="<?php echo htmlspecialchars((string) ($paperRow['component_label'] ?? '')); ?>">
+                                        <?php echo htmlspecialchars((string) ($paperRow['component_code'] ?? '')); ?>:
+                                        <strong class="text-success"><?php echo number_format((int) ($paperRow['pass'] ?? 0)); ?></strong>
+                                    </span>
+                                <?php endforeach; ?>
+                            </td>
+                            <td class="text-end">
+                                <?php if ((int) ($nsqfBatchRow['batch_id'] ?? 0) > 0): ?>
+                                    <a class="btn btn-sm btn-outline-primary"
+                                       href="<?php echo htmlspecialchars(APP_URL . '/batch_module/admin/batch_details.php?id=' . (int) $nsqfBatchRow['batch_id']); ?>">
+                                        Batch
+                                    </a>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+        <div class="p-3 border-top bg-light small text-muted mb-0">
+            Filters above (<em>Result Status</em> centre/course) also apply here. Enter or update marks on
+            <strong>NSQF Results → Results</strong>; saving syncs overall <em>Pass / Failed</em> on the batch when all required papers are passed.
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <!-- BATCH DETAILS -->
 
 <div class="card table-card mb-4" id="activeBatchDetailsCard">
@@ -6128,11 +6386,11 @@ RESULT STATUS DROPDOWN
 ==================================================*/
 
 (function () {
-    function initResultStatusToggle() {
-        const btn = document.getElementById('resultStatusToggle');
-        const body = document.getElementById('resultStatusBody');
-        const icon = document.getElementById('resultStatusToggleIcon');
-        const label = document.getElementById('resultStatusToggleLabel');
+    function initPanelToggle(btnId, bodyId, iconId, labelId) {
+        const btn = document.getElementById(btnId);
+        const body = document.getElementById(bodyId);
+        const icon = document.getElementById(iconId);
+        const label = document.getElementById(labelId);
         if (!btn || !body) {
             return;
         }
@@ -6154,6 +6412,11 @@ RESULT STATUS DROPDOWN
                 label.textContent = next ? 'Hide Details' : 'Show Details';
             }
         });
+    }
+
+    function initResultStatusToggle() {
+        initPanelToggle('resultStatusToggle', 'resultStatusBody', 'resultStatusToggleIcon', 'resultStatusToggleLabel');
+        initPanelToggle('nsqfExamPapersToggle', 'nsqfExamPapersBody', 'nsqfExamPapersToggleIcon', 'nsqfExamPapersToggleLabel');
     }
 
     function initResultStatusFilters() {

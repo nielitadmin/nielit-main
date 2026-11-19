@@ -3822,6 +3822,289 @@ if (!function_exists('report_monitor_get_result_status_summary')) {
         return $out;
     }
 
+    /**
+     * NSQF per-paper results for Report Monitor (batch_student_exam_results + exam structure).
+     *
+     * @return array{
+     *   available:bool,
+     *   totals:array<string,int>,
+     *   courses:list<array<string,mixed>>,
+     *   batches:list<array<string,mixed>>,
+     *   papers:list<array<string,mixed>>
+     * }
+     */
+    function report_monitor_get_nsqf_exam_paper_summary($conn, array $courseIds = [], $centreId = 0, array $monthFilter = []): array
+    {
+        $emptyTotals = [
+            'batches_with_structure' => 0,
+            'students' => 0,
+            'fully_certified' => 0,
+            'paper_slots' => 0,
+            'pass' => 0,
+            'failed' => 0,
+            'absent' => 0,
+            'exam_not_applied' => 0,
+        ];
+        $out = [
+            'available' => false,
+            'totals' => $emptyTotals,
+            'courses' => [],
+            'batches' => [],
+            'papers' => [],
+        ];
+
+        if (!report_monitor_table_exists($conn, 'batch_students')
+            || !report_monitor_table_exists($conn, 'batches')
+            || !report_monitor_table_exists($conn, 'batch_student_exam_results')
+            || !report_monitor_table_exists($conn, 'course_exam_components')) {
+            return $out;
+        }
+
+        $nsqfHelper = __DIR__ . '/nsqf_exam_results_helper.php';
+        if (!is_file($nsqfHelper)) {
+            return $out;
+        }
+        require_once $nsqfHelper;
+        if (function_exists('ensureNsqfExamResultsSchema')) {
+            ensureNsqfExamResultsSchema($conn);
+        }
+        if (!function_exists('nsqf_get_exam_components_for_course')
+            || !function_exists('nsqf_get_batch_module_results_map')
+            || !function_exists('nsqf_get_batch_students_for_exam')
+            || !function_exists('nsqf_student_modules_certification_state')
+            || !function_exists('nsqf_normalize_exam_result_status')) {
+            return $out;
+        }
+
+        $out['available'] = true;
+        $scopeFilter = report_monitor_build_scope_filter($conn, $courseIds, $centreId, 'c');
+        $types = $scopeFilter['types'];
+        $values = $scopeFilter['values'];
+        $batchStartExpr = report_monitor_batch_start_sql('b');
+        $batchEndExpr = report_monitor_batch_end_sql('b');
+        $activeStudent = report_monitor_student_active_sql('s');
+
+        $sql = "SELECT b.id AS batch_id,
+                       COALESCE(b.batch_name, '') AS batch_name,
+                       COALESCE(b.batch_code, '') AS batch_code,
+                       c.id AS course_id,
+                       COALESCE(c.course_name, '') AS course_name,
+                       COALESCE(c.course_code, '') AS course_code,
+                       COALESCE(cen.id, 0) AS centre_id,
+                       COALESCE(cen.name, c.training_center, 'Unassigned') AS centre_name,
+                       COUNT(DISTINCT bs.id) AS student_count
+                FROM batch_students bs
+                INNER JOIN batches b ON b.id = bs.batch_id
+                INNER JOIN courses c ON c.id = b.course_id
+                LEFT JOIN centres cen ON cen.id = c.centre_id
+                LEFT JOIN students s ON s.id = COALESCE(NULLIF(bs.student_record_id, 0), bs.student_id)
+                WHERE (s.id IS NULL OR {$activeStudent})
+                {$scopeFilter['sql']}";
+
+        if (!empty($monthFilter['active'])) {
+            $sql .= " AND {$batchStartExpr} <= ? AND {$batchEndExpr} >= ?";
+            $types .= 'ss';
+            $values[] = $monthFilter['end'];
+            $values[] = $monthFilter['start'];
+        }
+
+        $sql .= ' GROUP BY b.id, b.batch_name, b.batch_code, c.id, c.course_name, c.course_code, centre_id, centre_name
+                  HAVING student_count > 0
+                  ORDER BY c.course_name ASC, b.batch_name ASC';
+
+        $result = report_monitor_bind_and_execute($conn, $sql, $types, $values);
+        if (!$result) {
+            return $out;
+        }
+
+        $totals = $emptyTotals;
+        $courseRows = [];
+        $batchRows = [];
+        $paperRollup = [];
+
+        while ($row = $result->fetch_assoc()) {
+            $batchId = (int) ($row['batch_id'] ?? 0);
+            $courseId = (int) ($row['course_id'] ?? 0);
+            if ($batchId <= 0 || $courseId <= 0) {
+                continue;
+            }
+
+            $components = nsqf_get_exam_components_for_course($conn, $courseId);
+            if ($components === []) {
+                continue;
+            }
+
+            $students = nsqf_get_batch_students_for_exam($conn, $batchId);
+            $studentCount = count($students);
+            if ($studentCount <= 0) {
+                continue;
+            }
+
+            $compIds = array_map(static fn ($c) => (int) ($c['id'] ?? 0), $components);
+            $compIds = array_values(array_filter($compIds, static fn ($id) => $id > 0));
+            $map = nsqf_get_batch_module_results_map($conn, $batchId, $compIds);
+
+            $fullyCertified = 0;
+            foreach ($students as $stu) {
+                $bsId = (int) ($stu['batch_student_id'] ?? 0);
+                $state = nsqf_student_modules_certification_state($components, $map[$bsId] ?? []);
+                if (!empty($state['all_required_pass'])) {
+                    $fullyCertified++;
+                }
+            }
+
+            $papers = [];
+            foreach ($components as $comp) {
+                $cid = (int) ($comp['id'] ?? 0);
+                if ($cid <= 0) {
+                    continue;
+                }
+                $counts = [
+                    'pass' => 0,
+                    'failed' => 0,
+                    'absent' => 0,
+                    'exam_not_applied' => 0,
+                ];
+                foreach ($students as $stu) {
+                    $bsId = (int) ($stu['batch_student_id'] ?? 0);
+                    $st = nsqf_normalize_exam_result_status($map[$bsId][$cid]['result_status'] ?? 'exam_not_applied');
+                    if (!isset($counts[$st])) {
+                        $st = 'exam_not_applied';
+                    }
+                    $counts[$st]++;
+                }
+
+                $code = (string) ($comp['component_code'] ?? '');
+                $label = (string) ($comp['component_label'] ?? $code);
+                $papers[] = [
+                    'component_id' => $cid,
+                    'component_code' => $code,
+                    'component_label' => $label,
+                    'required_for_cert' => !empty($comp['required_for_cert']) ? 1 : (int) ($comp['required_for_cert'] ?? 1),
+                    'pass' => $counts['pass'],
+                    'failed' => $counts['failed'],
+                    'absent' => $counts['absent'],
+                    'exam_not_applied' => $counts['exam_not_applied'],
+                    'students' => $studentCount,
+                ];
+
+                $rollupKey = $courseId . ':' . $cid;
+                if (!isset($paperRollup[$rollupKey])) {
+                    $paperRollup[$rollupKey] = [
+                        'course_id' => $courseId,
+                        'course_name' => (string) ($row['course_name'] ?? ''),
+                        'course_code' => (string) ($row['course_code'] ?? ''),
+                        'component_id' => $cid,
+                        'component_code' => $code,
+                        'component_label' => $label,
+                        'required_for_cert' => !empty($comp['required_for_cert']) ? 1 : (int) ($comp['required_for_cert'] ?? 1),
+                        'pass' => 0,
+                        'failed' => 0,
+                        'absent' => 0,
+                        'exam_not_applied' => 0,
+                        'students' => 0,
+                    ];
+                }
+                $paperRollup[$rollupKey]['pass'] += $counts['pass'];
+                $paperRollup[$rollupKey]['failed'] += $counts['failed'];
+                $paperRollup[$rollupKey]['absent'] += $counts['absent'];
+                $paperRollup[$rollupKey]['exam_not_applied'] += $counts['exam_not_applied'];
+                $paperRollup[$rollupKey]['students'] += $studentCount;
+
+                $totals['pass'] += $counts['pass'];
+                $totals['failed'] += $counts['failed'];
+                $totals['absent'] += $counts['absent'];
+                $totals['exam_not_applied'] += $counts['exam_not_applied'];
+                $totals['paper_slots'] += $studentCount;
+            }
+
+            $totals['batches_with_structure']++;
+            $totals['students'] += $studentCount;
+            $totals['fully_certified'] += $fullyCertified;
+
+            $batchRows[] = [
+                'batch_id' => $batchId,
+                'batch_name' => (string) ($row['batch_name'] ?? ''),
+                'batch_code' => (string) ($row['batch_code'] ?? ''),
+                'course_id' => $courseId,
+                'course_name' => (string) ($row['course_name'] ?? ''),
+                'course_code' => (string) ($row['course_code'] ?? ''),
+                'centre_id' => (int) ($row['centre_id'] ?? 0),
+                'centre_name' => (string) ($row['centre_name'] ?? ''),
+                'students' => $studentCount,
+                'paper_count' => count($papers),
+                'fully_certified' => $fullyCertified,
+                'papers' => $papers,
+            ];
+
+            if (!isset($courseRows[$courseId])) {
+                $courseRows[$courseId] = [
+                    'course_id' => $courseId,
+                    'course_name' => (string) ($row['course_name'] ?? ''),
+                    'course_code' => (string) ($row['course_code'] ?? ''),
+                    'paper_count' => count($papers),
+                    'batches' => 0,
+                    'students' => 0,
+                    'fully_certified' => 0,
+                    'papers' => [],
+                ];
+            }
+            $courseRows[$courseId]['batches']++;
+            $courseRows[$courseId]['students'] += $studentCount;
+            $courseRows[$courseId]['fully_certified'] += $fullyCertified;
+
+            foreach ($papers as $paperRow) {
+                $pKey = (int) ($paperRow['component_id'] ?? 0);
+                if ($pKey <= 0) {
+                    continue;
+                }
+                if (!isset($courseRows[$courseId]['papers'][$pKey])) {
+                    $courseRows[$courseId]['papers'][$pKey] = [
+                        'component_id' => $pKey,
+                        'component_code' => (string) ($paperRow['component_code'] ?? ''),
+                        'component_label' => (string) ($paperRow['component_label'] ?? ''),
+                        'pass' => 0,
+                        'failed' => 0,
+                        'absent' => 0,
+                        'exam_not_applied' => 0,
+                        'students' => 0,
+                    ];
+                }
+                $courseRows[$courseId]['papers'][$pKey]['pass'] += (int) ($paperRow['pass'] ?? 0);
+                $courseRows[$courseId]['papers'][$pKey]['failed'] += (int) ($paperRow['failed'] ?? 0);
+                $courseRows[$courseId]['papers'][$pKey]['absent'] += (int) ($paperRow['absent'] ?? 0);
+                $courseRows[$courseId]['papers'][$pKey]['exam_not_applied'] += (int) ($paperRow['exam_not_applied'] ?? 0);
+                $courseRows[$courseId]['papers'][$pKey]['students'] += (int) ($paperRow['students'] ?? 0);
+            }
+        }
+
+        foreach ($courseRows as &$courseRow) {
+            $courseRow['papers'] = array_values($courseRow['papers']);
+            usort($courseRow['papers'], static function ($a, $b) {
+                return strcasecmp((string) ($a['component_code'] ?? ''), (string) ($b['component_code'] ?? ''));
+            });
+        }
+        unset($courseRow);
+
+        uasort($courseRows, static function ($a, $b) {
+            return strcasecmp((string) ($a['course_name'] ?? ''), (string) ($b['course_name'] ?? ''));
+        });
+
+        uasort($paperRollup, static function ($a, $b) {
+            $cmp = strcasecmp((string) ($a['course_name'] ?? ''), (string) ($b['course_name'] ?? ''));
+            if ($cmp !== 0) {
+                return $cmp;
+            }
+            return strcasecmp((string) ($a['component_code'] ?? ''), (string) ($b['component_code'] ?? ''));
+        });
+
+        $out['totals'] = $totals;
+        $out['courses'] = array_values($courseRows);
+        $out['batches'] = $batchRows;
+        $out['papers'] = array_values($paperRollup);
+        return $out;
+    }
+
     function report_monitor_centre_match_key(string $name): string
     {
         $name = strtolower(trim($name));
