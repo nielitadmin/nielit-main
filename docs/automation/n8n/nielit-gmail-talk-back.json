@@ -1,0 +1,308 @@
+{
+  "name": "NIELIT Email Assistant (talk back)",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "filters": {}
+      },
+      "id": "gmail-trigger-001",
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300],
+      "notesInFlow": true,
+      "notes": "Connect nielitbbsr01@gmail.com — you email this inbox; n8n replies."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($json.from && $json.from.text) ? $json.from.text : (($json.from && $json.from.value && $json.from.value[0]) ? $json.from.value[0].address : $json.from) }}",
+              "rightValue": "saswatsomya111@gmail.com",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "leftValue": "={{ ($json.from && $json.from.text) ? $json.from.text : (($json.from && $json.from.value && $json.from.value[0]) ? $json.from.value[0].address : $json.from) }}",
+              "rightValue": "nielitbbsr01@gmail.com",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "if-owner-002",
+      "name": "Only Owner",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.subject || '' }}",
+              "rightValue": "NIELIT student record",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "leftValue": "={{ $json.subject || '' }}",
+              "rightValue": "URGENT",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            },
+            {
+              "leftValue": "={{ $json.subject || '' }}",
+              "rightValue": "digest",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-not-alert-003",
+      "name": "Skip Portal Alerts",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [520, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($json.subject || '') + ' ' + ($json.textPlain || $json.snippet || '') }}",
+              "rightValue": "report",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-report-004",
+      "name": "Wants REPORT?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [780, 220]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst sinceId = staticData.sinceId ?? 0;\nreturn [{ json: { sinceId, ...$input.first().json } }];"
+      },
+      "id": "code-since-005",
+      "name": "Load since_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 120]
+    },
+    {
+      "parameters": {
+        "url": "=https://nielitbhubaneswar.in/api/v1/activity_feed.php?since_id={{ $json.sinceId }}&limit=30",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "PASTE_PORTAL_API_KEY_HERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-feed-006",
+      "name": "Fetch Activity",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1260, 120]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst mail = $('Gmail Trigger').first().json;\nconst resp = $input.first().json;\nconst data = resp.data || resp;\nconst events = data.events || [];\nstaticData.sinceId = data.next_since_id ?? staticData.sinceId ?? 0;\nlet lines = events.map(e => `- ${e.created_at} | ${e.action} | ${e.entity_id || ''} | ${e.description || ''}`);\nif (lines.length === 0) lines = ['(No new student events in this window.)'];\nconst reply = `Hi,\\n\\nHere is your student activity report (${events.length} events):\\n\\n${lines.join('\\n')}\\n\\nReply anytime — say hello, or subject REPORT again later.\\n\\n— NIELIT Email Assistant (n8n)`;\nconst msgId = mail.id || mail.messageId;\nconst from = (mail.from && mail.from.value && mail.from.value[0]) ? mail.from.value[0].address : 'saswatsomya111@gmail.com';\nreturn [{ json: { reply, messageId: msgId, to: from } }];"
+      },
+      "id": "code-report-007",
+      "name": "Build Report Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 120]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const mail = $input.first().json;\nconst msg = String(mail.textPlain || mail.snippet || '').trim();\nconst subj = String(mail.subject || '').trim();\nconst lower = (subj + ' ' + msg).toLowerCase();\n\nlet reply = `Hi,\\n\\nI read your email. You wrote:\\n\"${msg.slice(0, 600).replace(/\"/g, \"'\")}\"\\n\\n`;\n\nif (/^(hi|hello|namaste|hey|good morning|good evening)\\b/i.test(msg) || msg.length < 20) {\n  reply += `I'm your NIELIT automation mailbox (n8n), not a human — but I do reply.\\n\\nTry:\\n• Subject or body: REPORT — recent student changes from the portal\\n• Ask: \"webhook\" — where to check if alerts are working\\n• For ChatGPT-style talk: enable the OpenAI node (see docs/automation/n8n/README.md)\\n\\nI cannot edit students by email — only the admin portal / Inspector can.\\n`;\n} else if (lower.includes('webhook') || lower.includes('n8n') || lower.includes('connect')) {\n  reply += `Webhook (portal → n8n):\\nhttps://nielitbbsr.app.n8n.cloud/webhook/nielit-student-updates\\n\\nOpen workflow \"NIELIT Student Update Notifications\" → Executions to see live runs. Portal: API & Automation → instant webhook ON.\\n`;\n} else if (lower.includes('help') || lower.includes('kya kar') || lower.includes('what can')) {\n  reply += `What I can do by email:\\n1) REPORT — student activity list\\n2) Explain webhook / n8n status\\n3) With OpenAI connected: free-form chat about your setup\\n\\nWhat I cannot do: change Narender/Narendra or any student — use Manage Students or Inspector Excel.\\n`;\n} else {\n  reply += `I'm on \"simple reply\" mode. For a longer conversation, either:\\n• Email subject REPORT for data, or\\n• In n8n, connect OpenAI to this workflow and turn on the AI branch.\\n\\nTell me hello or help if you're stuck.\\n`;\n}\n\nreply += `\\n— NIELIT Email Assistant (n8n)`;\n\nconst msgId = mail.id || mail.messageId;\nconst from = (mail.from && mail.from.value && mail.from.value[0]) ? mail.from.value[0].address : 'saswatsomya111@gmail.com';\nreturn [{ json: { reply, messageId: msgId, to: from } }];"
+      },
+      "id": "code-chat-008",
+      "name": "Build Chat Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1020, 320]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "reply",
+        "messageId": "={{ $json.messageId }}",
+        "emailType": "text",
+        "message": "={{ $json.reply }}",
+        "options": {}
+      },
+      "id": "gmail-reply-009",
+      "name": "Gmail Reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1740, 220]
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Only Owner",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only Owner": {
+      "main": [
+        [
+          {
+            "node": "Skip Portal Alerts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Skip Portal Alerts": {
+      "main": [
+        [
+          {
+            "node": "Wants REPORT?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Wants REPORT?": {
+      "main": [
+        [
+          {
+            "node": "Load since_id",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Chat Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load since_id": {
+      "main": [
+        [
+          {
+            "node": "Fetch Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Activity": {
+      "main": [
+        [
+          {
+            "node": "Build Report Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Report Reply": {
+      "main": [
+        [
+          {
+            "node": "Gmail Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Chat Reply": {
+      "main": [
+        [
+          {
+            "node": "Gmail Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -117,7 +117,7 @@
     },
     {
       "parameters": {
-        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "sendTo": "saswatsomya111@gmail.com",
         "subject": "=[URGENT] NIELIT student action — {{ $json.action }}",
         "emailType": "text",
         "message": "=URGENT student action\n\nAction: {{ $json.action }}\nStudent: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
@@ -131,7 +131,7 @@
     },
     {
       "parameters": {
-        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "sendTo": "saswatsomya111@gmail.com",
         "subject": "=NIELIT bulk student update — {{ $json.action }}",
         "emailType": "text",
         "message": "=Bulk / import student activity\n\nAction: {{ $json.action }}\nStudent / scope: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
@@ -147,7 +147,7 @@
     },
     {
       "parameters": {
-        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "sendTo": "saswatsomya111@gmail.com",
         "subject": "=NIELIT student record update — {{ $json.action }}",
         "emailType": "text",
         "message": "=Student record update\n\nAction: {{ $json.action }}\nStudent: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",

@@ -3,6 +3,13 @@
 The portal **pushes** events to n8n and exposes an **activity feed** for daily digests.  
 Workflow JSON files in this folder are meant to be **imported in n8n.cloud** (you connect Gmail and API key there).
 
+| Role | Email |
+|------|--------|
+| **n8n Gmail** (send alerts + email assistant inbox) | `nielitbbsr01@gmail.com` |
+| **Alert / report To** (your inbox) | `saswatsomya111@gmail.com` |
+
+Connect **nielitbbsr01@gmail.com** on every Gmail and Gmail Trigger node in n8n. Student notifications are delivered **to** `saswatsomya111@gmail.com`. For “talk back”, email **to** `nielitbbsr01@gmail.com` **from** your personal address (or from the same account for testing).
+
 ## Can Cursor edit my n8n directly?
 
 **No.** n8n.cloud is your account. The assistant cannot log in.
@@ -27,6 +34,7 @@ Optional (advanced): n8n **Settings → API** creates an API key for their REST 
 |------|---------|
 | `nielit-student-updates-routing.json` | Instant webhook: secret check, **urgent** mail, **bulk** mail with director CC, normal updates |
 | `nielit-activity-daily-digest.json` | **6:00 PM** poll of `activity_feed.php` → one summary email |
+| `nielit-gmail-talk-back.json` | **Email in → reply out**: you email Gmail; n8n talks back (hello / help / REPORT) |
 
 Your existing webhook URL path was `nielit-student-updates`. The routing workflow uses the same path so you can **replace** the old workflow after export/backup, or change the Webhook node path and update the portal URL to match.
 
@@ -84,6 +92,37 @@ Your existing webhook URL path was `nielit-student-updates`. The routing workflo
 
 1. **Routing:** In n8n, run Webhook test or edit student `NIELIT/2026/BBSR/0848` in the portal — expect one email in the right branch.
 2. **Digest:** Execute workflow manually once; check email and that the second run does not repeat the same events.
+
+---
+
+## Email it and it talks back (`nielit-gmail-talk-back.json`)
+
+**Idea:** You send a normal email **to** `nielitbbsr01@gmail.com` (from `saswatsomya111@gmail.com` or the same inbox for testing). Within about a minute, n8n replies in the same thread.
+
+This does **not** change student records. It only **replies** with help text or a small activity report.
+
+### Setup
+
+1. Import `nielit-gmail-talk-back.json` as a **second** workflow (keep the webhook workflow as-is).
+2. **Gmail Trigger** + **Gmail Reply** → credential **nielitbbsr01@gmail.com**.
+3. **Only Owner** already allows `saswatsomya111@gmail.com` and `nielitbbsr01@gmail.com` only.
+4. **Fetch Activity** → paste portal **Read API key** (`PASTE_PORTAL_API_KEY_HERE`) for REPORT replies.
+5. **Publish** this workflow.
+
+### How to use
+
+| You send | It answers |
+|----------|------------|
+| `Hi` / `Hello` | Intro + what it can do |
+| Body or subject contains **REPORT** | Last student events from activity feed |
+| `webhook` / `connect` | Reminder + Executions link |
+| `help` | Short capability list |
+
+**Skip:** Replies are **not** sent for subjects like `NIELIT student record` / `URGENT` (your own alert emails).
+
+### Real AI chat (optional later)
+
+The JSON uses simple scripted replies. For ChatGPT-style conversation, add an **OpenAI** node in n8n between **Build Chat Reply** and **Gmail Reply** (n8n Assistant can help), or ask in Cursor for an `nielit-gmail-openai.json` once you have an OpenAI API key in n8n.
 
 ---
 

@@ -92,7 +92,7 @@
     },
     {
       "parameters": {
-        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "sendTo": "saswatsomya111@gmail.com",
         "subject": "={{ $json.subject }}",
         "emailType": "text",
         "message": "={{ $json.body }}",
