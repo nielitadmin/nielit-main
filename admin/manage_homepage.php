@@ -863,6 +863,49 @@ if ($content_sections) {
             background: #f8fafc;
             border-radius: 0 0 12px 12px;
         }
+
+        /* Long forms (news edit): scroll body, keep Save/Cancel always reachable */
+        #homepageNewsModal .modal-dialog,
+        #sectionModal .modal-dialog {
+            max-height: calc(100vh - 1rem);
+            margin: 0.5rem auto;
+        }
+
+        #homepageNewsModal .modal-content,
+        #sectionModal .modal-content {
+            max-height: calc(100vh - 1rem);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #homepageNewsModal .modal-header,
+        #sectionModal .modal-header {
+            flex-shrink: 0;
+        }
+
+        #homepageNewsModal .modal-content > form,
+        #sectionModal .modal-content > form {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        #homepageNewsModal .modal-body,
+        #sectionModal .modal-body {
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        #homepageNewsModal .modal-footer,
+        #sectionModal .modal-footer {
+            flex-shrink: 0;
+            border-top: 1px solid #e2e8f0;
+        }
         
         .form-label {
             font-weight: 600;
@@ -1632,7 +1675,7 @@ if ($content_sections) {
 
     <!-- Add/Edit Content Section Modal -->
     <div class="modal fade" id="sectionModal" tabindex="-1" aria-labelledby="sectionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="sectionModalLabel">Add Content Section</h5>
@@ -1702,7 +1745,7 @@ if ($content_sections) {
 
     <!-- Homepage News Modal -->
     <div class="modal fade<?php echo $edit_news ? ' show' : ''; ?>" id="homepageNewsModal" tabindex="-1"<?php echo $edit_news ? ' style="display:block;" aria-modal="true" role="dialog"' : ' aria-hidden="true"'; ?>>
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">
@@ -2082,6 +2125,10 @@ if ($content_sections) {
                 <?php if ($edit_news): ?>
                 if (newsModalEl.classList.contains('show')) {
                     document.body.classList.add('modal-open');
+                    const newsDialog = newsModalEl.querySelector('.modal-body');
+                    if (newsDialog) {
+                        newsDialog.scrollTop = 0;
+                    }
                 }
                 <?php endif; ?>
             }
