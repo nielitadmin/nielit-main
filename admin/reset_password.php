@@ -48,6 +48,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($stmt->affected_rows > 0) {
                 $message = "Password reset successfully for Student ID: $student_id";
+                if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                    require_once __DIR__ . '/../includes/activity_logger.php';
+                    if (function_exists('logStudentAdminActivity')) {
+                        $sname = $student_id;
+                        $nameStmt = $conn->prepare('SELECT name FROM students WHERE student_id = ? LIMIT 1');
+                        if ($nameStmt) {
+                            $nameStmt->bind_param('s', $student_id);
+                            $nameStmt->execute();
+                            $nameRow = $nameStmt->get_result()->fetch_assoc();
+                            $nameStmt->close();
+                            if (!empty($nameRow['name'])) {
+                                $sname = (string) $nameRow['name'];
+                            }
+                        }
+                        logStudentAdminActivity(
+                            $conn,
+                            'student_password_reset',
+                            'Reset portal password for student ' . $student_id . '.',
+                            $student_id,
+                            $sname,
+                            ['source' => 'reset_password']
+                        );
+                    }
+                }
             } else {
                 $message = "Student ID not found.";
                 $new_password = "";
@@ -80,6 +104,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 if ($stmt->affected_rows > 0) {
                     $message = "Password reset successfully for Admin: $admin_username";
+                    if (file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                        require_once __DIR__ . '/../includes/activity_logger.php';
+                        if (function_exists('logActivity')) {
+                            logActivity($conn, [
+                                'actor_type' => 'admin',
+                                'actor_name' => (string) ($_SESSION['admin'] ?? 'Admin'),
+                                'actor_role' => (string) ($_SESSION['admin_role'] ?? ''),
+                                'action' => 'admin_password_reset',
+                                'entity_type' => 'admin',
+                                'entity_id' => $admin_username,
+                                'entity_name' => $admin_username,
+                                'description' => 'Reset password for admin account "' . $admin_username . '".',
+                                'details' => ['source' => 'reset_password'],
+                            ]);
+                        }
+                    }
                 } else {
                     $message = "Failed to reset admin password.";
                     $new_password = "";

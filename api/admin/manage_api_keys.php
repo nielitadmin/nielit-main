@@ -43,6 +43,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (($_SESSION['admin_role'] ?? '') === 'master_admin') {
                 if (savePortalAutomationSettings($conn, $_POST)) {
                     $_SESSION['success'] = 'Automation webhook settings saved.';
+                    if (file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+                        require_once __DIR__ . '/../../includes/activity_logger.php';
+                        if (function_exists('logActivity')) {
+                            $enabled = !empty($_POST['webhook_enabled']) ? 'on' : 'off';
+                            $notify = !empty($_POST['notify_student_actions']) ? 'on' : 'off';
+                            logActivity($conn, [
+                                'actor_type' => 'admin',
+                                'actor_name' => (string) ($_SESSION['admin'] ?? 'Admin'),
+                                'actor_role' => 'master_admin',
+                                'action' => 'automation_settings_update',
+                                'entity_type' => 'system',
+                                'entity_id' => 'portal_automation',
+                                'entity_name' => 'Student automation webhook',
+                                'description' => 'Updated portal automation webhook settings (webhook ' . $enabled . ', student notify ' . $notify . ').',
+                                'details' => [
+                                    'source' => 'manage_api_keys',
+                                    'webhook_enabled' => !empty($_POST['webhook_enabled']),
+                                    'notify_student_actions' => !empty($_POST['notify_student_actions']),
+                                    'has_chat_webhook' => trim((string) ($_POST['chat_webhook_url'] ?? '')) !== '',
+                                    'alert_email_set' => trim((string) ($_POST['alert_email'] ?? '')) !== '',
+                                ],
+                            ]);
+                        }
+                    }
                 } else {
                     $_SESSION['error'] = 'Could not save automation settings.';
                 }

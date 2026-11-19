@@ -22,6 +22,21 @@ if (isset($_GET['approve_all'])) {
         if ($stmt->execute()) {
             $affected = $conn->affected_rows;
             echo "SUCCESS: Approved $affected students!\n\n";
+            if ($affected > 0 && file_exists(__DIR__ . '/../includes/activity_logger.php')) {
+                require_once __DIR__ . '/../includes/activity_logger.php';
+                if (function_exists('logActivity')) {
+                    logActivity($conn, [
+                        'actor_type' => 'admin',
+                        'actor_name' => (string) ($_SESSION['admin'] ?? 'Admin'),
+                        'actor_role' => (string) ($_SESSION['admin_role'] ?? ''),
+                        'action' => 'student_approve_bulk',
+                        'entity_type' => 'student',
+                        'entity_id' => 'bulk',
+                        'description' => 'Quick approve tool activated ' . $affected . ' student record(s).',
+                        'details' => ['source' => 'quick_approve_students', 'affected_rows' => $affected],
+                    ]);
+                }
+            }
         } else {
             echo "ERROR: Failed to approve students: " . $conn->error . "\n\n";
         }

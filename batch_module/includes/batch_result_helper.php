@@ -170,6 +170,33 @@ if (!function_exists('batch_result_status_options')) {
         }
         $stmt->close();
 
+        $oldStatus = batch_result_normalize_status($row['result_status'] ?? 'exam_not_applied');
+        $studentIdStr = trim((string) ($row['student_id'] ?? ''));
+        $studentName = trim((string) ($row['name'] ?? $studentIdStr));
+        if (file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
+            require_once __DIR__ . '/../../includes/activity_logger.php';
+            if (function_exists('logStudentAdminActivity') && $studentIdStr !== '') {
+                $optionsForLog = batch_result_status_options();
+                $oldLabel = $optionsForLog[$oldStatus] ?? $oldStatus;
+                $newLabel = $optionsForLog[$status] ?? $status;
+                logStudentAdminActivity(
+                    $conn,
+                    'student_result_status_update',
+                    'Result status for ' . $studentIdStr . ' (batch #' . $batch_id . '): ' . $oldLabel . ' → ' . $newLabel . '.',
+                    $studentIdStr,
+                    $studentName !== '' ? $studentName : $studentIdStr,
+                    [
+                        'source' => 'student_record_inspector',
+                        'batch_id' => $batch_id,
+                        'student_record_id' => $student_record_id,
+                        'old_status' => $oldStatus,
+                        'new_status' => $status,
+                    ],
+                    'success'
+                );
+            }
+        }
+
         $options = batch_result_status_options();
         return [
             'success' => true,
