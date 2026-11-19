@@ -141,7 +141,10 @@ php_error_log
 
 # Node modules (if using any frontend build tools)
 /node_modules/
+/mobile-app/node_modules/
+/mobile-app/android/
 package-lock.json
+!/mobile-app/package-lock.json
 yarn.lock
 
 # Testing

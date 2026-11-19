@@ -1,0 +1,28 @@
+{
+  "name": "nielit-bhubaneswar-portal",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Android wrapper for the NIELIT Bhubaneswar student/admin portal",
+  "scripts": {
+    "cap:sync": "npx cap sync android",
+    "cap:open": "npx cap open android",
+    "android:debug": "cd android && .\\gradlew.bat assembleDebug",
+    "android:release": "cd android && .\\gradlew.bat assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/app": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@capacitor/status-bar": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "typescript": "^5.7.0"
+  },
+  "capacitor": {
+    "platforms": [
+      "android"
+    ]
+  }
+}

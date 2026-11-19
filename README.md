@@ -18,6 +18,10 @@ A comprehensive web-based student management system for NIELIT (National Institu
 - **Batch Management** - Complete batch lifecycle management
 - **Training Centre Management** - Multi-center operations (Bhubaneswar, Balasore, Raipur)
 
+### 📱 **Android app (wrapper)**
+- Capacitor shell in [`mobile-app/`](mobile-app/) loads the live portal (`https://nielitbhubaneswar.in`)
+- Build a debug APK locally (Android Studio + JDK 17) or download from **GitHub Actions → Build Android APK → Artifacts**
+
 ### 🎯 **Advanced Features**
 - **Educational Qualifications Enhancement** - 63 comprehensive stream options with "Other" functionality
 - **Schemes/Projects Module** - Government scheme management (SCSP, TSP, PMKVY)
