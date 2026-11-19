@@ -1,22 +1,34 @@
-/* Keep above public site day/night toggle (.theme-mode-toggle, bottom-right) */
-body.portal-assistant-active .theme-mode-toggle {
-    bottom: 88px;
-    right: 22px;
-    z-index: 1040;
+/* Bottom-right dock: day/night toggle + chat (stacked, no overlap) */
+.portal-assistant-dock {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.portal-assistant-dock .portal-assistant-fab,
+.portal-assistant-dock .theme-mode-toggle {
+    position: relative !important;
+    right: auto !important;
+    bottom: auto !important;
+    margin: 0 !important;
+    pointer-events: auto;
+    flex-shrink: 0;
 }
 
 .portal-assistant-fab {
-    position: fixed;
-    right: 22px;
-    bottom: 22px;
-    z-index: 1050;
-    width: 58px;
-    height: 58px;
+    width: 52px;
+    height: 52px;
     border: none;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--blue, #1a56db), var(--navy-mid, #112240));
     color: #fff;
-    font-size: 1.4rem;
+    font-size: 1.25rem;
     box-shadow: 0 8px 28px rgba(26, 86, 219, 0.35);
     cursor: pointer;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -31,11 +43,11 @@ body.portal-assistant-active .theme-mode-toggle {
 
 .portal-assistant-panel {
     position: fixed;
-    right: 22px;
-    bottom: 92px;
+    right: 16px;
+    bottom: 140px;
     z-index: 1049;
     width: min(380px, calc(100vw - 32px));
-    max-height: min(520px, calc(100vh - 120px));
+    max-height: min(520px, calc(100vh - 160px));
     display: flex;
     flex-direction: column;
     border-radius: 16px;
@@ -47,11 +59,13 @@ body.portal-assistant-active .theme-mode-toggle {
     visibility: hidden;
     transform: translateY(12px) scale(0.98);
     transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+    pointer-events: none;
 }
 .portal-assistant-panel.is-open {
     opacity: 1;
     visibility: visible;
     transform: translateY(0) scale(1);
+    pointer-events: auto;
 }
 
 .portal-assistant-header {
@@ -152,26 +166,29 @@ body.portal-assistant-active .theme-mode-toggle {
     cursor: not-allowed;
 }
 
-@media (max-width: 768px) {
-    body.portal-assistant-active .theme-mode-toggle {
-        bottom: 82px;
-        right: 16px;
-    }
+/* Clear space for docked controls (inspector toasts etc. still use theme_loader offsets) */
+body.portal-assistant-active #inspector-toast,
+body.portal-assistant-active .inspector-toast,
+body.portal-assistant-active .nielit-toast-stack {
+    bottom: 132px !important;
 }
 
 @media (max-width: 480px) {
+    .portal-assistant-dock {
+        right: 12px;
+        bottom: 12px;
+        gap: 10px;
+    }
     .portal-assistant-panel {
         right: 8px;
         left: 8px;
         width: auto;
-        bottom: 80px;
+        bottom: 128px;
+        max-height: min(520px, calc(100vh - 140px));
     }
     .portal-assistant-fab {
-        right: 16px;
-        bottom: 16px;
-    }
-    body.portal-assistant-active .theme-mode-toggle {
-        bottom: 76px;
-        right: 16px;
+        width: 48px;
+        height: 48px;
+        font-size: 1.15rem;
     }
 }

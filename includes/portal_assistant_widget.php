@@ -33,15 +33,35 @@ if (!function_exists('portal_assistant_render_widget')) {
                     <button type="submit" aria-label="Send"><i class="fas fa-paper-plane"></i></button>
                 </form>
             </div>
-            <button id="portal-assistant-fab" class="portal-assistant-fab" type="button"
-                    aria-expanded="false" aria-controls="portal-assistant-panel"
-                    title="Chat with NIELIT Assistant">
-                <i class="fas fa-comments" aria-hidden="true"></i>
-            </button>
+            <div id="portal-assistant-dock" class="portal-assistant-dock">
+                <button id="portal-assistant-fab" class="portal-assistant-fab" type="button"
+                        aria-expanded="false" aria-controls="portal-assistant-panel"
+                        title="Chat with NIELIT Assistant">
+                    <i class="fas fa-comments" aria-hidden="true"></i>
+                </button>
+            </div>
         </div>
         <script src="<?php echo htmlspecialchars($js, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
         <script>
-        document.body.classList.add('portal-assistant-active');
+        (function () {
+            function dockThemeToggle() {
+                document.body.classList.add('portal-assistant-active');
+                var dock = document.getElementById('portal-assistant-dock');
+                var theme = document.getElementById('themeModeToggle') || document.querySelector('.theme-mode-toggle');
+                var fab = document.getElementById('portal-assistant-fab');
+                if (!dock || !fab) {
+                    return;
+                }
+                if (theme && theme.parentNode !== dock) {
+                    dock.insertBefore(theme, fab);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', dockThemeToggle);
+            } else {
+                dockThemeToggle();
+            }
+        })();
         </script>
         <?php
     }

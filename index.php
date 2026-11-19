@@ -1353,7 +1353,7 @@ require_once __DIR__ . '/includes/public_skeleton_helper.php';
 public_skeleton_render_head();
 ?>
 </head>
-<body class="public-page-loading homepage-public public-site">
+<body class="public-page-loading homepage-public public-site portal-assistant-active">
 <?php
 if (!function_exists('festivalThemeRibbonHtml')) {
     $festHelper = __DIR__ . '/includes/festival_theme_helper.php';
