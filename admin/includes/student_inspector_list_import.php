@@ -88,6 +88,8 @@ if (!function_exists('inspectorListBlankRecord')) {
             'caste_certificate' => '',
             'registration_date' => '',
             'student_id' => '',
+            'nielit_registration_no' => '',
+            'status' => '',
         ];
     }
 }
@@ -172,6 +174,12 @@ if (!function_exists('inspectorListHeaderField')) {
         }
         if (strpos($label, 'studentid') !== false) {
             return 'student_id';
+        }
+        if (strpos($label, 'nielit') !== false && strpos($label, 'reg') !== false) {
+            return 'nielit_registration_no';
+        }
+        if ($label === 'status' || strpos($label, 'enrollmentstatus') !== false) {
+            return 'status';
         }
         if (strpos($label, 'whatsapp') !== false || strpos($label, 'watsapp') !== false || in_array($label, ['mobile', 'phone', 'mobileno', 'contactno', 'contact'], true)) {
             return 'mobile';

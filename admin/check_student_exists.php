@@ -14,6 +14,7 @@ require_once __DIR__ . '/includes/student_inspector_enrollment.php';
 require_once __DIR__ . '/includes/student_inspector_roster.php';
 require_once __DIR__ . '/includes/student_inspector_directory.php';
 require_once __DIR__ . '/includes/student_inspector_list_import.php';
+require_once __DIR__ . '/includes/student_inspector_excel_update.php';
 require_once __DIR__ . '/../includes/batch_assignment_helper.php';
 
 if (function_exists('repairStudentCourseIdFromBatchAssignment')) {
@@ -50,6 +51,25 @@ if (isset($_GET['student_list_template'])) {
     header('Content-Disposition: attachment; filename="student_list_template.csv"');
     echo "Sl. No.,Student Name,Father Name,Mother Name,Date of Birth,Age,Gender,Marital Status,Mobile,Email,Aadhaar,APAAR ID,Nationality,Religion,Category,PWD Status,Position,Address,City,State,Pincode,College / Education,10th Marksheet,12th Marksheet,Graduation Certificate,Caste Certificate,Registration Date\n";
     echo "1,Ramesh Kumar,,,,,,,,,,,,Indian,,,,,Student,,,,,,,\n";
+    exit();
+}
+
+if (isset($_GET['student_update_template'])) {
+    header('Content-Type: text/csv; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="student_update_template.csv"');
+    echo "Student ID,Student Name,Mobile,Email,Father Name,Mother Name,Date of Birth,Age,Gender,Category,Status,NIELIT Portal Reg. No.,Aadhaar,APAAR ID,Address,City,State,Pincode\n";
+    echo "NIELIT/2026/BBSR/0001,NARENDRA BEHERA,9876543210,student@example.com,DAITARI BEHERA,SHANTILATA BEHERA,1999-04-25,27,Male,SC,active,BHCCCC0055403,948599249226,344191347917,Sample address,Baleshwar,Odisha,756033\n";
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_student_excel'])) {
+    $updateResult = inspectorBulkUpdateStudentsFromExcel($conn, $_POST, $_FILES);
+    $_SESSION['inspector_flash'] = [
+        'message' => $updateResult['message'],
+        'type' => $updateResult['type'],
+    ];
+    $_SESSION['inspector_update_rows'] = $updateResult['rows'];
+    header('Location: check_student_exists.php#student-excel-update');
     exit();
 }
 
@@ -363,6 +383,11 @@ if (!empty($_SESSION['inspector_import_rows']) && is_array($_SESSION['inspector_
     $importRows = $_SESSION['inspector_import_rows'];
     unset($_SESSION['inspector_import_rows']);
 }
+$updateImportRows = [];
+if (!empty($_SESSION['inspector_update_rows']) && is_array($_SESSION['inspector_update_rows'])) {
+    $updateImportRows = $_SESSION['inspector_update_rows'];
+    unset($_SESSION['inspector_update_rows']);
+}
 
 $searchCriteria = inspectorCriteriaFromRequest(array_merge($_GET, $_POST));
 $aadhar = $searchCriteria['aadhar'];
@@ -657,6 +682,8 @@ $active_theme = loadActiveTheme($conn);
     </div>
 
     <?php include __DIR__ . '/includes/student_inspector_list_import_ui.php'; ?>
+    <div id="student-excel-update"></div>
+    <?php include __DIR__ . '/includes/student_inspector_excel_update_ui.php'; ?>
 
     <?php if ($canManageEnrollment): ?>
     <?php include __DIR__ . '/includes/student_inspector_roster_ui.php'; ?>
