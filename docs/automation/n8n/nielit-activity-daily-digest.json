@@ -1,0 +1,175 @@
+{
+  "name": "NIELIT Student Activity Daily Digest",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 18 * * *"
+            }
+          ]
+        }
+      },
+      "id": "d1d2d3d4-schedule-001",
+      "name": "Daily 6 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst sinceId = staticData.sinceId ?? 0;\nreturn [{ json: { sinceId } }];"
+      },
+      "id": "d1d2d3d4-code-since",
+      "name": "Load since_id",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "url": "=https://nielitbhubaneswar.in/api/v1/activity_feed.php?since_id={{ $json.sinceId }}&limit=200",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "PASTE_PORTAL_API_KEY_HERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d1d2d3d4-http-feed",
+      "name": "Fetch Activity Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 300],
+      "notesInFlow": true,
+      "notes": "Replace PASTE_PORTAL_API_KEY_HERE with Read API key from portal."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst resp = $input.first().json;\nconst data = resp.data || resp;\nconst events = data.events || [];\nconst next = data.next_since_id ?? staticData.sinceId ?? 0;\nstaticData.sinceId = next;\nconst byAction = {};\nconst lines = [];\nfor (const e of events) {\n  const a = e.action || 'unknown';\n  byAction[a] = (byAction[a] || 0) + 1;\n  lines.push(`- ${e.created_at} | ${a} | ${e.entity_id || ''} | ${e.actor_name || ''} | ${e.description || ''}`);\n}\nconst summary = Object.entries(byAction).map(([k, v]) => `${k}: ${v}`).join('\\n') || '(no new events)';\nconst body = events.length === 0\n  ? 'No new student activity since the last digest.'\n  : `Total events: ${events.length}\\n\\nBy action:\\n${summary}\\n\\nRecent:\\n${lines.slice(0, 40).join('\\n')}${lines.length > 40 ? '\\n...(truncated)' : ''}`;\nreturn [{ json: { subject: `NIELIT student activity digest (${events.length} new)`, body, count: events.length, next_since_id: next } }];"
+      },
+      "id": "d1d2d3d4-code-summary",
+      "name": "Build Digest",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d1d2d3d4-if-count",
+      "name": "Any Events?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1040, 300]
+    },
+    {
+      "parameters": {
+        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "subject": "={{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {}
+      },
+      "id": "d1d2d3d4-gmail-digest",
+      "name": "Gmail Digest",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1320, 220]
+    }
+  ],
+  "connections": {
+    "Daily 6 PM": {
+      "main": [
+        [
+          {
+            "node": "Load since_id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load since_id": {
+      "main": [
+        [
+          {
+            "node": "Fetch Activity Feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Activity Feed": {
+      "main": [
+        [
+          {
+            "node": "Build Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Digest": {
+      "main": [
+        [
+          {
+            "node": "Any Events?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Events?": {
+      "main": [
+        [
+          {
+            "node": "Gmail Digest",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Kolkata"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

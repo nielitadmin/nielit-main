@@ -325,6 +325,11 @@ $active_theme = loadActiveTheme($conn);
                                     <p class="small mb-1"><strong>Poll feed (no webhook):</strong></p>
                                     <code class="user-select-all d-block small"><?php echo htmlspecialchars($activityFeedUrl); ?>?since_id=0&amp;limit=50&amp;source=student_record_inspector</code>
                                     <p class="small text-muted mb-0 mt-2">Header: <code>X-API-Key: your_key</code>. Use <code>next_since_id</code> from the response on the next run (every 1–5 min in n8n Schedule).</p>
+                                    <p class="small mb-0 mt-3">
+                                        <strong>n8n import (urgent / bulk / daily digest):</strong>
+                                        <a href="<?php echo htmlspecialchars(app_url('docs/automation/n8n/README.md')); ?>" target="_blank" rel="noopener">Setup guide</a>
+                                        — JSON files in <code>docs/automation/n8n/</code> on the server (routing + daily digest workflows).
+                                    </p>
                                 </div>
                             </div>
                         </div>

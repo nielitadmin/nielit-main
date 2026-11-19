@@ -1,0 +1,252 @@
+{
+  "name": "NIELIT Student Updates (routing)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nielit-student-updates",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "a1b2c3d4-webhook-0001",
+      "name": "Webhook Student Updates",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "nielit-student-updates-routing"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "secret-match",
+              "leftValue": "={{ $json.headers['x-nielit-webhook-secret'] || $json.headers['X-NIELIT-Webhook-Secret'] || '' }}",
+              "rightValue": "Nielitbbsr@2026",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1b2c3d4-if-secret-002",
+      "name": "Verify Shared Secret",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = $input.first().json;\nconst body = item.body && typeof item.body === 'object' ? item.body : item;\nconst action = String(body.action || '').toLowerCase();\nconst urgent = ['student_inspector_purge', 'student_delete', 'student_inspector_delete'];\nconst bulk = ['student_excel_update', 'student_list_import'];\nlet route = 'normal';\nif (urgent.includes(action)) route = 'urgent';\nelse if (bulk.includes(action)) route = 'bulk';\nconst student = body.entity_id || body.entity_name || '(unknown)';\nconst desc = body.description || action;\nconst by = body.actor_name || body.actor_role || 'Admin';\nconst source = (body.details && body.details.source) ? body.details.source : '';\nconst when = body.created_at || new Date().toISOString();\nreturn [{ json: { ...body, route, student, desc, by, source, when } }];"
+      },
+      "id": "a1b2c3d4-code-route-003",
+      "name": "Classify Route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 220]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "urgent",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "urgent"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "bulk",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "bulk"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "a1b2c3d4-switch-004",
+      "name": "Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [780, 220]
+    },
+    {
+      "parameters": {
+        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "subject": "=[URGENT] NIELIT student action — {{ $json.action }}",
+        "emailType": "text",
+        "message": "=URGENT student action\n\nAction: {{ $json.action }}\nStudent: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-gmail-urgent",
+      "name": "Gmail Urgent",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1080, 60]
+    },
+    {
+      "parameters": {
+        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "subject": "=NIELIT bulk student update — {{ $json.action }}",
+        "emailType": "text",
+        "message": "=Bulk / import student activity\n\nAction: {{ $json.action }}\nStudent / scope: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
+        "options": {
+          "ccList": "REPLACE_DIRECTOR_EMAIL"
+        }
+      },
+      "id": "a1b2c3d4-gmail-bulk",
+      "name": "Gmail Bulk CC Director",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1080, 220]
+    },
+    {
+      "parameters": {
+        "sendTo": "REPLACE_ADMIN_EMAIL",
+        "subject": "=NIELIT student record update — {{ $json.action }}",
+        "emailType": "text",
+        "message": "=Student record update\n\nAction: {{ $json.action }}\nStudent: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-gmail-normal",
+      "name": "Gmail Normal",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [1080, 380]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": false, \"error\": \"invalid_secret\" }",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "a1b2c3d4-respond-bad",
+      "name": "Respond Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [520, 420]
+    }
+  ],
+  "connections": {
+    "Webhook Student Updates": {
+      "main": [
+        [
+          {
+            "node": "Verify Shared Secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verify Shared Secret": {
+      "main": [
+        [
+          {
+            "node": "Classify Route",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify Route": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Gmail Urgent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail Bulk CC Director",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gmail Normal",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
