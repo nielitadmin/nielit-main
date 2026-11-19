@@ -345,7 +345,36 @@ if (!function_exists('logActivity')) {
             if (!$ok) {
                 error_log('logActivity insert failed: ' . $stmt->error);
             }
+            $logId = $ok ? (int) $conn->insert_id : 0;
             $stmt->close();
+            if ($ok && $logId > 0) {
+                $automationHelper = __DIR__ . '/automation_webhook_helper.php';
+                if (is_file($automationHelper)) {
+                    require_once $automationHelper;
+                    if (function_exists('automationDispatchActivityEvent')) {
+                        $detailPayload = $data['details'] ?? null;
+                        if (!is_array($detailPayload)) {
+                            $detailPayload = json_decode((string) $details, true);
+                            if (!is_array($detailPayload)) {
+                                $detailPayload = [];
+                            }
+                        }
+                        automationDispatchActivityEvent($conn, $logId, [
+                            'action' => $action,
+                            'description' => $description,
+                            'entity_type' => $entityType,
+                            'entity_id' => $entityId,
+                            'entity_name' => $entityName,
+                            'result' => $result,
+                            'actor_type' => $actorType,
+                            'actor_name' => $actorName,
+                            'actor_role' => $actorRole,
+                            'details' => $detailPayload,
+                            'created_at' => $createdAt,
+                        ]);
+                    }
+                }
+            }
             return $ok;
         } catch (Throwable $e) {
             error_log('logActivity exception: ' . $e->getMessage());
@@ -645,6 +674,8 @@ if (!function_exists('activityActionLabels')) {
             'student_inspector_purge' => 'Inspector Records Purged',
             'student_roster_copy' => 'Batch Roster Copied',
             'student_orphan_cleanup' => 'Orphan Enrollment Cleanup',
+            'student_excel_update' => 'Student Excel Bulk Update',
+            'student_list_import' => 'Student List Import',
             'batch_assign' => 'Batch Assignment',
             'course_create' => 'Course Created',
             'course_update' => 'Course Updated',

@@ -11,6 +11,7 @@ require_once __DIR__ . '/../../includes/url_helper.php';
 require_once __DIR__ . '/../../includes/sidebar_theme_helper.php';
 require_once __DIR__ . '/../../includes/admin_assets.php';
 require_once __DIR__ . '/../config/api_config.php';
+require_once __DIR__ . '/../../includes/automation_webhook_helper.php';
 
 // This is an admin HTML page, so override API JSON content type.
 header('Content-Type: text/html; charset=UTF-8');
@@ -38,8 +39,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'update':
             updateApiKey();
             break;
+        case 'save_automation':
+            if (($_SESSION['admin_role'] ?? '') === 'master_admin') {
+                if (savePortalAutomationSettings($conn, $_POST)) {
+                    $_SESSION['success'] = 'Automation webhook settings saved.';
+                } else {
+                    $_SESSION['error'] = 'Could not save automation settings.';
+                }
+            } else {
+                $_SESSION['error'] = 'Only master admin can change automation settings.';
+            }
+            break;
     }
 }
+
+$automationSettings = getPortalAutomationSettings($conn);
+$activityFeedUrl = rtrim((string) (defined('APP_URL') ? APP_URL : ''), '/') . '/api/v1/activity_feed.php';
 
 // Get all API keys
 $api_keys = getAllApiKeys();
@@ -260,6 +275,60 @@ $active_theme = loadActiveTheme($conn);
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
                         <?php unset($_SESSION['new_api_key']); ?>
+                    <?php endif; ?>
+
+                    <?php if (($_SESSION['admin_role'] ?? '') === 'master_admin'): ?>
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <div class="card border-success">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="mb-0"><i class="fas fa-plug"></i> Student update automation (n8n / Make)</h5>
+                                </div>
+                                <div class="card-body">
+                                    <p class="text-muted small">
+                                        When students are updated (Edit Student, Record Inspector, Excel update, approve, scheme sync, etc.),
+                                        the portal can <strong>push</strong> a JSON event to your n8n webhook, or n8n can <strong>poll</strong> the activity feed with an API key.
+                                    </p>
+                                    <form method="POST" class="row g-3">
+                                        <input type="hidden" name="action" value="save_automation">
+                                        <div class="col-12">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="webhook_enabled" value="1" id="automation_enabled"
+                                                    <?php echo !empty($automationSettings['webhook_enabled']) ? 'checked' : ''; ?>>
+                                                <label class="form-check-label" for="automation_enabled">Enable instant webhook</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-8">
+                                            <label class="form-label">Webhook URL (n8n Webhook node)</label>
+                                            <input type="url" class="form-control" name="webhook_url"
+                                                   value="<?php echo htmlspecialchars((string) ($automationSettings['webhook_url'] ?? '')); ?>"
+                                                   placeholder="https://your-n8n.example.com/webhook/student-updates">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Shared secret (optional)</label>
+                                            <input type="text" class="form-control" name="webhook_secret" autocomplete="off"
+                                                   value="<?php echo htmlspecialchars((string) ($automationSettings['webhook_secret'] ?? '')); ?>"
+                                                   placeholder="Sent as X-NIELIT-Webhook-Secret">
+                                        </div>
+                                        <div class="col-12">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="notify_student_actions" value="1" id="notify_student"
+                                                    <?php echo !isset($automationSettings['notify_student_actions']) || !empty($automationSettings['notify_student_actions']) ? 'checked' : ''; ?>>
+                                                <label class="form-check-label" for="notify_student">Only student-related actions</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save automation</button>
+                                        </div>
+                                    </form>
+                                    <hr>
+                                    <p class="small mb-1"><strong>Poll feed (no webhook):</strong></p>
+                                    <code class="user-select-all d-block small"><?php echo htmlspecialchars($activityFeedUrl); ?>?since_id=0&amp;limit=50&amp;source=student_record_inspector</code>
+                                    <p class="small text-muted mb-0 mt-2">Header: <code>X-API-Key: your_key</code>. Use <code>next_since_id</code> from the response on the next run (every 1–5 min in n8n Schedule).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <?php endif; ?>
 
                     <!-- Create API Key Button -->
