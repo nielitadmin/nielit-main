@@ -40,6 +40,9 @@ if (!function_exists('portal_assistant_render_widget')) {
             </button>
         </div>
         <script src="<?php echo htmlspecialchars($js, ENT_QUOTES, 'UTF-8'); ?>" defer></script>
+        <script>
+        document.body.classList.add('portal-assistant-active');
+        </script>
         <?php
     }
 }

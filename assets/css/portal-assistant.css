@@ -1,8 +1,15 @@
+/* Keep above public site day/night toggle (.theme-mode-toggle, bottom-right) */
+body.portal-assistant-active .theme-mode-toggle {
+    bottom: 88px;
+    right: 22px;
+    z-index: 1040;
+}
+
 .portal-assistant-fab {
     position: fixed;
     right: 22px;
     bottom: 22px;
-    z-index: 10900;
+    z-index: 1050;
     width: 58px;
     height: 58px;
     border: none;
@@ -26,7 +33,7 @@
     position: fixed;
     right: 22px;
     bottom: 92px;
-    z-index: 10899;
+    z-index: 1049;
     width: min(380px, calc(100vw - 32px));
     max-height: min(520px, calc(100vh - 120px));
     display: flex;
@@ -145,6 +152,13 @@
     cursor: not-allowed;
 }
 
+@media (max-width: 768px) {
+    body.portal-assistant-active .theme-mode-toggle {
+        bottom: 82px;
+        right: 16px;
+    }
+}
+
 @media (max-width: 480px) {
     .portal-assistant-panel {
         right: 8px;
@@ -155,5 +169,9 @@
     .portal-assistant-fab {
         right: 16px;
         bottom: 16px;
+    }
+    body.portal-assistant-active .theme-mode-toggle {
+        bottom: 76px;
+        right: 16px;
     }
 }
