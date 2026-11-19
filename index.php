@@ -2108,6 +2108,10 @@ if ($announcements_result && $announcements_result->num_rows > 0): ?>
         typeEffect();
     }
 </script>
-<?php public_skeleton_render_script(); ?>
+<?php
+require_once __DIR__ . '/includes/portal_assistant_widget.php';
+portal_assistant_render_widget(isset($conn) && $conn instanceof mysqli ? $conn : null);
+public_skeleton_render_script();
+?>
 </body>
 </html>
