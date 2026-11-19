@@ -2,10 +2,12 @@
 
 Floating chat on the public homepage. Answers questions about login, registration, fees, mock test, and centre contact.
 
-## How it works
+## How it works (priority order)
 
-- **Local mode (default):** Keyword/FAQ replies — no API key required.
-- **OpenAI mode (optional):** Create `config/portal_assistant.local.php` on the server (not in git):
+1. **n8n chat** (recommended for staff updates): Master admin → **API & Automation** → enable **Homepage chat → n8n**, URL  
+   `https://nielitbbsr.app.n8n.cloud/webhook/nielit-portal-chat` — import `docs/automation/n8n/nielit-portal-chat.json`.
+2. **Staff activity (no n8n):** If you are **logged in as admin** on the same browser, ask **“student update report”** — reads the portal activity log directly.
+3. **OpenAI (optional):** `config/portal_assistant.local.php` on the server:
 
 ```php
 <?php

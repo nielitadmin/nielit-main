@@ -317,6 +317,21 @@ $active_theme = loadActiveTheme($conn);
                                                 <label class="form-check-label" for="notify_student">Only student-related actions</label>
                                             </div>
                                         </div>
+                                        <div class="col-12"><hr class="my-2"><p class="small fw-semibold mb-2">Homepage NIELIT Assistant → n8n chat</p></div>
+                                        <div class="col-12">
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="chat_webhook_enabled" value="1" id="chat_webhook_enabled"
+                                                    <?php echo !empty($automationSettings['chat_webhook_enabled']) ? 'checked' : ''; ?>>
+                                                <label class="form-check-label" for="chat_webhook_enabled">Enable n8n for homepage chat replies</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Chat webhook URL</label>
+                                            <input type="url" class="form-control" name="chat_webhook_url"
+                                                   value="<?php echo htmlspecialchars((string) ($automationSettings['chat_webhook_url'] ?? '')); ?>"
+                                                   placeholder="https://nielitbbsr.app.n8n.cloud/webhook/nielit-portal-chat">
+                                            <p class="small text-muted mb-0">Uses the same shared secret header. Import <code>nielit-portal-chat.json</code> from <code>docs/automation/n8n/</code>.</p>
+                                        </div>
                                         <div class="col-12">
                                             <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save automation</button>
                                         </div>

@@ -148,9 +148,24 @@ if (!function_exists('portal_assistant_local_reply')) {
                 . 'You can also call or visit NIELIT Bhubaneswar Extension Centre during office hours.';
         }
 
-        if (preg_match('/news|announce|update/u', $m)) {
+        if (preg_match('/student\s*update|record\s*update|inspector|excel\s*update|staff\s*report|activity\s*report/u', $m)) {
+            return "Student record updates (edits, Inspector, Excel) are logged for staff and can trigger n8n email alerts.\n\n"
+                . "• Students: use " . ($ctx['student_login'] ?? 'student login') . " — this public chat cannot show private records.\n"
+                . "• Staff: log in to admin, or enable **Homepage chat → n8n** in API & Automation, then ask again here while logged in.\n"
+                . "• You can also email nielitbbsr01@gmail.com with subject **REPORT** (n8n email assistant).";
+        }
+
+        if (preg_match('/\bn8n\b|webhook|automation|email\s*alert/u', $m)) {
+            return "n8n automation at NIELIT:\n"
+                . "• Portal → instant webhook when students change (emails to staff)\n"
+                . "• Homepage chat → optional n8n workflow (portal chat webhook)\n"
+                . "• Configure: Admin → API & Automation\n"
+                . "• Webhook: https://nielitbbsr.app.n8n.cloud/webhook/nielit-student-updates";
+        }
+
+        if (preg_match('/\bnews\b|announcement|\bannounce\b/u', $m)) {
             $latest = $ctx['latest_news'] ?? 'See the News section on the homepage.';
-            return "Latest announcements: " . $latest;
+            return "Latest public announcements: " . $latest;
         }
 
         if (preg_match('/admin|staff|faculty/u', $m)) {
@@ -158,7 +173,7 @@ if (!function_exists('portal_assistant_local_reply')) {
                 . ($ctx['admin_login'] ?? '') . "\n\nI cannot access private admin data here.";
         }
 
-        if (preg_match('/change\s*name|edit\s*student|inspector|n8n|automation/u', $m)) {
+        if (preg_match('/change\s*name|edit\s*student/u', $m)) {
             return "Student record changes are done only by authorised centre staff in the admin portal (Manage Students or Record Inspector). "
                 . "This chat cannot change your records. For name or data corrections, contact the centre with ID proof.";
         }
@@ -239,6 +254,59 @@ if (!function_exists('portal_assistant_openai_reply')) {
   }
 }
 
+if (!function_exists('portal_assistant_actor_context')) {
+    /** @return array<string, mixed> */
+    function portal_assistant_actor_context(): array
+    {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        $actor = [
+            'is_admin' => !empty($_SESSION['admin']),
+            'is_student' => !empty($_SESSION['student_id']),
+            'name' => '',
+            'role' => '',
+        ];
+        if ($actor['is_admin']) {
+            $actor['name'] = (string) ($_SESSION['admin_name'] ?? 'Administrator');
+            $actor['role'] = (string) ($_SESSION['admin_role'] ?? 'admin');
+        } elseif ($actor['is_student']) {
+            $actor['name'] = (string) ($_SESSION['student_name'] ?? '');
+        }
+        return $actor;
+    }
+}
+
+if (!function_exists('portal_assistant_admin_activity_reply')) {
+    function portal_assistant_admin_activity_reply(?mysqli $conn, string $message): ?string
+    {
+        if (!$conn instanceof mysqli || empty($_SESSION['admin'])) {
+            return null;
+        }
+        if (!preg_match('/student\s*update|record\s*update|report|activity|inspector|excel|recent|full\s*update|n8n/u', strtolower($message))) {
+            return null;
+        }
+        if (!function_exists('automationFetchActivityFeed')) {
+            require_once __DIR__ . '/automation_webhook_helper.php';
+        }
+        $feed = automationFetchActivityFeed($conn, 0, 20, []);
+        $events = $feed['events'] ?? [];
+        if ($events === []) {
+            return "No recent student activity in the latest batch (activity log).\n\n"
+                . "When staff edit students, n8n can email alerts if the instant webhook is enabled.";
+        }
+        $lines = [];
+        foreach ($events as $e) {
+            $lines[] = '• ' . ($e['created_at'] ?? '') . ' | ' . ($e['action'] ?? '')
+                . ' | ' . ($e['entity_id'] ?? '') . ' | ' . ($e['actor_name'] ?? '')
+                . ' — ' . ($e['description'] ?? '');
+        }
+        return "Recent student updates (last " . count($events) . " logged actions):\n\n"
+            . implode("\n", $lines)
+            . "\n\nSource: portal activity log. Instant n8n emails use the same events.";
+    }
+}
+
 if (!function_exists('portal_assistant_chat')) {
     /**
      * @param list<array{role: string, content: string}> $history
@@ -252,6 +320,20 @@ if (!function_exists('portal_assistant_chat')) {
         }
         $ctx = portal_assistant_site_context($conn);
         $config = portal_assistant_load_config();
+        $actor = portal_assistant_actor_context();
+
+        if ($conn instanceof mysqli && function_exists('automationPortalChatRequest')) {
+            require_once __DIR__ . '/automation_webhook_helper.php';
+            $n8n = automationPortalChatRequest($conn, $message, $history, $actor, $ctx);
+            if ($n8n !== null && $n8n !== '') {
+                return ['reply' => $n8n, 'mode' => 'n8n'];
+            }
+        }
+
+        $staff = portal_assistant_admin_activity_reply($conn, $message);
+        if ($staff !== null) {
+            return ['reply' => $staff, 'mode' => 'activity'];
+        }
 
         $reply = portal_assistant_openai_reply($message, $history, $ctx, $config);
         if ($reply !== null) {

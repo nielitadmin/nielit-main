@@ -35,6 +35,7 @@ Optional (advanced): n8n **Settings → API** creates an API key for their REST 
 | `nielit-student-updates-routing.json` | Instant webhook: secret check, **urgent** mail, **bulk** mail with director CC, normal updates |
 | `nielit-activity-daily-digest.json` | **6:00 PM** poll of `activity_feed.php` → one summary email |
 | `nielit-gmail-talk-back.json` | **Email in → reply out**: you email Gmail; n8n talks back (hello / help / REPORT) |
+| `nielit-portal-chat.json` | **Homepage NIELIT Assistant** chat → n8n → activity feed / help text (sync JSON reply) |
 
 Your existing webhook URL path was `nielit-student-updates`. The routing workflow uses the same path so you can **replace** the old workflow after export/backup, or change the Webhook node path and update the portal URL to match.
 
@@ -123,6 +124,17 @@ This does **not** change student records. It only **replies** with help text or 
 ### Real AI chat (optional later)
 
 The JSON uses simple scripted replies. For ChatGPT-style conversation, add an **OpenAI** node in n8n between **Build Chat Reply** and **Gmail Reply** (n8n Assistant can help), or ask in Cursor for an `nielit-gmail-openai.json` once you have an OpenAI API key in n8n.
+
+---
+
+## Homepage chat → n8n (`nielit-portal-chat.json`)
+
+1. Import `nielit-portal-chat.json`, set **Fetch Activity Feed** API key, secret = portal shared secret.
+2. **Publish** workflow (path `nielit-portal-chat`, response mode **response node**).
+3. Portal → **API & Automation** → enable **Homepage chat → n8n**, paste chat webhook URL, save.
+4. On the homepage, open **NIELIT Assistant** → **Student updates** chip or type `student update report` (best when **admin is logged in**).
+
+Works together with **student-updates** email webhook (push) and **activity feed** (pull).
 
 ---
 

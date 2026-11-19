@@ -13,13 +13,31 @@ if (!function_exists('ensurePortalAutomationSettingsTable')) {
             webhook_url VARCHAR(500) DEFAULT NULL,
             webhook_secret VARCHAR(255) DEFAULT NULL,
             notify_student_actions TINYINT(1) NOT NULL DEFAULT 1,
+            chat_webhook_enabled TINYINT(1) NOT NULL DEFAULT 0,
+            chat_webhook_url VARCHAR(500) DEFAULT NULL,
             updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
         $ok = (bool) $conn->query($sql);
         if ($ok) {
             $conn->query('INSERT IGNORE INTO portal_automation_settings (id) VALUES (1)');
+            ensurePortalAutomationChatColumns($conn);
         }
         return $ok;
+    }
+}
+
+if (!function_exists('ensurePortalAutomationChatColumns')) {
+    function ensurePortalAutomationChatColumns(mysqli $conn): void
+    {
+        $check = $conn->query("SHOW COLUMNS FROM portal_automation_settings LIKE 'chat_webhook_enabled'");
+        if ($check && $check->num_rows > 0) {
+            return;
+        }
+        $conn->query(
+            'ALTER TABLE portal_automation_settings
+             ADD COLUMN chat_webhook_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_student_actions,
+             ADD COLUMN chat_webhook_url VARCHAR(500) NULL DEFAULT NULL AFTER chat_webhook_enabled'
+        );
     }
 }
 
@@ -28,6 +46,7 @@ if (!function_exists('getPortalAutomationSettings')) {
     function getPortalAutomationSettings(mysqli $conn): array
     {
         ensurePortalAutomationSettingsTable($conn);
+        ensurePortalAutomationChatColumns($conn);
         $res = $conn->query('SELECT * FROM portal_automation_settings WHERE id = 1 LIMIT 1');
         if (!$res || !($row = $res->fetch_assoc())) {
             return [
@@ -35,6 +54,8 @@ if (!function_exists('getPortalAutomationSettings')) {
                 'webhook_url' => '',
                 'webhook_secret' => '',
                 'notify_student_actions' => 1,
+                'chat_webhook_enabled' => 0,
+                'chat_webhook_url' => '',
             ];
         }
         return $row;
@@ -45,22 +66,29 @@ if (!function_exists('savePortalAutomationSettings')) {
     function savePortalAutomationSettings(mysqli $conn, array $data): bool
     {
         ensurePortalAutomationSettingsTable($conn);
+        ensurePortalAutomationChatColumns($conn);
         $enabled = !empty($data['webhook_enabled']) ? 1 : 0;
         $url = trim((string) ($data['webhook_url'] ?? ''));
         $secret = trim((string) ($data['webhook_secret'] ?? ''));
         $notify = !isset($data['notify_student_actions']) || !empty($data['notify_student_actions']) ? 1 : 0;
+        $chatEnabled = !empty($data['chat_webhook_enabled']) ? 1 : 0;
+        $chatUrl = trim((string) ($data['chat_webhook_url'] ?? ''));
         if ($url !== '' && !preg_match('#^https?://#i', $url)) {
             $url = 'https://' . $url;
         }
+        if ($chatUrl !== '' && !preg_match('#^https?://#i', $chatUrl)) {
+            $chatUrl = 'https://' . $chatUrl;
+        }
         $stmt = $conn->prepare(
             'UPDATE portal_automation_settings
-             SET webhook_enabled = ?, webhook_url = NULLIF(?, \'\'), webhook_secret = NULLIF(?, \'\'), notify_student_actions = ?
+             SET webhook_enabled = ?, webhook_url = NULLIF(?, \'\'), webhook_secret = NULLIF(?, \'\'), notify_student_actions = ?,
+                 chat_webhook_enabled = ?, chat_webhook_url = NULLIF(?, \'\')
              WHERE id = 1'
         );
         if (!$stmt) {
             return false;
         }
-        $stmt->bind_param('issi', $enabled, $url, $secret, $notify);
+        $stmt->bind_param('issiis', $enabled, $url, $secret, $notify, $chatEnabled, $chatUrl);
         $ok = $stmt->execute();
         $stmt->close();
         return $ok;
@@ -279,5 +307,94 @@ if (!function_exists('automationFetchActivityFeed')) {
         $stmt->close();
 
         return ['events' => $events, 'next_since_id' => $maxId];
+    }
+}
+
+if (!function_exists('automationPortalChatRequest')) {
+    /**
+     * Synchronous n8n chat webhook for homepage assistant (JSON in/out).
+     *
+     * @param list<array{role: string, content: string}> $history
+     */
+    function automationPortalChatRequest(
+        mysqli $conn,
+        string $message,
+        array $history = [],
+        array $actor = [],
+        array $context = []
+    ): ?string {
+        $settings = getPortalAutomationSettings($conn);
+        if (empty($settings['chat_webhook_enabled'])) {
+            return null;
+        }
+        $url = trim((string) ($settings['chat_webhook_url'] ?? ''));
+        if ($url === '') {
+            return null;
+        }
+        if (!function_exists('curl_init')) {
+            return null;
+        }
+
+        $secret = trim((string) ($settings['webhook_secret'] ?? ''));
+        $body = json_encode([
+            'event' => 'portal_chat',
+            'message' => $message,
+            'history' => array_slice($history, -10),
+            'actor' => $actor,
+            'context' => $context,
+            'portal_url' => defined('APP_URL') ? rtrim((string) APP_URL, '/') : '',
+            'created_at' => date('c'),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if ($body === false) {
+            return null;
+        }
+
+        $headers = [
+            'Content-Type: application/json',
+            'User-Agent: NIELIT-PortalAssistant/1.0',
+            'X-NIELIT-Event: portal_chat',
+        ];
+        if ($secret !== '') {
+            $headers[] = 'X-NIELIT-Webhook-Secret: ' . $secret;
+        }
+
+        try {
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => $body,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 3,
+                CURLOPT_TIMEOUT => 18,
+            ]);
+            $raw = curl_exec($ch);
+            $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            if (!is_string($raw) || $raw === '' || $code >= 400) {
+                error_log('automationPortalChatRequest HTTP ' . $code);
+                return null;
+            }
+            $decoded = json_decode($raw, true);
+            if (!is_array($decoded)) {
+                return trim($raw);
+            }
+            if (isset($decoded['reply']) && is_string($decoded['reply'])) {
+                return trim($decoded['reply']);
+            }
+            if (isset($decoded['output']) && is_string($decoded['output'])) {
+                return trim($decoded['output']);
+            }
+            if (isset($decoded['body']) && is_array($decoded['body']) && isset($decoded['body']['reply'])) {
+                return trim((string) $decoded['body']['reply']);
+            }
+            if (isset($decoded['data']['reply']) && is_string($decoded['data']['reply'])) {
+                return trim($decoded['data']['reply']);
+            }
+        } catch (Throwable $e) {
+            error_log('automationPortalChatRequest: ' . $e->getMessage());
+        }
+
+        return null;
     }
 }

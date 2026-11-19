@@ -16,16 +16,17 @@ if (!function_exists('portal_assistant_render_widget')) {
             <div id="portal-assistant-panel" class="portal-assistant-panel" role="dialog" aria-label="NIELIT assistant chat">
                 <div class="portal-assistant-header">
                     <h3><i class="fas fa-robot" aria-hidden="true"></i> NIELIT Assistant</h3>
-                    <p>Student login, courses, fees, mock test — ask in English or Hindi</p>
+                    <p>Students: login, fees, courses. Staff (logged in): student updates via n8n.</p>
                 </div>
                 <div id="portal-assistant-messages" class="portal-assistant-messages" aria-live="polite">
-                    <div class="portal-assistant-msg portal-assistant-msg--bot">Hello! How can I help you today?</div>
+                    <div class="portal-assistant-msg portal-assistant-msg--bot">Hello! Ask about login, registration, or fees. Staff: try “student update report” (uses n8n when enabled).</div>
                 </div>
                 <div class="portal-assistant-chips">
                     <button type="button" class="portal-assistant-chip" data-question="How do I login as a student?">Student login</button>
                     <button type="button" class="portal-assistant-chip" data-question="How to register new admission?">Registration</button>
                     <button type="button" class="portal-assistant-chip" data-question="Fees and payment portal">Fees</button>
                     <button type="button" class="portal-assistant-chip" data-question="Mock test link">Mock test</button>
+                    <button type="button" class="portal-assistant-chip" data-question="student update report">Student updates</button>
                 </div>
                 <form id="portal-assistant-form" class="portal-assistant-form">
                     <input id="portal-assistant-input" type="text" maxlength="2000" autocomplete="off"

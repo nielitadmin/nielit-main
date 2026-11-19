@@ -1,0 +1,166 @@
+{
+  "name": "NIELIT Portal Chat (homepage assistant)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nielit-portal-chat",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "pc-webhook-001",
+      "name": "Portal Chat Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "nielit-portal-chat"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.headers['x-nielit-webhook-secret'] || $json.headers['X-NIELIT-Webhook-Secret'] || '' }}",
+              "rightValue": "Nielitbbsr@2026",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "pc-if-secret",
+      "name": "Verify Secret",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const item = $input.first().json;\nconst body = item.body && typeof item.body === 'object' ? item.body : item;\nconst msg = String(body.message || '').toLowerCase();\nconst actor = body.actor || {};\nconst wantsReport = /student\\s*update|record\\s*update|report|activity|inspector|excel|recent|full/.test(msg);\nreturn [{ json: { ...body, wantsReport, isAdmin: !!actor.is_admin, msg: body.message || '' } }];"
+      },
+      "id": "pc-code-parse",
+      "name": "Parse Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [520, 220]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.wantsReport }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "pc-if-report",
+      "name": "Wants activity?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [780, 220]
+    },
+    {
+      "parameters": {
+        "url": "https://nielitbhubaneswar.in/api/v1/activity_feed.php?since_id=0&limit=20",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "PASTE_PORTAL_API_KEY_HERE"
+            }
+          ]
+        }
+      },
+      "id": "pc-http-feed",
+      "name": "Fetch Activity Feed",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 120]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const req = $('Parse Message').first().json;\nconst resp = $input.first().json;\nconst data = resp.data || resp;\nconst events = data.events || [];\nif (!req.isAdmin && events.length > 0) {\n  return [{ json: { reply: 'Student update reports are for logged-in staff only. Students should use the Student Portal login. Public visitors see courses and news on the homepage.' } }];\n}\nif (events.length === 0) {\n  return [{ json: { reply: 'No recent student activity in the feed. When staff edit records, events appear here and alert emails can fire via the student-updates webhook.' } }];\n}\nconst lines = events.map(e => `• ${e.created_at} | ${e.action} | ${e.entity_id || ''} | ${e.actor_name || ''} — ${e.description || ''}`);\nreturn [{ json: { reply: `Recent student updates (${events.length}):\\n\\n${lines.join('\\n')}\\n\\nPowered by n8n + portal activity log.` } }];"
+      },
+      "id": "pc-code-feed-reply",
+      "name": "Format Activity Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1280, 120]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const body = $input.first().json;\nconst msg = String(body.msg || body.message || '').trim();\nconst lower = msg.toLowerCase();\nlet reply = `You asked: \"${msg.slice(0, 400)}\"\\n\\n`;\nif (/^(hi|hello|namaste)/i.test(msg)) {\n  reply = 'Hello from n8n! I can help with student login, fees, mock test, and (for staff) recent student update reports. Try: \"student update report\".';\n} else if (/n8n|webhook/.test(lower)) {\n  reply = 'n8n hooks:\\n• student-updates webhook → email on each edit\\n• portal-chat webhook → this chat\\n• Configure in portal API & Automation.';\n} else if (/login|register|fee|mock/.test(lower)) {\n  reply = 'Use the homepage links: Student Portal, Payment portal, Mock test — or open NIELIT Assistant chips on the chat widget.';\n} else {\n  reply += 'Try \"student update report\" (staff), or ask about login, registration, fees, mock test.';\n}\nreturn [{ json: { reply } }];"
+      },
+      "id": "pc-code-general",
+      "name": "General Reply",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1040, 320]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { reply: $json.reply } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "pc-respond-ok",
+      "name": "Respond OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1520, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"reply\": \"Unauthorized chat request (bad secret).\" }",
+        "options": { "responseCode": 401 }
+      },
+      "id": "pc-respond-bad",
+      "name": "Respond Unauthorized",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [520, 420]
+    }
+  ],
+  "connections": {
+    "Portal Chat Webhook": {
+      "main": [[{ "node": "Verify Secret", "type": "main", "index": 0 }]]
+    },
+    "Verify Secret": {
+      "main": [
+        [{ "node": "Parse Message", "type": "main", "index": 0 }],
+        [{ "node": "Respond Unauthorized", "type": "main", "index": 0 }]
+      ]
+    },
+    "Parse Message": {
+      "main": [[{ "node": "Wants activity?", "type": "main", "index": 0 }]]
+    },
+    "Wants activity?": {
+      "main": [
+        [{ "node": "Fetch Activity Feed", "type": "main", "index": 0 }],
+        [{ "node": "General Reply", "type": "main", "index": 0 }]
+      ]
+    },
+    "Fetch Activity Feed": {
+      "main": [[{ "node": "Format Activity Reply", "type": "main", "index": 0 }]]
+    },
+    "Format Activity Reply": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    },
+    "General Reply": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": { "templateCredsSetupCompleted": false }
+}
