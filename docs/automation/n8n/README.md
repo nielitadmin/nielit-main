@@ -6,7 +6,14 @@ Workflow JSON files in this folder are meant to be **imported in n8n.cloud** (yo
 | Role | Email |
 |------|--------|
 | **n8n Gmail** (send alerts + email assistant inbox) | `nielitbbsr01@gmail.com` |
-| **Alert / report To** (your inbox) | `saswatsomya111@gmail.com` |
+| **Alert / report To** (your inbox) | `saswatsomya111@gmail.com` (set in portal **Alert email**) |
+
+### Activity logs → email (complete setup)
+
+1. **Portal** → API & Automation → **Alert email** = `saswatsomya111@gmail.com`, webhook ON, secret saved.
+2. **n8n (instant):** Import/replace with `nielit-student-updates-routing.json` — each log includes **log ID**, **IST time**, **details JSON** → Gmail uses `notify_email` from portal.
+3. **n8n (daily digest):** Import `nielit-activity-daily-digest.json`, publish — **6 PM IST**, up to **500** log lines with update dates.
+4. **Gmail send from:** `nielitbbsr01@gmail.com` (credential in n8n).
 
 Connect **nielitbbsr01@gmail.com** on every Gmail and Gmail Trigger node in n8n. Student notifications are delivered **to** `saswatsomya111@gmail.com`. For “talk back”, email **to** `nielitbbsr01@gmail.com` **from** your personal address (or from the same account for testing).
 

@@ -31,7 +31,7 @@
     },
     {
       "parameters": {
-        "url": "=https://nielitbhubaneswar.in/api/v1/activity_feed.php?since_id={{ $json.sinceId }}&limit=200",
+        "url": "=https://nielitbhubaneswar.in/api/v1/activity_feed.php?since_id={{ $json.sinceId }}&limit=500",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -54,7 +54,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst resp = $input.first().json;\nconst data = resp.data || resp;\nconst events = data.events || [];\nconst next = data.next_since_id ?? staticData.sinceId ?? 0;\nstaticData.sinceId = next;\nconst byAction = {};\nconst lines = [];\nfor (const e of events) {\n  const a = e.action || 'unknown';\n  byAction[a] = (byAction[a] || 0) + 1;\n  lines.push(`- ${e.created_at} | ${a} | ${e.entity_id || ''} | ${e.actor_name || ''} | ${e.description || ''}`);\n}\nconst summary = Object.entries(byAction).map(([k, v]) => `${k}: ${v}`).join('\\n') || '(no new events)';\nconst body = events.length === 0\n  ? 'No new student activity since the last digest.'\n  : `Total events: ${events.length}\\n\\nBy action:\\n${summary}\\n\\nRecent:\\n${lines.slice(0, 40).join('\\n')}${lines.length > 40 ? '\\n...(truncated)' : ''}`;\nreturn [{ json: { subject: `NIELIT student activity digest (${events.length} new)`, body, count: events.length, next_since_id: next } }];"
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nconst resp = $input.first().json;\nconst data = resp.data || resp;\nconst events = data.events || [];\nconst next = data.next_since_id ?? staticData.sinceId ?? 0;\nstaticData.sinceId = next;\nconst byAction = {};\nconst lines = [];\nfor (const e of events) {\n  const a = e.action || 'unknown';\n  byAction[a] = (byAction[a] || 0) + 1;\n  const det = e.details && typeof e.details === 'object' ? JSON.stringify(e.details) : '';\n  lines.push(`[#${e.id}] ${e.created_at} IST\\n  action: ${a}\\n  student: ${e.entity_id || ''}\\n  by: ${e.actor_name || ''} (${e.actor_role || ''})\\n  desc: ${e.description || ''}\\n  details: ${det.slice(0, 400)}`);\n}\nconst summary = Object.entries(byAction).map(([k, v]) => `${k}: ${v}`).join('\\n') || '(no new events)';\nconst body = events.length === 0\n  ? 'No new student activity since the last digest.'\n  : `NIELIT activity log digest\\nTo: saswatsomya111@gmail.com\\n\\nTotal events: ${events.length}\\n\\nBy action:\\n${summary}\\n\\n--- Full log (update dates) ---\\n\\n${lines.join('\\n\\n')}${lines.length >= 500 ? '\\n\\n(max 500 per run — next poll continues)' : ''}`;\nreturn [{ json: { subject: `NIELIT activity log digest — ${events.length} updates`, body, count: events.length, next_since_id: next } }];"
       },
       "id": "d1d2d3d4-code-summary",
       "name": "Build Digest",

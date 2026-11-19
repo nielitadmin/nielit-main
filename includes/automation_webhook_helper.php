@@ -15,12 +15,14 @@ if (!function_exists('ensurePortalAutomationSettingsTable')) {
             notify_student_actions TINYINT(1) NOT NULL DEFAULT 1,
             chat_webhook_enabled TINYINT(1) NOT NULL DEFAULT 0,
             chat_webhook_url VARCHAR(500) DEFAULT NULL,
+            alert_email VARCHAR(255) DEFAULT NULL,
             updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
         $ok = (bool) $conn->query($sql);
         if ($ok) {
             $conn->query('INSERT IGNORE INTO portal_automation_settings (id) VALUES (1)');
             ensurePortalAutomationChatColumns($conn);
+            ensurePortalAutomationAlertEmailColumn($conn);
         }
         return $ok;
     }
@@ -41,12 +43,51 @@ if (!function_exists('ensurePortalAutomationChatColumns')) {
     }
 }
 
+if (!function_exists('ensurePortalAutomationAlertEmailColumn')) {
+    function ensurePortalAutomationAlertEmailColumn(mysqli $conn): void
+    {
+        $check = $conn->query("SHOW COLUMNS FROM portal_automation_settings LIKE 'alert_email'");
+        if ($check && $check->num_rows > 0) {
+            return;
+        }
+        $conn->query(
+            "ALTER TABLE portal_automation_settings
+             ADD COLUMN alert_email VARCHAR(255) NULL DEFAULT NULL AFTER chat_webhook_url"
+        );
+    }
+}
+
+if (!function_exists('automationDefaultAlertEmail')) {
+    function automationDefaultAlertEmail(): string
+    {
+        return 'saswatsomya111@gmail.com';
+    }
+}
+
+if (!function_exists('automationFormatIst')) {
+    function automationFormatIst(?string $dateTime): string
+    {
+        $raw = trim((string) $dateTime);
+        if ($raw === '') {
+            return date('d M Y, H:i:s') . ' IST';
+        }
+        try {
+            $dt = new DateTime($raw);
+            $dt->setTimezone(new DateTimeZone('Asia/Kolkata'));
+            return $dt->format('d M Y, H:i:s') . ' IST';
+        } catch (Exception $e) {
+            return $raw;
+        }
+    }
+}
+
 if (!function_exists('getPortalAutomationSettings')) {
     /** @return array<string, mixed> */
     function getPortalAutomationSettings(mysqli $conn): array
     {
         ensurePortalAutomationSettingsTable($conn);
         ensurePortalAutomationChatColumns($conn);
+        ensurePortalAutomationAlertEmailColumn($conn);
         $res = $conn->query('SELECT * FROM portal_automation_settings WHERE id = 1 LIMIT 1');
         if (!$res || !($row = $res->fetch_assoc())) {
             return [
@@ -56,7 +97,11 @@ if (!function_exists('getPortalAutomationSettings')) {
                 'notify_student_actions' => 1,
                 'chat_webhook_enabled' => 0,
                 'chat_webhook_url' => '',
+                'alert_email' => automationDefaultAlertEmail(),
             ];
+        }
+        if (trim((string) ($row['alert_email'] ?? '')) === '') {
+            $row['alert_email'] = automationDefaultAlertEmail();
         }
         return $row;
     }
@@ -67,12 +112,17 @@ if (!function_exists('savePortalAutomationSettings')) {
     {
         ensurePortalAutomationSettingsTable($conn);
         ensurePortalAutomationChatColumns($conn);
+        ensurePortalAutomationAlertEmailColumn($conn);
         $enabled = !empty($data['webhook_enabled']) ? 1 : 0;
         $url = trim((string) ($data['webhook_url'] ?? ''));
         $secret = trim((string) ($data['webhook_secret'] ?? ''));
         $notify = !isset($data['notify_student_actions']) || !empty($data['notify_student_actions']) ? 1 : 0;
         $chatEnabled = !empty($data['chat_webhook_enabled']) ? 1 : 0;
         $chatUrl = trim((string) ($data['chat_webhook_url'] ?? ''));
+        $alertEmail = trim((string) ($data['alert_email'] ?? ''));
+        if ($alertEmail !== '' && !filter_var($alertEmail, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
         if ($url !== '' && !preg_match('#^https?://#i', $url)) {
             $url = 'https://' . $url;
         }
@@ -82,13 +132,13 @@ if (!function_exists('savePortalAutomationSettings')) {
         $stmt = $conn->prepare(
             'UPDATE portal_automation_settings
              SET webhook_enabled = ?, webhook_url = NULLIF(?, \'\'), webhook_secret = NULLIF(?, \'\'), notify_student_actions = ?,
-                 chat_webhook_enabled = ?, chat_webhook_url = NULLIF(?, \'\')
+                 chat_webhook_enabled = ?, chat_webhook_url = NULLIF(?, \'\'), alert_email = NULLIF(?, \'\')
              WHERE id = 1'
         );
         if (!$stmt) {
             return false;
         }
-        $stmt->bind_param('issiis', $enabled, $url, $secret, $notify, $chatEnabled, $chatUrl);
+        $stmt->bind_param('issiiss', $enabled, $url, $secret, $notify, $chatEnabled, $chatUrl, $alertEmail);
         $ok = $stmt->execute();
         $stmt->close();
         return $ok;
@@ -161,6 +211,11 @@ if (!function_exists('automationDispatchActivityEvent')) {
             return;
         }
 
+        $createdAt = (string) ($event['created_at'] ?? date('c'));
+        $alertTo = trim((string) ($settings['alert_email'] ?? ''));
+        if ($alertTo === '') {
+            $alertTo = automationDefaultAlertEmail();
+        }
         $payload = [
             'event' => 'student_activity',
             'log_id' => $logId,
@@ -174,7 +229,9 @@ if (!function_exists('automationDispatchActivityEvent')) {
             'actor_name' => (string) ($event['actor_name'] ?? ''),
             'actor_role' => (string) ($event['actor_role'] ?? ''),
             'details' => $details,
-            'created_at' => (string) ($event['created_at'] ?? date('c')),
+            'created_at' => $createdAt,
+            'created_at_ist' => automationFormatIst($createdAt),
+            'notify_email' => $alertTo,
             'portal_url' => defined('APP_URL') ? rtrim((string) APP_URL, '/') : '',
         ];
 

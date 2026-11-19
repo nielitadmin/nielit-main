@@ -310,6 +310,13 @@ $active_theme = loadActiveTheme($conn);
                                                    value="<?php echo htmlspecialchars((string) ($automationSettings['webhook_secret'] ?? '')); ?>"
                                                    placeholder="Sent as X-NIELIT-Webhook-Secret">
                                         </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">Alert email (n8n → inbox)</label>
+                                            <input type="email" class="form-control" name="alert_email"
+                                                   value="<?php echo htmlspecialchars((string) ($automationSettings['alert_email'] ?? 'saswatsomya111@gmail.com')); ?>"
+                                                   placeholder="saswatsomya111@gmail.com">
+                                            <p class="small text-muted mb-0">Sent in webhook as <code>notify_email</code> for instant + digest mails.</p>
+                                        </div>
                                         <div class="col-12">
                                             <div class="form-check">
                                                 <input class="form-check-input" type="checkbox" name="notify_student_actions" value="1" id="notify_student"

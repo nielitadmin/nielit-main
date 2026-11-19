@@ -47,7 +47,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const item = $input.first().json;\nconst body = item.body && typeof item.body === 'object' ? item.body : item;\nconst action = String(body.action || '').toLowerCase();\nconst urgent = ['student_inspector_purge', 'student_delete', 'student_inspector_delete'];\nconst bulk = ['student_excel_update', 'student_list_import'];\nlet route = 'normal';\nif (urgent.includes(action)) route = 'urgent';\nelse if (bulk.includes(action)) route = 'bulk';\nconst student = body.entity_id || body.entity_name || '(unknown)';\nconst desc = body.description || action;\nconst by = body.actor_name || body.actor_role || 'Admin';\nconst source = (body.details && body.details.source) ? body.details.source : '';\nconst when = body.created_at || new Date().toISOString();\nreturn [{ json: { ...body, route, student, desc, by, source, when } }];"
+        "jsCode": "const item = $input.first().json;\nconst body = item.body && typeof item.body === 'object' ? item.body : item;\nconst action = String(body.action || '').toLowerCase();\nconst urgent = ['student_inspector_purge', 'student_delete', 'student_inspector_delete'];\nconst bulk = ['student_excel_update', 'student_list_import'];\nlet route = 'normal';\nif (urgent.includes(action)) route = 'urgent';\nelse if (bulk.includes(action)) route = 'bulk';\nconst student = body.entity_id || body.entity_name || '(unknown)';\nconst desc = body.description || action;\nconst by = body.actor_name || body.actor_role || 'Admin';\nconst source = (body.details && body.details.source) ? body.details.source : '';\nconst when = body.created_at_ist || body.created_at || new Date().toISOString();\nconst notify_email = body.notify_email || 'saswatsomya111@gmail.com';\nconst logId = body.log_id || '';\nreturn [{ json: { ...body, route, student, desc, by, source, when, notify_email, logId } }];"
       },
       "id": "a1b2c3d4-code-route-003",
       "name": "Classify Route",
@@ -117,10 +117,10 @@
     },
     {
       "parameters": {
-        "sendTo": "saswatsomya111@gmail.com",
-        "subject": "=[URGENT] NIELIT student action — {{ $json.action }}",
+        "sendTo": "={{ $json.notify_email || 'saswatsomya111@gmail.com' }}",
+        "subject": "=[URGENT] NIELIT activity log #{{ $json.logId }} — {{ $json.action }}",
         "emailType": "text",
-        "message": "=URGENT student action\n\nAction: {{ $json.action }}\nStudent: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
+        "message": "=URGENT — student activity log\n\nActivity log ID: {{ $json.logId }}\nAction: {{ $json.action }}\nUpdate time (IST): {{ $json.when }}\nStudent / entity: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }} ({{ $json.actor_role || '' }})\nSource: {{ $json.source }}\nResult: {{ $json.result || 'success' }}\n\nDetails (JSON):\n{{ JSON.stringify($json.details || {}, null, 2) }}\n\nPortal: {{ $json.portal_url || '' }}",
         "options": {}
       },
       "id": "a1b2c3d4-gmail-urgent",
@@ -131,13 +131,11 @@
     },
     {
       "parameters": {
-        "sendTo": "saswatsomya111@gmail.com",
-        "subject": "=NIELIT bulk student update — {{ $json.action }}",
+        "sendTo": "={{ $json.notify_email || 'saswatsomya111@gmail.com' }}",
+        "subject": "=NIELIT bulk activity log #{{ $json.logId }} — {{ $json.action }}",
         "emailType": "text",
-        "message": "=Bulk / import student activity\n\nAction: {{ $json.action }}\nStudent / scope: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
-        "options": {
-          "ccList": "REPLACE_DIRECTOR_EMAIL"
-        }
+        "message": "=Bulk / import — activity log\n\nActivity log ID: {{ $json.logId }}\nAction: {{ $json.action }}\nUpdate time (IST): {{ $json.when }}\nStudent / scope: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
+        "options": {}
       },
       "id": "a1b2c3d4-gmail-bulk",
       "name": "Gmail Bulk CC Director",
@@ -147,10 +145,10 @@
     },
     {
       "parameters": {
-        "sendTo": "saswatsomya111@gmail.com",
-        "subject": "=NIELIT student record update — {{ $json.action }}",
+        "sendTo": "={{ $json.notify_email || 'saswatsomya111@gmail.com' }}",
+        "subject": "=NIELIT activity log #{{ $json.logId }} — {{ $json.action }}",
         "emailType": "text",
-        "message": "=Student record update\n\nAction: {{ $json.action }}\nStudent: {{ $json.student }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nTime: {{ $json.when }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}",
+        "message": "=Student activity log (instant)\n\nActivity log ID: {{ $json.logId }}\nAction: {{ $json.action }}\nUpdate time (IST): {{ $json.when }}\nStudent: {{ $json.student }}\nEntity name: {{ $json.entity_name || '' }}\nDescription: {{ $json.desc }}\nBy: {{ $json.by }}\nSource: {{ $json.source }}\nResult: {{ $json.result || 'success' }}\n\nDetails:\n{{ JSON.stringify($json.details || {}, null, 2) }}\n\nPortal: {{ $json.portal_url || '' }}",
         "options": {}
       },
       "id": "a1b2c3d4-gmail-normal",
