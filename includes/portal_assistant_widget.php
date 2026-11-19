@@ -19,7 +19,7 @@ if (!function_exists('portal_assistant_render_widget')) {
                     <p>Students: login, fees, courses. Staff (logged in): student updates via n8n.</p>
                 </div>
                 <div id="portal-assistant-messages" class="portal-assistant-messages" aria-live="polite">
-                    <div class="portal-assistant-msg portal-assistant-msg--bot">Hello! Ask about login, registration, or fees. Staff: try “student update report” (uses n8n when enabled).</div>
+                    <div class="portal-assistant-msg portal-assistant-msg--bot">I can look up students (staff), show your profile (after student login), fees, and n8n update reports. Try the buttons below.</div>
                 </div>
                 <div class="portal-assistant-chips">
                     <button type="button" class="portal-assistant-chip" data-question="How do I login as a student?">Student login</button>
@@ -27,6 +27,7 @@ if (!function_exists('portal_assistant_render_widget')) {
                     <button type="button" class="portal-assistant-chip" data-question="Fees and payment portal">Fees</button>
                     <button type="button" class="portal-assistant-chip" data-question="Mock test link">Mock test</button>
                     <button type="button" class="portal-assistant-chip" data-question="student update report">Student updates</button>
+                    <button type="button" class="portal-assistant-chip" data-question="check my student details">My details</button>
                 </div>
                 <form id="portal-assistant-form" class="portal-assistant-form">
                     <input id="portal-assistant-input" type="text" maxlength="2000" autocomplete="off"

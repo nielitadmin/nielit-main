@@ -178,11 +178,18 @@ if (!function_exists('portal_assistant_local_reply')) {
                 . "This chat cannot change your records. For name or data corrections, contact the centre with ID proof.";
         }
 
-        return "I'm not sure about that. Try asking about:\n"
-            . "• Student login / registration\n"
-            . "• Courses, fees, mock test\n"
-            . "• Contact and news\n\n"
-            . "Or visit: " . ($ctx['student_login'] ?? '/student/login');
+        if (preg_match('/\bstudent\b|\bdetail|\bprofile/u', $m)) {
+            return "For student details:\n"
+                . "• You: log in at " . ($ctx['student_login'] ?? '') . " then ask \"check my student details\".\n"
+                . "• Staff: log in at " . ($ctx['admin_login'] ?? '') . " then paste an email or Student ID.\n"
+                . "• Example (staff): \"is saswatsomya111@gmail.com in the list?\"";
+        }
+
+        return "I'm not sure about that. Try:\n"
+            . "• \"check my student details\" (after student login)\n"
+            . "• Staff: email or Student ID lookup after admin login\n"
+            . "• Login, registration, fees, mock test, student update report\n\n"
+            . "Student login: " . ($ctx['student_login'] ?? '/student/login');
     }
 }
 
@@ -321,6 +328,14 @@ if (!function_exists('portal_assistant_chat')) {
         $ctx = portal_assistant_site_context($conn);
         $config = portal_assistant_load_config();
         $actor = portal_assistant_actor_context();
+
+        if ($conn instanceof mysqli) {
+            require_once __DIR__ . '/portal_assistant_actions.php';
+            $action = portal_assistant_try_actions($conn, $message, $actor, $ctx);
+            if ($action !== null) {
+                return $action;
+            }
+        }
 
         if ($conn instanceof mysqli && function_exists('automationPortalChatRequest')) {
             require_once __DIR__ . '/automation_webhook_helper.php';
