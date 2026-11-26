@@ -19,7 +19,9 @@ define('CORS_ALLOWED_ORIGINS', [
     'http://localhost',
     'http://localhost:3000',
     'http://localhost:8080',
-    'https://yourmocktestdomain.com' // Add your mock test domain here
+    'https://nielitbhubaneswar.in',
+    'https://www.nielitbhubaneswar.in',
+    'https://yourmocktestdomain.com', // Add your mock test domain here
 ]);
 
 // API Response Headers
@@ -143,30 +145,66 @@ function logApiRequest($api_key_id, $endpoint, $method, $ip_address, $user_agent
 
 // API Authentication Middleware
 function authenticateApiRequest() {
-    $api_key = $_SERVER['HTTP_X_API_KEY'] ?? $_GET['api_key'] ?? null;
-    
-    if (!$api_key) {
-        sendApiError('API key is required', 401, 'MISSING_API_KEY');
+    // Read key from header or query string
+    $api_key = $_SERVER['HTTP_X_API_KEY']
+        ?? $_SERVER['HTTP_AUTHORIZATION']
+        ?? $_GET['api_key']
+        ?? null;
+
+    // Strip "Bearer " prefix if present
+    if ($api_key && str_starts_with($api_key, 'Bearer ')) {
+        $api_key = substr($api_key, 7);
     }
-    
+
+    if (!$api_key) {
+        sendApiError('API key is required. Pass it via the X-API-Key header or ?api_key= query parameter.', 401, 'MISSING_API_KEY');
+    }
+
+    // ── Environment / config master-key bypass ──────────────────────────────
+    // Set NIELIT_API_MASTER_KEY in your server environment (or in
+    // config/api.local.php) so n8n, automations and dev tools can call
+    // internal endpoints without needing a database row.
+    $masterKey = trim((string)(getenv('NIELIT_API_MASTER_KEY') ?: ''));
+    if ($masterKey === '') {
+        // Fallback: read from local config file (git-ignored)
+        $localCfgPath = dirname(__DIR__, 2) . '/config/api.local.php';
+        if (is_file($localCfgPath)) {
+            $localCfg = include $localCfgPath;
+            if (is_array($localCfg) && !empty($localCfg['master_key'])) {
+                $masterKey = trim((string)$localCfg['master_key']);
+            }
+        }
+    }
+    if ($masterKey !== '' && hash_equals($masterKey, $api_key)) {
+        // Master-key: return a synthetic api_data row (no DB needed)
+        return [
+            'id'          => 0,
+            'name'        => 'master-key',
+            'permissions' => 'all',
+            'rate_limit'  => 10000,
+            'is_active'   => 1,
+        ];
+    }
+    // ── End master-key bypass ───────────────────────────────────────────────
+
     $api_data = validateApiKey($api_key);
     if (!$api_data) {
         sendApiError('Invalid API key', 401, 'INVALID_API_KEY');
     }
-    
+
     // Check rate limit
     if (!checkRateLimit($api_data['id'])) {
         sendApiError('Rate limit exceeded', 429, 'RATE_LIMIT_EXCEEDED');
     }
-    
+
     // Log the request
-    $endpoint = $_SERVER['REQUEST_URI'];
-    $method = $_SERVER['REQUEST_METHOD'];
-    $ip_address = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
-    
+    $endpoint     = $_SERVER['REQUEST_URI'];
+    $method       = $_SERVER['REQUEST_METHOD'];
+    $ip_address   = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $user_agent   = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
+
     logApiRequest($api_data['id'], $endpoint, $method, $ip_address, $user_agent);
-    
+
     return $api_data;
 }
 ?>
