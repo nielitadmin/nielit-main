@@ -431,6 +431,10 @@ if (!function_exists('saarthi_search_courses')) {
             $feeDisplay = function_exists('formatCourseFeeValue')
                 ? formatCourseFeeValue($row['training_fees'] ?? '')
                 : trim((string) ($row['training_fees'] ?? ''));
+            $feeDisplay = trim((string) preg_replace('/^₹\s*(?=[A-Za-z])/u', '', $feeDisplay));
+            if ($feeDisplay !== '' && preg_match('/^\d/', $feeDisplay)) {
+                $feeDisplay = '₹' . $feeDisplay;
+            }
             if ($feeDisplay === '') {
                 $feeDisplay = 'Check centre / free scheme';
             }
