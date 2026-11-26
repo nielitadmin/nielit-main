@@ -348,7 +348,7 @@ $active_theme = loadActiveTheme($conn);
                                                 <label class="form-check-label" for="notify_student">Only student-related actions</label>
                                             </div>
                                         </div>
-                                        <div class="col-12"><hr class="my-2"><p class="small fw-semibold mb-2">Saarthi AI Assistant (n8n / Gemini / OpenAI / Local fallback)</p></div>
+                                        <div class="col-12"><hr class="my-2"><p class="small fw-semibold mb-2">Vani AI Assistant (n8n / Gemini / OpenAI / Local fallback)</p></div>
                                         <div class="col-md-4">
                                             <label class="form-label">Preferred AI backend</label>
                                             <?php $selProvider = (string) ($automationSettings['ai_provider'] ?? 'auto'); ?>
@@ -386,7 +386,7 @@ $active_theme = loadActiveTheme($conn);
                                             <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" name="chat_webhook_enabled" value="1" id="chat_webhook_enabled"
                                                     <?php echo !empty($automationSettings['chat_webhook_enabled']) ? 'checked' : ''; ?>>
-                                                <label class="form-check-label" for="chat_webhook_enabled">Enable n8n for Saarthi chat replies</label>
+                                                <label class="form-check-label" for="chat_webhook_enabled">Enable n8n for Vani AI chat replies</label>
                                             </div>
                                         </div>
                                         <div class="col-12">

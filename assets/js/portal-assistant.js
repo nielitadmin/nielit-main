@@ -26,9 +26,9 @@
   var transcript = [];
 
   var WELCOME_TEXT = {
-    en: "Namaste! I'm **Saarthi**, your AI Campus & Portal Assistant for NIELIT Bhubaneswar.\nI can guide you with a **4-step portal roadmap**, search **live courses & seats**, or help you **register in chat** in English, हिन्दी, or ଓଡ଼ିଆ.",
-    hi: "नमस्ते! मैं **सारथी** हूँ — NIELIT भुवनेश्वर का आपका AI कैंपस और पोर्टल सहायक।\nमैं आपको **4-चरणीय पोर्टल रोडमैप** दिखा सकता हूँ, **लाइव कोर्स व सीटें** बता सकता हूँ, और यहीं चैट में **रजिस्ट्रेशन** कर सकता हूँ।",
-    or: "ନମସ୍କାର! ମୁଁ **ସାରଥୀ** — NIELIT ଭୁବନେଶ୍ୱରର ଆପଣଙ୍କ AI କ୍ୟାମ୍ପସ୍ ଏବଂ ପୋର୍ଟାଲ୍ ସହାୟକ।\nମୁଁ ଆପଣଙ୍କୁ **୪-ସୋପାନ ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍** ଦେଖାଇପାରିବି, **ଲାଇଭ୍ କୋର୍ସ ଓ ସିଟ୍** ଖୋଜିପାରିବି ଏବଂ ଚାଟ୍‌ରେ **ପଞ୍ଜୀକରଣ** କରାଇପାରିବି।"
+    en: "Namaste! I'm **Vani**, your AI Campus & Portal Assistant for NIELIT Bhubaneswar.\nI can guide you with a **4-step portal roadmap**, search **live courses & seats**, or help you **register in chat** in English, हिन्दी, or ଓଡ଼ିଆ.",
+    hi: "नमस्ते! मैं **वाणी** हूँ — NIELIT भुवनेश्वर की आपकी AI कैंपस और पोर्टल सहायक।\nमैं आपको **4-चरणीय पोर्टल रोडमैप** दिखा सकती हूँ, **लाइव कोर्स व सीटें** बता सकती हूँ, और यहीं चैट में **रजिस्ट्रेशन** कर सकती हूँ।",
+    or: "ନମସ୍କାର! ମୁଁ **ବାଣୀ** — NIELIT ଭୁବନେଶ୍ୱରର ଆପଣଙ୍କ AI କ୍ୟାମ୍ପସ୍ ଏବଂ ପୋର୍ଟାଲ୍ ସହାୟକ।\nମୁଁ ଆପଣଙ୍କୁ **୪-ସୋପାନ ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍** ଦେଖାଇପାରିବି, **ଲାଇଭ୍ କୋର୍ସ ଓ ସିଟ୍** ଖୋଜିପାରିବି ଏବଂ ଚାଟ୍‌ରେ **ପଞ୍ଜୀକରଣ** କରାଇପାରିବି।"
   };
 
   var DEFAULT_CHIPS = {
@@ -38,9 +38,9 @@
   };
 
   var PLACEHOLDERS = {
-    en: 'Ask Saarthi in English, हिन्दी, or ଓଡ଼ିଆ…',
-    hi: 'सारथी से हिन्दी, English या ଓଡ଼ିଆ में पूछें…',
-    or: 'ସାରଥୀଙ୍କୁ ଓଡ଼ିଆ, English କିମ୍ବା हिन्दी ରେ ପଚାରନ୍ତୁ…'
+    en: 'Ask Vani in English, हिन्दी, or ଓଡ଼ିଆ…',
+    hi: 'वाणी से हिन्दी, English या ଓଡ଼ିଆ में पूछें…',
+    or: 'ବାଣୀଙ୍କୁ ଓଡ଼ିଆ, English କିମ୍ବା हिन्दी ରେ ପଚାରନ୍ତୁ…'
   };
 
   function setAvatarState(state) {
@@ -255,7 +255,7 @@
 
         if (!c.is_closed) {
           var cActions = createEl('div', 'saarthi-card-actions');
-          var regBtn = createEl('button', 'saarthi-btn saarthi-btn-primary', 'Register via Saarthi');
+          var regBtn = createEl('button', 'saarthi-btn saarthi-btn-primary', 'Register via Vani');
           regBtn.type = 'button';
           regBtn.addEventListener('click', function () {
             sendMessage('Register me for ' + (c.course_name || 'this course') + ' at ' + (c.campus || 'NIELIT Bhubaneswar') + ' [course_id:' + (c.id || 0) + ']');
@@ -535,9 +535,9 @@
 
   function appendLoadingSkeleton() {
     var labels = {
-      en: 'Saarthi is thinking',
-      hi: 'सारथी सोच रहा है',
-      or: 'ସାରଥୀ ଚିନ୍ତା କରୁଛି'
+      en: 'Vani is thinking',
+      hi: 'वाणी सोच रही है',
+      or: 'ବାଣୀ ଚିନ୍ତା କରୁଛି'
     };
     var labelText = labels[activeLang] || labels.en;
 

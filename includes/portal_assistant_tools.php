@@ -1,6 +1,6 @@
 <?php
 /**
- * Saarthi AI Assistant — Live database tools & workflows:
+ * Vani AI Assistant — Live database tools & workflows:
  * - Course & campus location search (courses, centres, batches)
  * - Conversational student registration -> MySQL (students, student_accounts, student_enrollments, education_details)
  * - Roadmap payloads (English, Hindi, Odia)
@@ -126,7 +126,7 @@ if (!function_exists('saarthi_get_roadmap')) {
                     ],
                     [
                         'step' => 3,
-                        'title' => 'Register Online (or via Saarthi)',
+                        'title' => 'Register Online (or via Vani)',
                         'desc' => 'Complete the portal admission form or register step-by-step right inside this chat.',
                         'action_label' => 'Register in Chat',
                         'action_type' => 'start_register',
@@ -164,7 +164,7 @@ if (!function_exists('saarthi_get_roadmap')) {
                     ],
                     [
                         'step' => 3,
-                        'title' => 'ऑनलाइन या सारथी द्वारा रजिस्ट्रेशन',
+                        'title' => 'ऑनलाइन या वाणी द्वारा रजिस्ट्रेशन',
                         'desc' => 'पोर्टल फॉर्म भरें या सीधे इस चैट में आसान स्टेप्स से रजिस्ट्रेशन पूरा करें।',
                         'action_label' => 'चैट में रजिस्टर करें',
                         'action_type' => 'start_register',
@@ -202,7 +202,7 @@ if (!function_exists('saarthi_get_roadmap')) {
                     ],
                     [
                         'step' => 3,
-                        'title' => 'ଅନଲାଇନ୍ କିମ୍ବା ସାରଥୀ ମାଧ୍ୟମରେ ପଞ୍ଜୀକରଣ',
+                        'title' => 'ଅନଲାଇନ୍ କିମ୍ବା ବାଣୀ ମାଧ୍ୟମରେ ପଞ୍ଜୀକରଣ',
                         'desc' => 'ପୋର୍ଟାଲ୍ ଫର୍ମ ପୂରଣ କରନ୍ତୁ କିମ୍ବା ଏହି ଚାଟ୍‌ରେ ସହଜରେ ପଞ୍ଜୀକରଣ କରନ୍ତୁ।',
                         'action_label' => 'ଚାଟ୍‌ରେ ପଞ୍ଜୀକରଣ କରନ୍ତୁ',
                         'action_type' => 'start_register',
@@ -1229,9 +1229,9 @@ if (!function_exists('saarthi_register_student')) {
                     'entity_type' => 'course',
                     'entity_id' => (string) $courseId,
                     'entity_name' => $courseName,
-                    'description' => 'Student "' . $name . '" (' . $studentId . ') registered via Saarthi AI Assistant for "' . $courseName . '".',
+                    'description' => 'Student "' . $name . '" (' . $studentId . ') registered via Vani AI Assistant for "' . $courseName . '".',
                     'details' => [
-                        'source' => 'saarthi_chat',
+                        'source' => 'vani_chat',
                         'email' => $email,
                         'training_center' => $trainingCenter,
                     ],
@@ -1309,7 +1309,7 @@ if (!function_exists('saarthi_log_support_callback')) {
         $name = trim((string) ($details['name'] ?? 'Visitor'));
         $phone = trim((string) ($details['phone'] ?? $details['mobile'] ?? ''));
         $email = trim((string) ($details['email'] ?? ''));
-        $issue = trim((string) ($details['issue'] ?? $details['message'] ?? 'Callback requested via Saarthi chat'));
+        $issue = trim((string) ($details['issue'] ?? $details['message'] ?? 'Callback requested via Vani chat'));
         $category = trim((string) ($details['category'] ?? 'fees'));
         if (!in_array($category, ['technical', 'academic', 'fees', 'certificate', 'attendance', 'other'], true)) {
             $category = 'other';
@@ -1319,8 +1319,8 @@ if (!function_exists('saarthi_log_support_callback')) {
         if (function_exists('ensureSupportTicketsTable') && ensureSupportTicketsTable($conn)) {
             $studentId = !empty($_SESSION['student_id']) ? (string) $_SESSION['student_id'] : null;
             $reqType = $studentId ? 'student' : 'guest';
-            $subject = 'Saarthi Callback: ' . mb_substr($issue, 0, 80);
-            $fullMessage = "Name: {$name}\nPhone: {$phone}\nEmail: {$email}\nIssue: {$issue}\nLogged via Saarthi AI Assistant";
+            $subject = 'Vani Callback: ' . mb_substr($issue, 0, 80);
+            $fullMessage = "Name: {$name}\nPhone: {$phone}\nEmail: {$email}\nIssue: {$issue}\nLogged via Vani AI Assistant";
             $stmt = $conn->prepare(
                 "INSERT INTO support_tickets (requester_type, student_id, subject, category, priority, message, status)
                  VALUES (?, ?, ?, ?, 'high', ?, 'open')"

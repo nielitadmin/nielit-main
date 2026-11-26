@@ -415,8 +415,8 @@ if (!function_exists('automationFetchActivityFeed')) {
 
 if (!function_exists('automationPortalChatRequest')) {
     /**
-     * Synchronous n8n chat webhook for Saarthi assistant (JSON in/out).
-     * Returns string reply or structured Saarthi response array when n8n emits metadata.
+     * Synchronous n8n chat webhook for Vani AI assistant (JSON in/out).
+     * Returns string reply or structured Vani response array when n8n emits metadata.
      *
      * @param list<array{role: string, content: string}> $history
      * @return string|array<string, mixed>|null
@@ -443,7 +443,7 @@ if (!function_exists('automationPortalChatRequest')) {
         $secret = trim((string) ($settings['webhook_secret'] ?? ''));
         $body = json_encode([
             'event' => 'portal_chat',
-            'assistant' => 'Saarthi',
+            'assistant' => 'Vani',
             'message' => $message,
             'history' => array_slice($history, -10),
             'actor' => $actor,
@@ -457,7 +457,7 @@ if (!function_exists('automationPortalChatRequest')) {
 
         $headers = [
             'Content-Type: application/json',
-            'User-Agent: NIELIT-PortalAssistant/2.0-Saarthi',
+            'User-Agent: NIELIT-PortalAssistant/2.0-Vani',
             'X-NIELIT-Event: portal_chat',
         ];
         if ($secret !== '') {

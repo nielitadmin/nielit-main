@@ -1,6 +1,6 @@
 <?php
 /**
- * Saarthi AI Campus & Portal Assistant API (JSON POST).
+ * Vani AI Campus & Portal Assistant API (JSON POST).
  */
 header('Content-Type: application/json; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
@@ -43,9 +43,9 @@ if ($action === 'reset') {
         'ok' => true,
         'reply' => saarthi_localized_text(
             $lang,
-            "Chat reset! I'm **Saarthi** — ask me how this portal works, check ongoing courses & locations, or start a course registration.",
-            "चैट रीसेट हो गई! मैं **सारथी** हूँ — पोर्टल रोडमैप, उपलब्ध कोर्स, कैंपस या नए रजिस्ट्रेशन के बारे में पूछें।",
-            "ଚାଟ୍ ରିସେଟ୍ ହୋଇଛି! ମୁଁ **ସାରଥୀ** — ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍, ଚାଲୁଥିବା କୋର୍ସ, କ୍ୟାମ୍ପସ୍ କିମ୍ବା ନୂଆ ପଞ୍ଜୀକରଣ ବିଷୟରେ ପଚାରନ୍ତୁ।"
+            "Chat reset! I'm **Vani** — ask me how this portal works, check ongoing courses & locations, or start a course registration.",
+            "चैट रीसेट हो गई! मैं **वाणी** हूँ — पोर्टल रोडमैप, उपलब्ध कोर्स, कैंपस या नए रजिस्ट्रेशन के बारे में पूछें।",
+            "ଚାଟ୍ ରିସେଟ୍ ହୋଇଛି! ମୁଁ **ବାଣୀ** — ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍, ଚାଲୁଥିବା କୋର୍ସ, କ୍ୟାମ୍ପସ୍ କିମ୍ବା ନୂଆ ପଞ୍ଜୀକରଣ ବିଷୟରେ ପଚାରନ୍ତୁ।"
         ),
         'mode' => 'local',
         'avatar_state' => 'wave',

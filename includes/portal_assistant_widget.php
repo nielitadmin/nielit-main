@@ -1,6 +1,6 @@
 <?php
 /**
- * Floating Saarthi AI Campus & Portal Assistant widget (rendered across all public pages).
+ * Floating Vani AI Campus & Portal Assistant widget (rendered across all public pages).
  */
 
 if (!function_exists('portal_assistant_render_widget')) {
@@ -42,7 +42,7 @@ if (!function_exists('portal_assistant_render_widget')) {
              data-courses-url="<?php echo htmlspecialchars($coursesUrl, ENT_QUOTES, 'UTF-8'); ?>"
              data-login-url="<?php echo htmlspecialchars($loginUrl, ENT_QUOTES, 'UTF-8'); ?>"
              data-initial-lang="<?php echo htmlspecialchars($activeLang, ENT_QUOTES, 'UTF-8'); ?>">
-            <div id="portal-assistant-panel" class="portal-assistant-panel" role="dialog" aria-label="Saarthi NIELIT AI Assistant" aria-hidden="true">
+            <div id="portal-assistant-panel" class="portal-assistant-panel" role="dialog" aria-label="Vani NIELIT AI Assistant" aria-hidden="true">
                 <div class="portal-assistant-header">
                     <div class="saarthi-header-top">
                         <div class="saarthi-brand">
@@ -62,7 +62,7 @@ if (!function_exists('portal_assistant_render_widget')) {
                                 </svg>
                             </div>
                             <div>
-                                <h3>Saarthi <span class="saarthi-badge">AI Guide</span></h3>
+                                <h3>Vani <span class="saarthi-badge">AI Guide</span></h3>
                                 <p id="saarthi-status-text">NIELIT Bhubaneswar · EN / हिन्दी / ଓଡ଼ିଆ</p>
                             </div>
                         </div>
@@ -70,7 +70,7 @@ if (!function_exists('portal_assistant_render_widget')) {
                             <button type="button" id="saarthi-reset-btn" class="saarthi-icon-btn" title="Start new chat" aria-label="Reset chat">
                                 <i class="fas fa-rotate-right" aria-hidden="true"></i>
                             </button>
-                            <button type="button" id="saarthi-close-btn" class="saarthi-icon-btn" title="Close Saarthi" aria-label="Close chat">
+                            <button type="button" id="saarthi-close-btn" class="saarthi-icon-btn" title="Close Vani" aria-label="Close chat">
                                 <i class="fas fa-times" aria-hidden="true"></i>
                             </button>
                         </div>
@@ -88,7 +88,7 @@ if (!function_exists('portal_assistant_render_widget')) {
 
                 <form id="portal-assistant-form" class="portal-assistant-form">
                     <input id="portal-assistant-input" type="text" maxlength="2000" autocomplete="off"
-                           placeholder="Ask Saarthi in English, हिन्दी, or ଓଡ଼ିଆ…" aria-label="Your message">
+                           placeholder="Ask Vani in English, हिन्दी, or ଓଡ଼ିଆ…" aria-label="Your message">
                     <button type="submit" aria-label="Send message"><i class="fas fa-paper-plane" aria-hidden="true"></i></button>
                 </form>
             </div>
@@ -96,7 +96,7 @@ if (!function_exists('portal_assistant_render_widget')) {
             <div id="portal-assistant-dock" class="portal-assistant-dock">
                 <button id="portal-assistant-fab" class="portal-assistant-fab" type="button"
                         aria-expanded="false" aria-controls="portal-assistant-panel"
-                        title="Chat with Saarthi — AI Campus &amp; Portal Guide">
+                        title="Chat with Vani — AI Campus &amp; Portal Guide">
                     <span class="saarthi-fab-avatar saarthi-avatar saarthi-avatar--wave" id="saarthi-fab-avatar" aria-hidden="true">
                         <svg viewBox="0 0 64 64" width="32" height="32" xmlns="http://www.w3.org/2000/svg">
                             <rect x="14" y="14" width="36" height="26" rx="11" fill="#0a1628" stroke="#fcd34d" stroke-width="2.5"/>
@@ -107,7 +107,7 @@ if (!function_exists('portal_assistant_render_widget')) {
                             <circle class="saarthi-antenna-dot" cx="32" cy="5" r="3.5" fill="#f59e0b"/>
                         </svg>
                     </span>
-                    <span class="saarthi-fab-label">Saarthi</span>
+                    <span class="saarthi-fab-label">Ask Vani</span>
                 </button>
             </div>
         </div>

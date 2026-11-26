@@ -204,7 +204,7 @@ if ($isLoggedStudent) {
                                         Your Aadhar number is saved on this application.
                                     <?php else: ?>
                                         <span class="badge bg-warning text-dark">Pending</span>
-                                        Enter your 12-digit Aadhar number here if you registered quickly via Saarthi chat.
+                                        Enter your 12-digit Aadhar number here if you registered quickly via Vani chat.
                                     <?php endif; ?>
                                 </div>
                             </div>

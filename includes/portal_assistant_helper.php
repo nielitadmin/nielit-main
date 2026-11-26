@@ -1,6 +1,6 @@
 <?php
 /**
- * Saarthi AI Campus & Portal Assistant — Orchestrator
+ * Vani AI Campus & Portal Assistant — Orchestrator
  * Supports:
  * - Multilingual auto-detect & switching (English, Hindi, Odia)
  * - Live DB tools: search_courses, register_student, get_site_roadmap, log_support_callback
@@ -285,7 +285,7 @@ if (!function_exists('saarthi_system_prompt')) {
 
         $langLabel = $lang === 'hi' ? 'Hindi (हिन्दी)' : ($lang === 'or' ? 'Odia (ଓଡ଼ିଆ)' : 'English');
 
-        return "You are **Saarthi**, the intelligent, friendly, and proactive AI Campus & Portal Assistant for {$ctx['site_name']}.
+        return "You are **Vani**, the intelligent, friendly, and proactive AI Campus & Portal Assistant for {$ctx['site_name']}.
 Your job is to guide visitors across the website, explain how the portal works using clear 4-step roadmaps, answer live queries about ongoing courses and center locations, and assist students with course registrations conversationally.
 
 ACTIVE LANGUAGE: {$langLabel}. Always reply in the user's language (English, Hindi / हिन्दी Devanagari, or Odia / ଓଡ଼ିଆ script), and switch immediately if asked (e.g. 'Odia re kuha', 'Hindi mein batao', 'Switch to English'). Keep technical terms (O-Level, CCC, AI/ML, NSQF, PDF, APAAR ID) clear. Keep replies warm, counselor-like, and concise.
@@ -297,7 +297,7 @@ PORTAL & HELPDESK FACTS:
 - News hints: " . ($ctx['latest_news'] ?? 'See Homepage News section') . "
 
 WORKFLOWS:
-- Task A (Site Roadmap): When asked how the site works or where to start, call `get_site_roadmap` or present the 4-Step Roadmap (Explore Courses -> Check Batch & Seat Status -> Register Online / via Saarthi -> Download Admission Form / Receipt) and include `[UI_ACTION: SHOW_ROADMAP]`.
+- Task A (Site Roadmap): When asked how the site works or where to start, call `get_site_roadmap` or present the 4-Step Roadmap (Explore Courses -> Check Batch & Seat Status -> Register Online / via Vani -> Download Admission Form / Receipt) and include `[UI_ACTION: SHOW_ROADMAP]`.
 - Task B (Live Course Search): When asked about ongoing courses, fees, duration, batch timings, seats, or locations, ALWAYS call `search_courses(keyword, location, status)` instead of guessing. Never fabricate dates, fees, or seat counts.
 - Task C (Conversational Registration): Collect details 1-2 short questions per turn across all fields printed on the Admission Form:
   Step 1: Course Name + Preferred Center Location
@@ -306,7 +306,7 @@ WORKFLOWS:
   Step 4: Academic/Examination Details — Exam Passed, Board/University & Last College Name, Passing Year (4-digit), Stream/Branch, and Percentage/CGPA
   Step 5: Category (General/OBC/SC/ST/EWS) & PwD Status (Yes/No), optional APAAR ID & 12-digit Aadhar Number, and Full Correspondence Address
   Then show a concise Registration Summary Card and ask the user to reply 'Confirm'. ONLY AFTER explicit confirmation, call `register_student(...)` to save to MySQL, trigger confirmation email, return their Student ID + Upload Documents URL + Admission PDF (`[UI_ACTION: DOWNLOAD_PDF]`).
-- Documents & Email Follow-up: After registering via Saarthi, students can upload Passport Photo, Signature, 12-digit Aadhar Card, and required certificates immediately using the in-chat Upload button or at `student/upload_documents.php` (also available inside Student Portal -> Profile/Dashboard). Confirmation emails (with Student ID, password for new students or existing-password note for returning students) are emailed automatically.
+- Documents & Email Follow-up: After registering via Vani, students can upload Passport Photo, Signature, 12-digit Aadhar Card, and required certificates immediately using the in-chat Upload button or at `student/upload_documents.php` (also available inside Student Portal -> Profile/Dashboard). Confirmation emails (with Student ID, password for new students or existing-password note for returning students) are emailed automatically.
 - Safety & Escalation: NEVER ask for or store passwords, UPI PINs, OTPs, or card details. For payment failures or certificate corrections, give the official helpdesk email/phone and offer `log_support_callback`.
 
 RESPONSE FORMAT:
@@ -925,7 +925,7 @@ if (!function_exists('saarthi_registration_intent')) {
         $mLower = saarthi_lower($clean);
         $isInfoQuestion = (bool) preg_match('/\b(how\s+(do|does|to)|what\s+is|process|when|fees|document|documents)\b.*\b(register|registration|admission)\b/iu', $mLower)
             && $prefilledCourseId === 0
-            && !preg_match('/\b(in\s+chat|via\s+saarthi|start|want\s+to\s+register|register\s+me|register\s+now)\b/iu', $mLower);
+            && !preg_match('/\b(in\s+chat|via\s+(?:vani|saarthi)|start|want\s+to\s+register|register\s+me|register\s+now)\b/iu', $mLower);
         $starts = !$isInfoQuestion && (($prefilledCourseId > 0) || (bool) preg_match(
             '/\b(want\s+to\s+register|register\s+me|register\s+now|register\s+for|start\s+registration|enroll\s+me|apply\s+for)\b|^\s*(register|register\s+in\s+chat|apply\s*now|new\s+registration|enroll)\s*$|पंजीकरण\s*कर|रजिस्ट्रेशन\s*कर|ଦାଖଲା|ପଞ୍ଜୀକରଣ\s*କର/iu',
             $mLower
@@ -1882,9 +1882,9 @@ if (!function_exists('saarthi_local_reply_structured')) {
             return [
                 'reply' => saarthi_localized_text(
                     $lang,
-                    "Switched to **English**! I'm **Saarthi**, your NIELIT Bhubaneswar portal guide. How can I assist you today?",
-                    "बिल्कुल! अब मैं **हिन्दी** में बात करूँगा। नमस्ते, मैं **सारथी** हूँ — NIELIT भुवनेश्वर पोर्टल का आपका सहायक। आज मैं आपकी क्या मदद कर सकता हूँ?",
-                    "ନିଶ୍ଚୟ! ବର୍ତ୍ତମାନ ମୁଁ **ଓଡ଼ିଆ** ରେ କଥା ହେବି। ନମସ୍କାର, ମୁଁ **ସାରଥୀ** — NIELIT ଭୁବନେଶ୍ୱର ପୋର୍ଟାଲର ଆପଣଙ୍କ ସହାୟକ। ଆଜି ମୁଁ ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?"
+                    "Switched to **English**! I'm **Vani**, your NIELIT Bhubaneswar portal guide. How can I assist you today?",
+                    "बिल्कुल! अब मैं **हिन्दी** में बात करूँगी। नमस्ते, मैं **वाणी** हूँ — NIELIT भुवनेश्वर पोर्टल की आपकी सहायक। आज मैं आपकी क्या मदद कर सकती हूँ?",
+                    "ନିଶ୍ଚୟ! ବର୍ତ୍ତମାନ ମୁଁ **ଓଡ଼ିଆ** ରେ କଥା ହେବି। ନମସ୍କାର, ମୁଁ **ବାଣୀ** — NIELIT ଭୁବନେଶ୍ୱର ପୋର୍ଟାଲର ଆପଣଙ୍କ ସହାୟକ। ଆଜି ମୁଁ ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?"
                 ),
                 'mode' => 'local',
                 'avatar_state' => 'wave',
@@ -1906,9 +1906,9 @@ if (!function_exists('saarthi_local_reply_structured')) {
             return [
                 'reply' => saarthi_localized_text(
                     $lang,
-                    "Namaste! I'm **Saarthi**, your NIELIT Bhubaneswar Campus & Portal Guide.\nI can explain the 4-step portal roadmap, check live courses & campus seats, or help you register right here in chat!",
-                    "नमस्ते! मैं **सारथी** हूँ — NIELIT भुवनेश्वर पोर्टल का आपका AI मार्गदर्शक।\nमैं पोर्टल का 4-चरणीय रोडमैप बता सकता हूँ, लाइव कोर्स और कैंपस सीटें दिखा सकता हूँ, या यहीं चैट में आपका रजिस्ट्रेशन कर सकता हूँ!",
-                    "ନମସ୍କାର! ମୁଁ **ସାରଥୀ** — NIELIT ଭୁବନେଶ୍ୱର ପୋର୍ଟାଲର ଆପଣଙ୍କ ସହାୟକ।\nମୁଁ ଆପଣଙ୍କୁ ପୋର୍ଟାଲର ୪-ସୋପାନ ରୋଡ୍‌ମ୍ୟାପ୍ ବୁଝାଇପାରିବି, ଲାଇଭ୍ କୋର୍ସ ଓ କ୍ୟାମ୍ପସ୍ ସିଟ୍ ଦେଖାଇପାରିବି, କିମ୍ବା ଏଠାରେ ଚାଟ୍‌ରେ ପଞ୍ଜୀକରଣ କରାଇପାରିବି!"
+                    "Namaste! I'm **Vani**, your NIELIT Bhubaneswar Campus & Portal Guide.\nI can explain the 4-step portal roadmap, check live courses & campus seats, or help you register right here in chat!",
+                    "नमस्ते! मैं **वाणी** हूँ — NIELIT भुवनेश्वर पोर्टल की आपकी AI मार्गदर्शक।\nमैं पोर्टल का 4-चरणीय रोडमैप बता सकती हूँ, लाइव कोर्स और कैंपस सीटें दिखा सकती हूँ, या यहीं चैट में आपका रजिस्ट्रेशन कर सकती हूँ!",
+                    "ନମସ୍କାର! ମୁଁ **ବାଣୀ** — NIELIT ଭୁବନେଶ୍ୱର ପୋର୍ଟାଲର ଆପଣଙ୍କ ସହାୟକ।\nମୁଁ ଆପଣଙ୍କୁ ପୋର୍ଟାଲର ୪-ସୋପାନ ରୋଡ୍‌ମ୍ୟାପ୍ ବୁଝାଇପାରିବି, ଲାଇଭ୍ କୋର୍ସ ଓ କ୍ୟାମ୍ପସ୍ ସିଟ୍ ଦେଖାଇପାରିବି, କିମ୍ବା ଏଠାରେ ଚାଟ୍‌ରେ ପଞ୍ଜୀକରଣ କରାଇପାରିବି!"
                 ),
                 'mode' => 'local',
                 'avatar_state' => 'wave',
@@ -1997,9 +1997,9 @@ if (!function_exists('saarthi_local_reply_structured')) {
             if (!empty($res['exact_match'])) {
                 $reply = saarthi_localized_text(
                     $lang,
-                    "We currently have **{$cntOngoing} ongoing** courses ({$cntPub} total published) across NIELIT campuses. Here are the live matching courses — click **Register via Saarthi** on any card to apply in chat!",
-                    "NIELIT कैंपस में अभी **{$cntOngoing} चालू (ongoing)** कोर्स हैं (कुल {$cntPub} प्रकाशित)। नीचे लाइव कोर्स विवरण देखें — सीधे चैट में आवेदन करने के लिए **Register via Saarthi** पर क्लिक करें!",
-                    "NIELIT କ୍ୟାମ୍ପସ୍‌ରେ ବର୍ତ୍ତମାନ **{$cntOngoing}ଟି ଚାଲୁଥିବା** କୋର୍ସ ଅଛି (ମୋଟ {$cntPub}ଟି ପ୍ରକାଶିତ)। ତଳେ ଲାଇଭ୍ କୋର୍ସ ତଥ୍ୟ ଦେଖନ୍ତୁ — ଚାଟ୍‌ରେ ଆବେଦନ କରିବାକୁ **Register via Saarthi** କ୍ଲିକ୍ କରନ୍ତୁ!"
+                    "We currently have **{$cntOngoing} ongoing** courses ({$cntPub} total published) across NIELIT campuses. Here are the live matching courses — click **Register via Vani** on any card to apply in chat!",
+                    "NIELIT कैंपस में अभी **{$cntOngoing} चालू (ongoing)** कोर्स हैं (कुल {$cntPub} प्रकाशित)। नीचे लाइव कोर्स विवरण देखें — सीधे चैट में आवेदन करने के लिए **Register via Vani** पर क्लिक करें!",
+                    "NIELIT କ୍ୟାମ୍ପସ୍‌ରେ ବର୍ତ୍ତମାନ **{$cntOngoing}ଟି ଚାଲୁଥିବା** କୋର୍ସ ଅଛି (ମୋଟ {$cntPub}ଟି ପ୍ରକାଶିତ)। ତଳେ ଲାଇଭ୍ କୋର୍ସ ତଥ୍ୟ ଦେଖନ୍ତୁ — ଚାଟ୍‌ରେ ଆବେଦନ କରିବାକୁ **Register via Vani** କ୍ଲିକ୍ କରନ୍ତୁ!"
                 );
             } else {
                 $reply = saarthi_localized_text(
@@ -2173,9 +2173,9 @@ if (!function_exists('saarthi_local_reply_structured')) {
         return [
             'reply' => saarthi_localized_text(
                 $lang,
-                "I'm **Saarthi**, here to help you with NIELIT Bhubaneswar! Try one of the quick options below or ask about ongoing courses, campus locations, portal roadmap, or course registration.",
-                "मैं **सारथी** हूँ, NIELIT भुवनेश्वर में आपकी मदद के लिए! नीचे दिए गए त्वरित विकल्प चुनें या चालू कोर्स, कैंपस लोकेशन, रोडमैप या रजिस्ट्रेशन के बारे में पूछें।",
-                "ମୁଁ **ସାରଥୀ**, NIELIT ଭୁବନେଶ୍ୱରରେ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରିବା ପାଇଁ ଅଛି! ତଳ ବିକଳ୍ପ ବାଛନ୍ତୁ କିମ୍ବା ଚାଲୁଥିବା କୋର୍ସ, କ୍ୟାମ୍ପସ୍ ସ୍ଥାନ, ରୋଡ୍‌ମ୍ୟାପ୍ କିମ୍ବା ପଞ୍ଜୀକରଣ ବିଷୟରେ ପଚାରନ୍ତୁ।"
+                "I'm **Vani**, here to help you with NIELIT Bhubaneswar! Try one of the quick options below or ask about ongoing courses, campus locations, portal roadmap, or course registration.",
+                "मैं **वाणी** हूँ, NIELIT भुवनेश्वर में आपकी मदद के लिए! नीचे दिए गए त्वरित विकल्प चुनें या चालू कोर्स, कैंपस लोकेशन, रोडमैप या रजिस्ट्रेशन के बारे में पूछें।",
+                "ମୁଁ **ବାଣୀ**, NIELIT ଭୁବନେଶ୍ୱରରେ ଆପଣଙ୍କୁ ସାହାଯ୍ୟ କରିବା ପାଇଁ ଅଛି! ତଳ ବିକଳ୍ପ ବାଛନ୍ତୁ କିମ୍ବା ଚାଲୁଥିବା କୋର୍ସ, କ୍ୟାମ୍ପସ୍ ସ୍ଥାନ, ରୋଡ୍‌ମ୍ୟାପ୍ କିମ୍ବା ପଞ୍ଜୀକରଣ ବିଷୟରେ ପଚାରନ୍ତୁ।"
             ),
             'mode' => 'local',
             'avatar_state' => 'happy',

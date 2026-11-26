@@ -1,10 +1,10 @@
-# Saarthi — NIELIT Bhubaneswar AI Campus & Portal Assistant
+# Vani — NIELIT Bhubaneswar AI Campus & Portal Assistant
 
 Floating multilingual assistant rendered across all public pages (`index.php` and `public/*.php`).
 
 ## Features
 - **Multilingual (English, Hindi / हिन्दी, Odia / ଓଡ଼ିଆ):** Auto-detects script/language and switches seamlessly via header language pills or phrases (`"Odia re kuha"`, `"Hindi mein batao"`, `"Switch to English"`).
-- **Task A — Interactive 4-Step Portal Roadmap:** Explains Explore Courses → Check Batch & Seat Status → Register Online / via Saarthi → Download Admission Form PDF with clickable action buttons and `[UI_ACTION: SHOW_ROADMAP]` / `[UI_ACTION: SCROLL_COURSES]`.
+- **Task A — Interactive 4-Step Portal Roadmap:** Explains Explore Courses → Check Batch & Seat Status → Register Online / via Vani → Download Admission Form PDF with clickable action buttons and `[UI_ACTION: SHOW_ROADMAP]` / `[UI_ACTION: SCROLL_COURSES]`.
 - **Task B — Live Course & Location Search (`search_courses`):** Queries `courses`, `centres`, and `batches` in MySQL for live campuses, duration, delivery mode, fees, start dates, and available seats.
 - **Task C — Conversational Student Registration (`register_student`):** Collects student details 1–2 fields per turn across 4 guided steps, displays a confirmation Summary Card, saves pending registration (`students`, `student_accounts`, `student_enrollments`, `education_details`), logs activity, dispatches confirmation email, and returns a secure **Download Admission PDF** button (`api/saarthi_admission_pdf.php`).
 - **Task D — Safety & Helpdesk Escalation:** Refuses sensitive secrets (passwords, OTPs, UPI PINs, card numbers) and provides official helpdesk contacts (`0674-2960354`, `admin@nielitbhubaneswar.in`, `dir-bbsr@nielit.gov.in`) plus support callback logging (`support_tickets`).
@@ -19,13 +19,13 @@ Floating multilingual assistant rendered across all public pages (`index.php` an
 ## Files
 | File | Role |
 |------|------|
-| `includes/portal_assistant_widget.php` | Animated Saarthi UI, SVG mascot (`wave\|thinking\|guide\|happy\|celebrate`), language bar |
+| `includes/portal_assistant_widget.php` | Animated Vani UI, SVG mascot (`wave\|thinking\|guide\|happy\|celebrate`), language bar |
 | `includes/portal_assistant_tools.php` | Live MySQL `search_courses`, `register_student`, `log_support_callback`, roadmap |
 | `includes/portal_assistant_helper.php` | Multilingual orchestrator, Gemini/OpenAI tool-calling, EN/HI/OR fallback |
 | `includes/portal_assistant_actions.php` | Authenticated student profile & admin lookup actions |
-| `api/portal_assistant_chat.php` | POST JSON `{ action, message, lang, history }` returning Saarthi response + metadata |
+| `api/portal_assistant_chat.php` | POST JSON `{ action, message, lang, history }` returning Vani response + metadata |
 | `api/saarthi_admission_pdf.php` | Token/session-authorized TCPDF Admission Application Form download |
-| `assets/css/portal-assistant.css` | Saarthi widget, cards, animations, bottom-right dock, Night Mode support |
+| `assets/css/portal-assistant.css` | Vani widget, shimmer skeleton, cards, animations, bottom-right dock, Night Mode support |
 | `assets/js/portal-assistant.js` | Interactive cards renderer, animations, UI actions, cross-page `sessionStorage` sync |
 
 ## Security
