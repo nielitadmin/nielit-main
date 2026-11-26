@@ -1742,6 +1742,28 @@ if (!function_exists('saarthi_local_reply_structured')) {
     }
 }
 
+if (!function_exists('saarthi_history_has_registration_prompt')) {
+    /**
+     * Check if the latest assistant turn in chat history asked for conversational registration fields.
+     *
+     * @param list<array{role: string, content: string}> $history
+     */
+    function saarthi_history_has_registration_prompt(array $history): bool
+    {
+        for ($i = count($history) - 1; $i >= 0; $i--) {
+            $item = $history[$i];
+            if (($item['role'] ?? '') === 'assistant' || ($item['role'] ?? '') === 'model') {
+                $txt = (string) ($item['content'] ?? '');
+                return (bool) preg_match(
+                    '/Step\s*[1-4]\s*of\s*4|चरण\s*[1-4]\/4|ସୋପାନ\s*[୧-୪1-4]\/[୪4]|Full Name.*Mobile Number.*Email|Confirm.*Registration Summary/iu',
+                    $txt
+                );
+            }
+        }
+        return false;
+    }
+}
+
 if (!function_exists('portal_assistant_chat')) {
     /**
      * Main Saarthi assistant entry point.
@@ -1761,10 +1783,34 @@ if (!function_exists('portal_assistant_chat')) {
         $config = portal_assistant_load_config($conn);
         $actor = portal_assistant_actor_context();
 
-        // 1. Authenticated actions: logged-in student own profile & logged-in staff email/Student ID lookup
+        // 1. Sensitive payment safety guard across ALL providers & flows
+        if (saarthi_has_sensitive_payment_input($message)) {
+            return saarthi_local_reply_structured($message, $lang, $ctx, $conn);
+        }
+
+        if (session_status() === PHP_SESSION_NONE) {
+            @session_start();
+        }
+
+        // 2. If user is already inside Saarthi's stateful local chat registration draft, handle it BEFORE
+        //    admin/email lookup actions so submitting "Name, Mobile, Email@gmail.com" in Step 2 is never hijacked.
+        if (!empty($_SESSION['saarthi_reg']['active'])) {
+            $flow = saarthi_handle_registration_flow($message, $lang, $ctx, $conn);
+            if ($flow !== null) {
+                return $flow;
+            }
+        }
+
+        // 3. Authenticated actions: logged-in student own profile & logged-in staff email/Student ID lookup
         if ($conn instanceof mysqli) {
             require_once __DIR__ . '/portal_assistant_actions.php';
-            $action = portal_assistant_try_actions($conn, $message, $actor, $ctx);
+            $regIntent = saarthi_registration_intent($message);
+            $actionCtx = $ctx + [
+                'in_registration_flow' => !empty($_SESSION['saarthi_reg']['active'])
+                    || !empty($regIntent['starts'])
+                    || saarthi_history_has_registration_prompt($history),
+            ];
+            $action = portal_assistant_try_actions($conn, $message, $actor, $actionCtx);
             if ($action !== null) {
                 return array_merge([
                     'avatar_state' => 'guide',
@@ -1776,7 +1822,7 @@ if (!function_exists('portal_assistant_chat')) {
             }
         }
 
-        // 2. Logged-in admin staff activity log report
+        // 4. Logged-in admin staff activity log report
         $staff = portal_assistant_admin_activity_reply($conn, $message);
         if ($staff !== null) {
             return [
@@ -1788,22 +1834,6 @@ if (!function_exists('portal_assistant_chat')) {
                 'quick_replies' => saarthi_default_quick_replies($lang),
                 'cards' => [],
             ];
-        }
-
-        // 3. Sensitive payment safety guard across ALL providers
-        if (saarthi_has_sensitive_payment_input($message)) {
-            return saarthi_local_reply_structured($message, $lang, $ctx, $conn);
-        }
-
-        // 4. If user is already inside Saarthi's stateful local chat registration draft, keep the flow deterministic
-        if (session_status() === PHP_SESSION_NONE) {
-            @session_start();
-        }
-        if (!empty($_SESSION['saarthi_reg']['active'])) {
-            $flow = saarthi_handle_registration_flow($message, $lang, $ctx, $conn);
-            if ($flow !== null) {
-                return $flow;
-            }
         }
 
         $provider = strtolower((string) ($config['ai_provider'] ?? 'auto'));

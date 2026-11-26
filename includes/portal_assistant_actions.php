@@ -149,13 +149,50 @@ if (!function_exists('portal_assistant_lookup_by_student_id')) {
     }
 }
 
+if (!function_exists('portal_assistant_is_email_lookup_intent')) {
+    /**
+     * Decide whether a message containing an email is an explicit email/student lookup request
+     * (never hijack conversational registration replies like "Name, 7653814034, user@gmail.com").
+     */
+    function portal_assistant_is_email_lookup_intent(string $message, ?string $email, array $ctx = []): bool
+    {
+        if ($email === null || $email === '') {
+            return false;
+        }
+        if (!empty($ctx['in_registration_flow'])) {
+            return false;
+        }
+        $trimmed = trim($message);
+        $m = function_exists('mb_strtolower') ? mb_strtolower($trimmed, 'UTF-8') : strtolower($trimmed);
+
+        // Multi-field contact payload (Name + 10-digit mobile + email) should never trigger email privacy refusal
+        $hasMobile = (bool) preg_match('/(?:\+91[\s\-]?)?[6-9]\d{9}\b|\b\d{10}\b/', $trimmed);
+        $hasExplicitLookupVerb = (bool) preg_match(
+            '/\b(list|already\s+registered|is\s+.*\s+registered|registered\s+or\s+not|exist|exists|in\s+the\s+system|on\s+file|lookup|look\s+up|find|search|check|verify)\b|\bor\s+not\b/iu',
+            $m
+        );
+        if ($hasMobile && !$hasExplicitLookupVerb) {
+            return false;
+        }
+
+        if (strcasecmp($trimmed, $email) === 0) {
+            return true;
+        }
+
+        return $hasExplicitLookupVerb;
+    }
+}
+
 if (!function_exists('portal_assistant_try_actions')) {
     /**
      * @return array{reply: string, mode: string}|null
      */
     function portal_assistant_try_actions(mysqli $conn, string $message, array $actor, array $ctx): ?array
     {
-        $m = strtolower($message);
+        if (!empty($ctx['in_registration_flow'])) {
+            return null;
+        }
+        $m = function_exists('mb_strtolower') ? mb_strtolower($message, 'UTF-8') : strtolower($message);
         $email = portal_assistant_extract_email($message);
         $studentId = portal_assistant_extract_student_id($message);
 
@@ -163,12 +200,7 @@ if (!function_exists('portal_assistant_try_actions')) {
             '/\b(my|mera|apna)\b.*\b(detail|profile|record|student|status)\b|\bcheck my student|\bmy student detail|\bstudent details\b/u',
             $m
         );
-        $wantsEmailCheck = $email !== null && (bool) preg_match(
-            '/\b(list|registered|register|exist|in the system|on file|email|found|search|check|or not)\b/u',
-            $m
-        );
-        $emailOnlyQuery = $email !== null && strlen(trim($message)) <= 80
-            && preg_match('/^[\s\w.@+\-]+$/u', trim($message));
+        $wantsEmailLookup = portal_assistant_is_email_lookup_intent($message, $email, $ctx);
         $wantsStudentSearch = ($studentId !== null) || (bool) preg_match(
             '/\b(find|search|lookup|check)\b.*\bstudent\b/u',
             $m
@@ -192,7 +224,7 @@ if (!function_exists('portal_assistant_try_actions')) {
             ];
         }
 
-        if ($email && ($wantsEmailCheck || $emailOnlyQuery || preg_match('/\b(saswat|gmail)\b/', $m))) {
+        if ($email && $wantsEmailLookup) {
             if (!$actor['is_admin']) {
                 return [
                     'reply' => "For privacy I cannot confirm if an email is registered unless you are staff.\n\n"
