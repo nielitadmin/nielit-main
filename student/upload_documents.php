@@ -5,6 +5,10 @@ require_once __DIR__ . '/../includes/institute_branding.php';
 require_once __DIR__ . '/../includes/multi_course_helper.php';
 require_once __DIR__ . '/../includes/student_document_upload_helper.php';
 require_once __DIR__ . '/../includes/portal_assistant_tools.php';
+require_once __DIR__ . '/../includes/automation_webhook_helper.php';
+
+$assistantSettings = $conn instanceof mysqli ? getPortalAutomationSettings($conn) : [];
+$assistantName = trim((string) ($assistantSettings['assistant_name'] ?? 'Gyansetu')) ?: 'Gyansetu';
 
 $token = trim((string) ($_REQUEST['token'] ?? ''));
 $recordId = (int) ($_REQUEST['record_id'] ?? ($_SESSION['active_record_id'] ?? 0));
@@ -204,7 +208,7 @@ if ($isLoggedStudent) {
                                         Your Aadhar number is saved on this application.
                                     <?php else: ?>
                                         <span class="badge bg-warning text-dark">Pending</span>
-                                        Enter your 12-digit Aadhar number here if you registered quickly via Vani chat.
+                                        Enter your 12-digit Aadhar number here if you registered quickly via <?php echo htmlspecialchars($assistantName, ENT_QUOTES, 'UTF-8'); ?> chat.
                                     <?php endif; ?>
                                 </div>
                             </div>

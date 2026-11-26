@@ -45,4 +45,13 @@ assertStep4Condition(
     'The 12th exam details should be stored in the new exam row.'
 );
 
-echo "Step 4 registration flow checks passed.\n";
+$context = portal_assistant_site_context();
+$context['assistant_name'] = 'Gyansetu';
+$systemPrompt = saarthi_system_prompt('en', $context);
+assertStep4Condition(
+    strpos($systemPrompt, 'You are **Gyansetu**') !== false
+        && strpos($systemPrompt, 'Vani') === false,
+    'The AI prompt should use the configured chatbot name.'
+);
+
+echo "Portal assistant regression checks passed.\n";

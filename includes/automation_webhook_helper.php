@@ -39,6 +39,8 @@ if (!function_exists('ensurePortalAutomationChatColumns')) {
             'gemini_model' => "VARCHAR(80) NOT NULL DEFAULT 'gemini-2.5-flash' AFTER gemini_api_key",
             'openai_api_key' => 'VARCHAR(255) NULL DEFAULT NULL AFTER gemini_model',
             'openai_model' => "VARCHAR(80) NOT NULL DEFAULT 'gpt-4o-mini' AFTER openai_api_key",
+            'assistant_name' => "VARCHAR(60) NOT NULL DEFAULT 'Gyansetu' AFTER openai_model",
+            'assistant_theme' => "VARCHAR(20) NOT NULL DEFAULT 'ocean' AFTER assistant_name",
         ];
         foreach ($cols as $name => $def) {
             $esc = $conn->real_escape_string($name);
@@ -47,6 +49,19 @@ if (!function_exists('ensurePortalAutomationChatColumns')) {
                 @$conn->query("ALTER TABLE portal_automation_settings ADD COLUMN `{$name}` {$def}");
             }
         }
+    }
+}
+
+if (!function_exists('portalAssistantThemeOptions')) {
+    /** @return array<string, string> */
+    function portalAssistantThemeOptions(): array
+    {
+        return [
+            'ocean' => 'Ocean Blue',
+            'forest' => 'Forest Green',
+            'plum' => 'Royal Plum',
+            'sunset' => 'Warm Sunset',
+        ];
     }
 }
 
@@ -109,6 +124,8 @@ if (!function_exists('getPortalAutomationSettings')) {
                 'gemini_model' => 'gemini-2.5-flash',
                 'openai_api_key' => '',
                 'openai_model' => 'gpt-4o-mini',
+                'assistant_name' => 'Gyansetu',
+                'assistant_theme' => 'ocean',
                 'alert_email' => automationDefaultAlertEmail(),
             ];
         }
@@ -147,9 +164,21 @@ if (!function_exists('savePortalAutomationSettings')) {
         }
         $geminiModel = trim((string) ($data['gemini_model'] ?? 'gemini-2.5-flash')) ?: 'gemini-2.5-flash';
         $openaiModel = trim((string) ($data['openai_model'] ?? 'gpt-4o-mini')) ?: 'gpt-4o-mini';
+        $existing = getPortalAutomationSettings($conn);
+        $assistantName = trim((string) preg_replace(
+            '/\s+/',
+            ' ',
+            strip_tags((string) ($data['assistant_name'] ?? ($existing['assistant_name'] ?? 'Gyansetu')))
+        ));
+        if ($assistantName === '' || mb_strlen($assistantName) > 60) {
+            return false;
+        }
+        $assistantTheme = strtolower(trim((string) ($data['assistant_theme'] ?? ($existing['assistant_theme'] ?? 'ocean'))));
+        if (!isset(portalAssistantThemeOptions()[$assistantTheme])) {
+            return false;
+        }
 
         // Preserve stored key when blank unless explicit clear flag is passed
-        $existing = getPortalAutomationSettings($conn);
         $geminiKeyInput = trim((string) ($data['gemini_api_key'] ?? ''));
         $openaiKeyInput = trim((string) ($data['openai_api_key'] ?? ''));
         $geminiKey = !empty($data['clear_gemini_key'])
@@ -164,14 +193,15 @@ if (!function_exists('savePortalAutomationSettings')) {
              SET webhook_enabled = ?, webhook_url = NULLIF(?, \'\'), webhook_secret = NULLIF(?, \'\'), notify_student_actions = ?,
                  chat_webhook_enabled = ?, chat_webhook_url = NULLIF(?, \'\'), alert_email = NULLIF(?, \'\'),
                  ai_provider = ?, gemini_api_key = NULLIF(?, \'\'), gemini_model = ?,
-                 openai_api_key = NULLIF(?, \'\'), openai_model = ?
+                 openai_api_key = NULLIF(?, \'\'), openai_model = ?,
+                 assistant_name = ?, assistant_theme = ?
              WHERE id = 1'
         );
         if (!$stmt) {
             return false;
         }
         $stmt->bind_param(
-            'issiisssssss',
+            'issiisssssssss',
             $enabled,
             $url,
             $secret,
@@ -183,7 +213,9 @@ if (!function_exists('savePortalAutomationSettings')) {
             $geminiKey,
             $geminiModel,
             $openaiKey,
-            $openaiModel
+            $openaiModel,
+            $assistantName,
+            $assistantTheme
         );
         $ok = $stmt->execute();
         $stmt->close();
@@ -415,8 +447,8 @@ if (!function_exists('automationFetchActivityFeed')) {
 
 if (!function_exists('automationPortalChatRequest')) {
     /**
-     * Synchronous n8n chat webhook for Vani AI assistant (JSON in/out).
-     * Returns string reply or structured Vani response array when n8n emits metadata.
+     * Synchronous n8n chat webhook for the configured AI assistant (JSON in/out).
+     * Returns string reply or structured response array when n8n emits metadata.
      *
      * @param list<array{role: string, content: string}> $history
      * @return string|array<string, mixed>|null
@@ -443,7 +475,7 @@ if (!function_exists('automationPortalChatRequest')) {
         $secret = trim((string) ($settings['webhook_secret'] ?? ''));
         $body = json_encode([
             'event' => 'portal_chat',
-            'assistant' => 'Vani',
+            'assistant' => (string) ($settings['assistant_name'] ?? 'Gyansetu'),
             'message' => $message,
             'history' => array_slice($history, -10),
             'actor' => $actor,
@@ -457,7 +489,7 @@ if (!function_exists('automationPortalChatRequest')) {
 
         $headers = [
             'Content-Type: application/json',
-            'User-Agent: NIELIT-PortalAssistant/2.0-Vani',
+            'User-Agent: NIELIT-PortalAssistant/2.0',
             'X-NIELIT-Event: portal_chat',
         ];
         if ($secret !== '') {

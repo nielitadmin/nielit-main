@@ -1,6 +1,6 @@
 <?php
 /**
- * Vani AI Campus & Portal Assistant API (JSON POST).
+ * Gyansetu AI Campus & Portal Assistant API (JSON POST).
  */
 header('Content-Type: application/json; charset=UTF-8');
 header('X-Content-Type-Options: nosniff');
@@ -39,13 +39,15 @@ if ($action === 'reset') {
     unset($_SESSION['saarthi_reg']);
     $lang = saarthi_normalize_lang((string) ($payload['lang'] ?? ($_SESSION['saarthi_lang'] ?? 'en')));
     $_SESSION['saarthi_lang'] = $lang;
+    $assistantConfig = portal_assistant_load_config($conn);
+    $assistantName = trim((string) ($assistantConfig['assistant_name'] ?? 'Gyansetu')) ?: 'Gyansetu';
     echo json_encode([
         'ok' => true,
         'reply' => saarthi_localized_text(
             $lang,
-            "Chat reset! I'm **Vani** — ask me how this portal works, check ongoing courses & locations, or start a course registration.",
-            "चैट रीसेट हो गई! मैं **वाणी** हूँ — पोर्टल रोडमैप, उपलब्ध कोर्स, कैंपस या नए रजिस्ट्रेशन के बारे में पूछें।",
-            "ଚାଟ୍ ରିସେଟ୍ ହୋଇଛି! ମୁଁ **ବାଣୀ** — ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍, ଚାଲୁଥିବା କୋର୍ସ, କ୍ୟାମ୍ପସ୍ କିମ୍ବା ନୂଆ ପଞ୍ଜୀକରଣ ବିଷୟରେ ପଚାରନ୍ତୁ।"
+            "Chat reset! I'm **{$assistantName}** — ask me how this portal works, check ongoing courses & locations, or start a course registration.",
+            "चैट रीसेट हो गई! मैं **{$assistantName}** हूँ — पोर्टल रोडमैप, उपलब्ध कोर्स, कैंपस या नए रजिस्ट्रेशन के बारे में पूछें।",
+            "ଚାଟ୍ ରିସେଟ୍ ହୋଇଛି! ମୁଁ **{$assistantName}** — ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍, ଚାଲୁଥିବା କୋର୍ସ, କ୍ୟାମ୍ପସ୍ କିମ୍ବା ନୂଆ ପଞ୍ଜୀକରଣ ବିଷୟରେ ପଚାରନ୍ତୁ।"
         ),
         'mode' => 'local',
         'avatar_state' => 'wave',

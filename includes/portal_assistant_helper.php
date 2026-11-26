@@ -24,6 +24,8 @@ if (!function_exists('portal_assistant_load_config')) {
             'openai_model' => 'gpt-4o-mini',
             'chat_webhook_enabled' => false,
             'chat_webhook_url' => '',
+            'assistant_name' => 'Gyansetu',
+            'assistant_theme' => 'ocean',
         ];
 
         $path = dirname(__DIR__) . '/config/portal_assistant.local.php';
@@ -67,6 +69,8 @@ if (!function_exists('portal_assistant_load_config')) {
             }
             $cfg['chat_webhook_enabled'] = !empty($dbSettings['chat_webhook_enabled']);
             $cfg['chat_webhook_url'] = (string) ($dbSettings['chat_webhook_url'] ?? '');
+            $cfg['assistant_name'] = trim((string) ($dbSettings['assistant_name'] ?? 'Gyansetu')) ?: 'Gyansetu';
+            $cfg['assistant_theme'] = (string) ($dbSettings['assistant_theme'] ?? 'ocean');
         }
 
         if (trim((string) $cfg['gemini_api_key']) !== '') {
@@ -282,10 +286,11 @@ if (!function_exists('saarthi_system_prompt')) {
         }
         $centresLine = $centresList ? implode(', ', $centresList) : 'NIELIT Bhubaneswar (OCAC Tower), NIELIT Baleshwar Extension, NIELIT Raipur';
         $help = saarthi_helpdesk_info();
+        $assistantName = trim((string) ($ctx['assistant_name'] ?? 'Gyansetu')) ?: 'Gyansetu';
 
         $langLabel = $lang === 'hi' ? 'Hindi (हिन्दी)' : ($lang === 'or' ? 'Odia (ଓଡ଼ିଆ)' : 'English');
 
-        return "You are **Vani**, the intelligent, friendly, and proactive AI Campus & Portal Assistant for {$ctx['site_name']}.
+        return "You are **{$assistantName}**, the intelligent, friendly, and proactive AI Campus & Portal Assistant for {$ctx['site_name']}.
 Your job is to guide visitors across the website, explain how the portal works using clear 4-step roadmaps, answer live queries about ongoing courses and center locations, and assist students with course registrations conversationally.
 
 ACTIVE LANGUAGE: {$langLabel}. Always reply in the user's language (English, Hindi / हिन्दी Devanagari, or Odia / ଓଡ଼ିଆ script), and switch immediately if asked (e.g. 'Odia re kuha', 'Hindi mein batao', 'Switch to English'). Keep technical terms (O-Level, CCC, AI/ML, NSQF, PDF, APAAR ID) clear. Keep replies warm, counselor-like, and concise.
@@ -297,7 +302,7 @@ PORTAL & HELPDESK FACTS:
 - News hints: " . ($ctx['latest_news'] ?? 'See Homepage News section') . "
 
 WORKFLOWS:
-- Task A (Site Roadmap): When asked how the site works or where to start, call `get_site_roadmap` or present the 4-Step Roadmap (Explore Courses -> Check Batch & Seat Status -> Register Online / via Vani -> Download Admission Form / Receipt) and include `[UI_ACTION: SHOW_ROADMAP]`.
+- Task A (Site Roadmap): When asked how the site works or where to start, call `get_site_roadmap` or present the 4-Step Roadmap (Explore Courses -> Check Batch & Seat Status -> Register Online / via {$assistantName} -> Download Admission Form / Receipt) and include `[UI_ACTION: SHOW_ROADMAP]`.
 - Task B (Live Course Search): When asked about ongoing courses, fees, duration, batch timings, seats, or locations, ALWAYS call `search_courses(keyword, location, status)` instead of guessing. Never fabricate dates, fees, or seat counts.
 - Task C (Conversational Registration): Collect details 1-2 short questions per turn across all fields printed on the Admission Form:
   Step 1: Course Name + Preferred Center Location
@@ -306,7 +311,7 @@ WORKFLOWS:
   Step 4: Academic/Examination Details — Exam Passed, Board/University & Last College Name, Passing Year (4-digit), Stream/Branch, and Percentage/CGPA
   Step 5: Category (General/OBC/SC/ST/EWS) & PwD Status (Yes/No), optional APAAR ID & 12-digit Aadhar Number, and Full Correspondence Address
   Then show a concise Registration Summary Card and ask the user to reply 'Confirm'. ONLY AFTER explicit confirmation, call `register_student(...)` to save to MySQL, trigger confirmation email, return their Student ID + Upload Documents URL + Admission PDF (`[UI_ACTION: DOWNLOAD_PDF]`).
-- Documents & Email Follow-up: After registering via Vani, students can upload Passport Photo, Signature, 12-digit Aadhar Card, and required certificates immediately using the in-chat Upload button or at `student/upload_documents.php` (also available inside Student Portal -> Profile/Dashboard). Confirmation emails (with Student ID, password for new students or existing-password note for returning students) are emailed automatically.
+- Documents & Email Follow-up: After registering via {$assistantName}, students can upload Passport Photo, Signature, 12-digit Aadhar Card, and required certificates immediately using the in-chat Upload button or at `student/upload_documents.php` (also available inside Student Portal -> Profile/Dashboard). Confirmation emails (with Student ID, password for new students or existing-password note for returning students) are emailed automatically.
 - Safety & Escalation: NEVER ask for or store passwords, UPI PINs, OTPs, or card details. For payment failures or certificate corrections, give the official helpdesk email/phone and offer `log_support_callback`.
 
 RESPONSE FORMAT:
@@ -2481,6 +2486,7 @@ if (!function_exists('portal_assistant_chat')) {
         $lang = saarthi_detect_language($message, $langHint);
         $ctx = portal_assistant_site_context($conn);
         $config = portal_assistant_load_config($conn);
+        $ctx['assistant_name'] = (string) ($config['assistant_name'] ?? 'Gyansetu');
         $actor = portal_assistant_actor_context();
 
         // 1. Sensitive payment safety guard across ALL providers & flows

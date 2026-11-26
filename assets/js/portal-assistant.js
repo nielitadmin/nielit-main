@@ -8,6 +8,7 @@
 
   var apiUrl = root.getAttribute('data-api-url') || '/api/portal_assistant_chat.php';
   var coursesUrl = root.getAttribute('data-courses-url') || '/public/courses.php';
+  var assistantName = root.getAttribute('data-assistant-name') || 'Gyansetu';
   var fab = document.getElementById('portal-assistant-fab');
   var closeBtn = document.getElementById('saarthi-close-btn');
   var resetBtn = document.getElementById('saarthi-reset-btn');
@@ -26,9 +27,9 @@
   var transcript = [];
 
   var WELCOME_TEXT = {
-    en: "Namaste! I'm **Vani**, your AI Campus & Portal Assistant for NIELIT Bhubaneswar.\nI can guide you with a **4-step portal roadmap**, search **live courses & seats**, or help you **register in chat** in English, हिन्दी, or ଓଡ଼ିଆ.",
-    hi: "नमस्ते! मैं **वाणी** हूँ — NIELIT भुवनेश्वर की आपकी AI कैंपस और पोर्टल सहायक।\nमैं आपको **4-चरणीय पोर्टल रोडमैप** दिखा सकती हूँ, **लाइव कोर्स व सीटें** बता सकती हूँ, और यहीं चैट में **रजिस्ट्रेशन** कर सकती हूँ।",
-    or: "ନମସ୍କାର! ମୁଁ **ବାଣୀ** — NIELIT ଭୁବନେଶ୍ୱରର ଆପଣଙ୍କ AI କ୍ୟାମ୍ପସ୍ ଏବଂ ପୋର୍ଟାଲ୍ ସହାୟକ।\nମୁଁ ଆପଣଙ୍କୁ **୪-ସୋପାନ ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍** ଦେଖାଇପାରିବି, **ଲାଇଭ୍ କୋର୍ସ ଓ ସିଟ୍** ଖୋଜିପାରିବି ଏବଂ ଚାଟ୍‌ରେ **ପଞ୍ଜୀକରଣ** କରାଇପାରିବି।"
+    en: "Namaste! I'm **" + assistantName + "**, your AI Campus & Portal Assistant for NIELIT Bhubaneswar.\nI can guide you with a **4-step portal roadmap**, search **live courses & seats**, or help you **register in chat** in English, हिन्दी, or ଓଡ଼ିଆ.",
+    hi: "नमस्ते! मैं **" + assistantName + "** हूँ — NIELIT भुवनेश्वर की आपकी AI कैंपस और पोर्टल सहायक।\nमैं आपको **4-चरणीय पोर्टल रोडमैप** दिखा सकती हूँ, **लाइव कोर्स व सीटें** बता सकती हूँ, और यहीं चैट में **रजिस्ट्रेशन** कर सकती हूँ।",
+    or: "ନମସ୍କାର! ମୁଁ **" + assistantName + "** — NIELIT ଭୁବନେଶ୍ୱରର ଆପଣଙ୍କ AI କ୍ୟାମ୍ପସ୍ ଏବଂ ପୋର୍ଟାଲ୍ ସହାୟକ।\nମୁଁ ଆପଣଙ୍କୁ **୪-ସୋପାନ ପୋର୍ଟାଲ୍ ରୋଡ୍‌ମ୍ୟାପ୍** ଦେଖାଇପାରିବି, **ଲାଇଭ୍ କୋର୍ସ ଓ ସିଟ୍** ଖୋଜିପାରିବି ଏବଂ ଚାଟ୍‌ରେ **ପଞ୍ଜୀକରଣ** କରାଇପାରିବି।"
   };
 
   var DEFAULT_CHIPS = {
@@ -38,10 +39,16 @@
   };
 
   var PLACEHOLDERS = {
-    en: 'Ask Vani in English, हिन्दी, or ଓଡ଼ିଆ…',
-    hi: 'वाणी से हिन्दी, English या ଓଡ଼ିଆ में पूछें…',
-    or: 'ବାଣୀଙ୍କୁ ଓଡ଼ିଆ, English କିମ୍ବା हिन्दी ରେ ପଚାରନ୍ତୁ…'
+    en: 'Ask ' + assistantName + ' in English, हिन्दी, or ଓଡ଼ିଆ…',
+    hi: assistantName + ' से हिन्दी, English या ଓଡ଼ିଆ में पूछें…',
+    or: assistantName + 'ଙ୍କୁ ଓଡ଼ିଆ, English କିମ୍ବା हिन्दी ରେ ପଚାରନ୍ତୁ…'
   };
+
+  function useAssistantName(text) {
+    return String(text || '')
+      .replace(/\bVani\b/gi, assistantName)
+      .replace(/वाणी|ବାଣୀ/g, assistantName);
+  }
 
   function setAvatarState(state) {
     var allowed = ['wave', 'thinking', 'guide', 'happy', 'celebrate'];
@@ -182,33 +189,33 @@
     if (cards.roadmap && Array.isArray(cards.roadmap.steps)) {
       hasAny = true;
       var rCard = createEl('div', 'saarthi-roadmap-card');
-      rCard.appendChild(createEl('div', 'saarthi-card-title', cards.roadmap.title || '4-Step Portal Roadmap'));
+      rCard.appendChild(createEl('div', 'saarthi-card-title', useAssistantName(cards.roadmap.title || '4-Step Portal Roadmap')));
       if (cards.roadmap.subtitle) {
-        rCard.appendChild(createEl('div', 'saarthi-step-desc', cards.roadmap.subtitle));
+        rCard.appendChild(createEl('div', 'saarthi-step-desc', useAssistantName(cards.roadmap.subtitle)));
       }
       cards.roadmap.steps.forEach(function (st) {
         var row = createEl('div', 'saarthi-roadmap-step');
         row.appendChild(createEl('span', 'saarthi-step-num', String(st.step || '')));
         var info = createEl('div');
-        info.appendChild(createEl('div', 'saarthi-step-title', st.title || ''));
-        info.appendChild(createEl('div', 'saarthi-step-desc', st.desc || ''));
+        info.appendChild(createEl('div', 'saarthi-step-title', useAssistantName(st.title || '')));
+        info.appendChild(createEl('div', 'saarthi-step-desc', useAssistantName(st.desc || '')));
         if (st.action_label) {
           var actions = createEl('div', 'saarthi-card-actions');
           if (st.action_type === 'link' && st.url) {
-            var a = createEl('a', 'saarthi-btn', st.action_label);
+            var a = createEl('a', 'saarthi-btn', useAssistantName(st.action_label));
             a.href = st.url;
             a.target = '_blank';
             a.rel = 'noopener';
             actions.appendChild(a);
           } else if (st.action_type === 'scroll_courses') {
-            var b = createEl('button', 'saarthi-btn saarthi-btn-primary', st.action_label);
+            var b = createEl('button', 'saarthi-btn saarthi-btn-primary', useAssistantName(st.action_label));
             b.type = 'button';
             b.addEventListener('click', function () {
               scrollCoursesSection(st.url);
             });
             actions.appendChild(b);
           } else if (st.question) {
-            var qb = createEl('button', 'saarthi-btn', st.action_label);
+            var qb = createEl('button', 'saarthi-btn', useAssistantName(st.action_label));
             qb.type = 'button';
             qb.addEventListener('click', function () {
               sendMessage(st.question);
@@ -255,7 +262,7 @@
 
         if (!c.is_closed) {
           var cActions = createEl('div', 'saarthi-card-actions');
-          var regBtn = createEl('button', 'saarthi-btn saarthi-btn-primary', 'Register via Vani');
+          var regBtn = createEl('button', 'saarthi-btn saarthi-btn-primary', 'Register via ' + assistantName);
           regBtn.type = 'button';
           regBtn.addEventListener('click', function () {
             sendMessage('Register me for ' + (c.course_name || 'this course') + ' at ' + (c.campus || 'NIELIT Bhubaneswar') + ' [course_id:' + (c.id || 0) + ']');
@@ -508,6 +515,9 @@
   }
 
   function appendMessage(text, role, cards, skipPersist) {
+    if (role !== 'user') {
+      text = useAssistantName(text);
+    }
     var div = createEl('div', 'portal-assistant-msg portal-assistant-msg--' + (role === 'user' ? 'user' : 'bot'));
     var body = createEl('div', 'saarthi-msg-body');
     if (role === 'user') {
@@ -535,9 +545,9 @@
 
   function appendLoadingSkeleton() {
     var labels = {
-      en: 'Vani is thinking',
-      hi: 'वाणी सोच रही है',
-      or: 'ବାଣୀ ଚିନ୍ତା କରୁଛି'
+      en: assistantName + ' is thinking',
+      hi: assistantName + ' उत्तर तैयार कर रहा है',
+      or: assistantName + ' ଉତ୍ତର ପ୍ରସ୍ତୁତ କରୁଛି'
     };
     var labelText = labels[activeLang] || labels.en;
 
@@ -627,7 +637,7 @@
       .then(function (pack) {
         typing.remove();
         var d = pack.data || {};
-        var reply = d.reply || d.error || 'Sorry, something went wrong. Please try again or contact the centre.';
+        var reply = useAssistantName(d.reply || d.error || 'Sorry, something went wrong. Please try again or contact the centre.');
         if (!pack.res.ok && d.error) {
           reply = d.error;
         }

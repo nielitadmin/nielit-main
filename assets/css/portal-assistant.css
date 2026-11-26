@@ -1,4 +1,28 @@
 /* Saarthi AI Campus & Portal Assistant Widget + Bottom-Right Dock */
+#portal-assistant-root {
+    --blue: #1d4ed8;
+    --navy: #0b1f3a;
+    --gold: #f59e0b;
+}
+
+#portal-assistant-root[data-assistant-theme="forest"] {
+    --blue: #047857;
+    --navy: #052e2b;
+    --gold: #a3e635;
+}
+
+#portal-assistant-root[data-assistant-theme="plum"] {
+    --blue: #7e22ce;
+    --navy: #2e1065;
+    --gold: #f0abfc;
+}
+
+#portal-assistant-root[data-assistant-theme="sunset"] {
+    --blue: #ea580c;
+    --navy: #431407;
+    --gold: #fbbf24;
+}
+
 .portal-assistant-dock {
     position: fixed;
     right: 16px;

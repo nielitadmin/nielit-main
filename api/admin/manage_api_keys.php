@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         case 'save_automation':
             if (($_SESSION['admin_role'] ?? '') === 'master_admin') {
                 if (savePortalAutomationSettings($conn, $_POST)) {
-                    $_SESSION['success'] = 'Automation webhook settings saved.';
+                    $_SESSION['success'] = 'Automation and Gyansetu settings saved.';
                     if (file_exists(__DIR__ . '/../../includes/activity_logger.php')) {
                         require_once __DIR__ . '/../../includes/activity_logger.php';
                         if (function_exists('logActivity')) {
@@ -63,6 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     'notify_student_actions' => !empty($_POST['notify_student_actions']),
                                     'has_chat_webhook' => trim((string) ($_POST['chat_webhook_url'] ?? '')) !== '',
                                     'alert_email_set' => trim((string) ($_POST['alert_email'] ?? '')) !== '',
+                                    'assistant_name' => trim((string) ($_POST['assistant_name'] ?? 'Gyansetu')),
+                                    'assistant_theme' => trim((string) ($_POST['assistant_theme'] ?? 'ocean')),
                                 ],
                             ]);
                         }
@@ -348,7 +350,33 @@ $active_theme = loadActiveTheme($conn);
                                                 <label class="form-check-label" for="notify_student">Only student-related actions</label>
                                             </div>
                                         </div>
-                                        <div class="col-12"><hr class="my-2"><p class="small fw-semibold mb-2">Vani AI Assistant (n8n / Gemini / OpenAI / Local fallback)</p></div>
+                                        <div class="col-12">
+                                            <hr class="my-2">
+                                            <p class="small fw-semibold mb-1">Chatbot branding and theme</p>
+                                            <p class="small text-muted mb-0">Only master admins can change the chatbot name or appearance.</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label" for="assistant_name">Chatbot name</label>
+                                            <input type="text" class="form-control" id="assistant_name" name="assistant_name"
+                                                   value="<?php echo htmlspecialchars((string) ($automationSettings['assistant_name'] ?? 'Gyansetu'), ENT_QUOTES, 'UTF-8'); ?>"
+                                                   maxlength="60" required>
+                                            <p class="small text-muted mb-0">Shown in the chatbot, greetings, and registration guidance.</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label" for="assistant_theme">Chatbot theme</label>
+                                            <?php $assistantThemeOptions = portalAssistantThemeOptions(); ?>
+                                            <?php $selectedAssistantTheme = (string) ($automationSettings['assistant_theme'] ?? 'ocean'); ?>
+                                            <select class="form-select" id="assistant_theme" name="assistant_theme">
+                                                <?php foreach ($assistantThemeOptions as $themeValue => $themeLabel): ?>
+                                                    <option value="<?php echo htmlspecialchars($themeValue, ENT_QUOTES, 'UTF-8'); ?>"
+                                                        <?php echo $selectedAssistantTheme === $themeValue ? 'selected' : ''; ?>>
+                                                        <?php echo htmlspecialchars($themeLabel, ENT_QUOTES, 'UTF-8'); ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <p class="small text-muted mb-0">Choose from the available color themes.</p>
+                                        </div>
+                                        <div class="col-12"><hr class="my-2"><p class="small fw-semibold mb-2">Gyansetu AI response settings (n8n / Gemini / OpenAI / Local fallback)</p></div>
                                         <div class="col-md-4">
                                             <label class="form-label">Preferred AI backend</label>
                                             <?php $selProvider = (string) ($automationSettings['ai_provider'] ?? 'auto'); ?>
@@ -386,7 +414,7 @@ $active_theme = loadActiveTheme($conn);
                                             <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" name="chat_webhook_enabled" value="1" id="chat_webhook_enabled"
                                                     <?php echo !empty($automationSettings['chat_webhook_enabled']) ? 'checked' : ''; ?>>
-                                                <label class="form-check-label" for="chat_webhook_enabled">Enable n8n for Vani AI chat replies</label>
+                                                <label class="form-check-label" for="chat_webhook_enabled">Enable n8n for Gyansetu chat replies</label>
                                             </div>
                                         </div>
                                         <div class="col-12">
