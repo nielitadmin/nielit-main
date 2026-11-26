@@ -1862,28 +1862,88 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 $primary['stream'] = 'General';
                 $reg['exams'][count($reg['exams']) - 1]['stream'] = 'General';
             }
-            $reg['qualification'] = (string) $primary['exam_passed'];
-            $reg['board_university'] = (string) $primary['institute_name'];
-            $reg['college_name'] = (string) $primary['institute_name'];
-            $reg['year_of_passing'] = (string) $primary['year_of_passing'];
-            $reg['stream'] = (string) $primary['stream'];
-            $reg['percentage'] = (string) $primary['percentage'];
-            $reg['step'] = 5;
+
+            // ── Multi-exam: check if user wants to add another exam ──────────
+            // User can type "Done", "No more", "Next", "Proceed", or just the
+            // next exam line.  If the message looks like "done / no more / next /
+            // proceed / step 5", flush and advance to Step 5.
+            $isDone = (bool) preg_match(
+                '/^\s*(done|no\s*more|next|proceed|continue|step\s*5|finish|finalize|ok|that[\'\s]*s\s*all|that[\'\s]*s\s*it|only\s*(one|this)|just\s*(one|this)|ek\s*hi|bas|yahi\s*hai|ଏତିକି|ଯଥେଷ୍ଟ)\s*$/iu',
+                $message
+            );
+
+            // Build a readable exam list to show back to the user
+            $examLines = [];
+            foreach ($reg['exams'] as $ex) {
+                $ep = $ex['exam_passed'] ?? $ex['exam_name'] ?? '';
+                $inst = $ex['institute_name'] ?? '';
+                $yr   = $ex['year_of_passing'] ?? '';
+                $pct  = $ex['percentage'] ?? '';
+                $st   = $ex['stream'] ?? '';
+                $line = "**{$ep}**";
+                if ($inst !== '') $line .= " — {$inst}";
+                if ($yr   !== '') $line .= " ({$yr})";
+                if ($pct  !== '') $line .= " {$pct}";
+                if ($st   !== '' && $st !== 'General') $line .= " [{$st}]";
+                $examLines[] = $line;
+            }
+            $examSummary = implode("\n• ", $examLines);
+
+            if ($isDone || empty($examLines)) {
+                // Advance to Step 5
+                $reg['qualification']   = (string) $primary['exam_passed'];
+                $reg['board_university']= (string) $primary['institute_name'];
+                $reg['college_name']    = (string) $primary['institute_name'];
+                $reg['year_of_passing'] = (string) $primary['year_of_passing'];
+                $reg['stream']          = (string) $primary['stream'];
+                $reg['percentage']      = (string) $primary['percentage'];
+                $reg['step'] = 5;
+                $_SESSION['saarthi_reg'] = $reg;
+
+                return [
+                    'reply' => saarthi_localized_text(
+                        $lang,
+                        "**Step 5 of 5 (Final Step):** Please share:\n• **Category** (General / OBC / SC / ST / EWS) & **PwD Status** (Yes / No)\n• **Aadhar Number** (12 digits, or \"Skip\") & optional **APAAR ID**\n• **Full Correspondence Address** (with PIN code)",
+                        "**चरण 5/5 (अंतिम चरण):** कृपया ये विवरण दें:\n• **श्रेणी** (General / OBC / SC / ST / EWS) और **PwD स्थिति** (Yes / No)\n• **आधार नंबर** (12 अंक, या \"Skip\") और वैकल्पिक **APAAR ID**\n• **पूरा पत्राचार पता** (पिन कोड सहित)",
+                        "**ସୋପାନ ୫/୫ (ଶେଷ ସୋପାନ):** ଦୟାକରି ଏହି ତଥ୍ୟ ଦିଅନ୍ତୁ:\n• **ବର୍ଗ** (General / OBC / SC / ST / EWS) ଏବଂ **PwD ସ୍ଥିତି** (Yes / No)\n• **ଆଧାର ନମ୍ବର** (୧୨ ଅଙ୍କ, କିମ୍ବା \"Skip\") ଓ ଇଚ୍ଛାଧୀନ **APAAR ID**\n• **ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା** (PIN କୋଡ୍ ସହିତ)"
+                    ),
+                    'mode' => 'local',
+                    'avatar_state' => 'guide',
+                    'lang' => $lang,
+                    'ui_action' => 'NONE',
+                    'quick_replies' => ['General, PwD No, Skip', 'OBC, PwD No, Skip', 'SC/ST, PwD No, Skip'],
+                    'cards' => [],
+                ];
+            }
+
+            // ── First exam complete — ask if they have more ──────────────────
             $_SESSION['saarthi_reg'] = $reg;
+            $examCount = count($reg['exams']);
+            $addMoreTip = saarthi_localized_text(
+                $lang,
+                "*Tip: Type the next exam (e.g. `12th, CBSE, 2019, Science, 85%`) or tap **Done** to continue.*",
+                "*सुझाव: अगली परीक्षा टाइप करें (जैसे `12th, CBSE, 2019, Science, 85%`) या **Done** दबाएं।*",
+                "*ସୁଝାବ: ପରବର୍ତ୍ତୀ ପରୀକ୍ଷା ଟାଇପ୍ କରନ୍ତୁ (ଯଥା `12th, CBSE, 2019, Science, 85%`) ଅଥବା **Done** ଦବାନ୍ତୁ।*"
+            );
+            $savedMsg  = saarthi_localized_text(
+                $lang,
+                "✅ Exam {$examCount} saved:\n• {$examSummary}\n\nDo you have **more exams** to add (e.g. 12th, B.Tech, Diploma)?\n{$addMoreTip}",
+                "✅ परीक्षा {$examCount} सहेजी गई:\n• {$examSummary}\n\nक्या आपके **और परीक्षाएं** हैं (जैसे 12वीं, B.Tech, Diploma)?\n{$addMoreTip}",
+                "✅ ପରୀକ୍ଷା {$examCount} ସଞ୍ଚୟ ହୋଇଛି:\n• {$examSummary}\n\nଆପଣଙ୍କର **ଆଉ ପରୀକ୍ଷା** ଅଛି କି (ଯଥା 12th, B.Tech, Diploma)?\n{$addMoreTip}"
+            );
 
             return [
-                'reply' => saarthi_localized_text(
-                    $lang,
-                    "**Step 5 of 5 (Final Step):** Please share:\n• **Category** (General / OBC / SC / ST / EWS) & **PwD Status** (Yes / No)\n• **Aadhar Number** (12 digits, or \"Skip\") & optional **APAAR ID**\n• **Full Correspondence Address** (with PIN code)",
-                    "**चरण 5/5 (अंतिम चरण):** कृपया ये विवरण दें:\n• **श्रेणी** (General / OBC / SC / ST / EWS) और **PwD स्थिति** (Yes / No)\n• **आधार नंबर** (12 अंक, या \"Skip\") और वैकल्पिक **APAAR ID**\n• **पूरा पत्राचार पता** (पिन कोड सहित)",
-                    "**ସୋପାନ ୫/୫ (ଶେଷ ସୋପାନ):** ଦୟାକରି ଏହି ତଥ୍ୟ ଦିଅନ୍ତୁ:\n• **ବର୍ଗ** (General / OBC / SC / ST / EWS) ଏବଂ **PwD ସ୍ଥିତି** (Yes / No)\n• **ଆଧାର ନମ୍ବର** (୧୨ ଅଙ୍କ, କିମ୍ବା \"Skip\") ଓ ଇଚ୍ଛାଧୀନ **APAAR ID**\n• **ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା** (PIN କୋଡ୍ ସହିତ)"
-                ),
-                'mode' => 'local',
+                'reply'        => $savedMsg,
+                'mode'         => 'local',
                 'avatar_state' => 'guide',
-                'lang' => $lang,
-                'ui_action' => 'NONE',
-                'quick_replies' => ['General, PwD No, Skip', 'OBC, PwD No, Skip', 'SC/ST, PwD No, Skip'],
-                'cards' => [],
+                'lang'         => $lang,
+                'ui_action'    => 'NONE',
+                'quick_replies'=> [
+                    saarthi_localized_text($lang, 'Done (proceed to Step 5)', 'Done (Step 5 जाएं)', 'Done (Step 5 ଯାଆନ୍ତୁ)'),
+                    saarthi_localized_text($lang, 'Add 12th details', '12वीं जोड़ें', '12th ଯୋଗ କରନ୍ତୁ'),
+                    saarthi_localized_text($lang, 'Add Graduation / B.Tech', 'Graduation / B.Tech जोड़ें', 'Graduation / B.Tech ଯୋଗ କରନ୍ତୁ'),
+                ],
+                'cards'        => [],
             ];
         }
 
