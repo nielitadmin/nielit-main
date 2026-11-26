@@ -48,5 +48,14 @@ if (!function_exists('public_skeleton_render_script')) {
         $jsVer = public_skeleton_asset_version('assets/js/public-skeleton.js');
 
         echo '<script src="' . htmlspecialchars($jsUrl, ENT_QUOTES, 'UTF-8') . '?v=' . $jsVer . '"></script>' . "\n";
+
+        $assistantWidget = __DIR__ . '/portal_assistant_widget.php';
+        if (empty($GLOBALS['saarthi_hide_widget']) && is_file($assistantWidget)) {
+            require_once $assistantWidget;
+            if (function_exists('portal_assistant_render_widget')) {
+                $dbConn = (isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli) ? $GLOBALS['conn'] : null;
+                portal_assistant_render_widget($dbConn);
+            }
+        }
     }
 }

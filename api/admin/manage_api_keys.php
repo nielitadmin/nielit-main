@@ -348,20 +348,53 @@ $active_theme = loadActiveTheme($conn);
                                                 <label class="form-check-label" for="notify_student">Only student-related actions</label>
                                             </div>
                                         </div>
-                                        <div class="col-12"><hr class="my-2"><p class="small fw-semibold mb-2">Homepage NIELIT Assistant → n8n chat</p></div>
+                                        <div class="col-12"><hr class="my-2"><p class="small fw-semibold mb-2">Saarthi AI Assistant (n8n / Gemini / OpenAI / Local fallback)</p></div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Preferred AI backend</label>
+                                            <?php $selProvider = (string) ($automationSettings['ai_provider'] ?? 'auto'); ?>
+                                            <select class="form-select" name="ai_provider">
+                                                <option value="auto" <?php echo $selProvider === 'auto' ? 'selected' : ''; ?>>Auto (n8n → Gemini → OpenAI → Local En/Hi/Or)</option>
+                                                <option value="gemini" <?php echo $selProvider === 'gemini' ? 'selected' : ''; ?>>Google Gemini (with DB tools)</option>
+                                                <option value="openai" <?php echo $selProvider === 'openai' ? 'selected' : ''; ?>>OpenAI GPT (with DB tools)</option>
+                                                <option value="n8n" <?php echo $selProvider === 'n8n' ? 'selected' : ''; ?>>n8n Chat Webhook</option>
+                                                <option value="local" <?php echo $selProvider === 'local' ? 'selected' : ''; ?>>Smart Multilingual Rule Engine only</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Gemini API key <?php echo !empty($automationSettings['gemini_api_key']) ? '<span class="badge bg-success ms-1">Saved</span>' : ''; ?></label>
+                                            <input type="password" class="form-control" name="gemini_api_key" autocomplete="new-password"
+                                                   value="" placeholder="<?php echo !empty($automationSettings['gemini_api_key']) ? '•••••••• (leave blank to keep saved)' : 'AIza...'; ?>">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">Gemini model</label>
+                                            <input type="text" class="form-control" name="gemini_model"
+                                                   value="<?php echo htmlspecialchars((string) ($automationSettings['gemini_model'] ?? 'gemini-2.0-flash')); ?>"
+                                                   placeholder="gemini-2.0-flash">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">OpenAI API key <?php echo !empty($automationSettings['openai_api_key']) ? '<span class="badge bg-success ms-1">Saved</span>' : ''; ?></label>
+                                            <input type="password" class="form-control" name="openai_api_key" autocomplete="new-password"
+                                                   value="" placeholder="<?php echo !empty($automationSettings['openai_api_key']) ? '•••••••• (leave blank to keep saved)' : 'sk-...'; ?>">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">OpenAI model</label>
+                                            <input type="text" class="form-control" name="openai_model"
+                                                   value="<?php echo htmlspecialchars((string) ($automationSettings['openai_model'] ?? 'gpt-4o-mini')); ?>"
+                                                   placeholder="gpt-4o-mini">
+                                        </div>
                                         <div class="col-12">
                                             <div class="form-check form-switch">
                                                 <input class="form-check-input" type="checkbox" name="chat_webhook_enabled" value="1" id="chat_webhook_enabled"
                                                     <?php echo !empty($automationSettings['chat_webhook_enabled']) ? 'checked' : ''; ?>>
-                                                <label class="form-check-label" for="chat_webhook_enabled">Enable n8n for homepage chat replies</label>
+                                                <label class="form-check-label" for="chat_webhook_enabled">Enable n8n for Saarthi chat replies</label>
                                             </div>
                                         </div>
                                         <div class="col-12">
-                                            <label class="form-label">Chat webhook URL</label>
+                                            <label class="form-label">Chat webhook URL (n8n)</label>
                                             <input type="url" class="form-control" name="chat_webhook_url"
                                                    value="<?php echo htmlspecialchars((string) ($automationSettings['chat_webhook_url'] ?? '')); ?>"
                                                    placeholder="https://nielitbbsr.app.n8n.cloud/webhook/nielit-portal-chat">
-                                            <p class="small text-muted mb-0">Uses the same shared secret header. Import <code>nielit-portal-chat.json</code> from <code>docs/automation/n8n/</code>.</p>
+                                            <p class="small text-muted mb-0">Uses the same shared secret header. Import <code>nielit-portal-chat.json</code> from <code>docs/automation/n8n/</code>. Live DB search &amp; conversational registration run automatically in all modes.</p>
                                         </div>
                                         <div class="col-12">
                                             <button type="submit" class="btn btn-success"><i class="fas fa-save"></i> Save automation</button>

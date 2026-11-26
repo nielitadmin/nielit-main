@@ -729,5 +729,9 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+<?php
+require_once __DIR__ . '/../includes/portal_assistant_widget.php';
+portal_assistant_render_widget(isset($conn) && $conn instanceof mysqli ? $conn : null);
+?>
 </body>
 </html>

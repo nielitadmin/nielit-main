@@ -31,15 +31,22 @@ if (!function_exists('ensurePortalAutomationSettingsTable')) {
 if (!function_exists('ensurePortalAutomationChatColumns')) {
     function ensurePortalAutomationChatColumns(mysqli $conn): void
     {
-        $check = $conn->query("SHOW COLUMNS FROM portal_automation_settings LIKE 'chat_webhook_enabled'");
-        if ($check && $check->num_rows > 0) {
-            return;
+        $cols = [
+            'chat_webhook_enabled' => 'TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_student_actions',
+            'chat_webhook_url' => 'VARCHAR(500) NULL DEFAULT NULL AFTER chat_webhook_enabled',
+            'ai_provider' => "VARCHAR(30) NOT NULL DEFAULT 'auto' AFTER chat_webhook_url",
+            'gemini_api_key' => 'VARCHAR(255) NULL DEFAULT NULL AFTER ai_provider',
+            'gemini_model' => "VARCHAR(80) NOT NULL DEFAULT 'gemini-2.0-flash' AFTER gemini_api_key",
+            'openai_api_key' => 'VARCHAR(255) NULL DEFAULT NULL AFTER gemini_model',
+            'openai_model' => "VARCHAR(80) NOT NULL DEFAULT 'gpt-4o-mini' AFTER openai_api_key",
+        ];
+        foreach ($cols as $name => $def) {
+            $esc = $conn->real_escape_string($name);
+            $check = @$conn->query("SHOW COLUMNS FROM portal_automation_settings LIKE '{$esc}'");
+            if (!$check || $check->num_rows === 0) {
+                @$conn->query("ALTER TABLE portal_automation_settings ADD COLUMN `{$name}` {$def}");
+            }
         }
-        $conn->query(
-            'ALTER TABLE portal_automation_settings
-             ADD COLUMN chat_webhook_enabled TINYINT(1) NOT NULL DEFAULT 0 AFTER notify_student_actions,
-             ADD COLUMN chat_webhook_url VARCHAR(500) NULL DEFAULT NULL AFTER chat_webhook_enabled'
-        );
     }
 }
 
@@ -97,6 +104,11 @@ if (!function_exists('getPortalAutomationSettings')) {
                 'notify_student_actions' => 1,
                 'chat_webhook_enabled' => 0,
                 'chat_webhook_url' => '',
+                'ai_provider' => 'auto',
+                'gemini_api_key' => '',
+                'gemini_model' => 'gemini-2.0-flash',
+                'openai_api_key' => '',
+                'openai_model' => 'gpt-4o-mini',
                 'alert_email' => automationDefaultAlertEmail(),
             ];
         }
@@ -129,16 +141,50 @@ if (!function_exists('savePortalAutomationSettings')) {
         if ($chatUrl !== '' && !preg_match('#^https?://#i', $chatUrl)) {
             $chatUrl = 'https://' . $chatUrl;
         }
+        $aiProvider = strtolower(trim((string) ($data['ai_provider'] ?? 'auto')));
+        if (!in_array($aiProvider, ['auto', 'gemini', 'openai', 'n8n', 'local'], true)) {
+            $aiProvider = 'auto';
+        }
+        $geminiModel = trim((string) ($data['gemini_model'] ?? 'gemini-2.0-flash')) ?: 'gemini-2.0-flash';
+        $openaiModel = trim((string) ($data['openai_model'] ?? 'gpt-4o-mini')) ?: 'gpt-4o-mini';
+
+        // Preserve stored key when blank unless explicit clear flag is passed
+        $existing = getPortalAutomationSettings($conn);
+        $geminiKeyInput = trim((string) ($data['gemini_api_key'] ?? ''));
+        $openaiKeyInput = trim((string) ($data['openai_api_key'] ?? ''));
+        $geminiKey = !empty($data['clear_gemini_key'])
+            ? ''
+            : ($geminiKeyInput !== '' ? $geminiKeyInput : (string) ($existing['gemini_api_key'] ?? ''));
+        $openaiKey = !empty($data['clear_openai_key'])
+            ? ''
+            : ($openaiKeyInput !== '' ? $openaiKeyInput : (string) ($existing['openai_api_key'] ?? ''));
+
         $stmt = $conn->prepare(
             'UPDATE portal_automation_settings
              SET webhook_enabled = ?, webhook_url = NULLIF(?, \'\'), webhook_secret = NULLIF(?, \'\'), notify_student_actions = ?,
-                 chat_webhook_enabled = ?, chat_webhook_url = NULLIF(?, \'\'), alert_email = NULLIF(?, \'\')
+                 chat_webhook_enabled = ?, chat_webhook_url = NULLIF(?, \'\'), alert_email = NULLIF(?, \'\'),
+                 ai_provider = ?, gemini_api_key = NULLIF(?, \'\'), gemini_model = ?,
+                 openai_api_key = NULLIF(?, \'\'), openai_model = ?
              WHERE id = 1'
         );
         if (!$stmt) {
             return false;
         }
-        $stmt->bind_param('issiiss', $enabled, $url, $secret, $notify, $chatEnabled, $chatUrl, $alertEmail);
+        $stmt->bind_param(
+            'issiisssssss',
+            $enabled,
+            $url,
+            $secret,
+            $notify,
+            $chatEnabled,
+            $chatUrl,
+            $alertEmail,
+            $aiProvider,
+            $geminiKey,
+            $geminiModel,
+            $openaiKey,
+            $openaiModel
+        );
         $ok = $stmt->execute();
         $stmt->close();
         return $ok;
@@ -369,9 +415,11 @@ if (!function_exists('automationFetchActivityFeed')) {
 
 if (!function_exists('automationPortalChatRequest')) {
     /**
-     * Synchronous n8n chat webhook for homepage assistant (JSON in/out).
+     * Synchronous n8n chat webhook for Saarthi assistant (JSON in/out).
+     * Returns string reply or structured Saarthi response array when n8n emits metadata.
      *
      * @param list<array{role: string, content: string}> $history
+     * @return string|array<string, mixed>|null
      */
     function automationPortalChatRequest(
         mysqli $conn,
@@ -379,7 +427,7 @@ if (!function_exists('automationPortalChatRequest')) {
         array $history = [],
         array $actor = [],
         array $context = []
-    ): ?string {
+    ) {
         $settings = getPortalAutomationSettings($conn);
         if (empty($settings['chat_webhook_enabled'])) {
             return null;
@@ -395,6 +443,7 @@ if (!function_exists('automationPortalChatRequest')) {
         $secret = trim((string) ($settings['webhook_secret'] ?? ''));
         $body = json_encode([
             'event' => 'portal_chat',
+            'assistant' => 'Saarthi',
             'message' => $message,
             'history' => array_slice($history, -10),
             'actor' => $actor,
@@ -408,7 +457,7 @@ if (!function_exists('automationPortalChatRequest')) {
 
         $headers = [
             'Content-Type: application/json',
-            'User-Agent: NIELIT-PortalAssistant/1.0',
+            'User-Agent: NIELIT-PortalAssistant/2.0-Saarthi',
             'X-NIELIT-Event: portal_chat',
         ];
         if ($secret !== '') {
@@ -436,18 +485,27 @@ if (!function_exists('automationPortalChatRequest')) {
             if (!is_array($decoded)) {
                 return trim($raw);
             }
-            if (isset($decoded['reply']) && is_string($decoded['reply'])) {
-                return trim($decoded['reply']);
+            $payload = $decoded;
+            if (isset($decoded['body']) && is_array($decoded['body'])) {
+                $payload = $decoded['body'];
+            } elseif (isset($decoded['data']) && is_array($decoded['data'])) {
+                $payload = $decoded['data'];
             }
-            if (isset($decoded['output']) && is_string($decoded['output'])) {
-                return trim($decoded['output']);
+            $replyText = $payload['reply'] ?? ($payload['output'] ?? null);
+            if (!is_string($replyText) || trim($replyText) === '') {
+                return null;
             }
-            if (isset($decoded['body']) && is_array($decoded['body']) && isset($decoded['body']['reply'])) {
-                return trim((string) $decoded['body']['reply']);
+            if (isset($payload['avatar_state']) || isset($payload['ui_action']) || isset($payload['quick_replies']) || isset($payload['lang']) || isset($payload['cards'])) {
+                return [
+                    'reply' => trim($replyText),
+                    'avatar_state' => (string) ($payload['avatar_state'] ?? ''),
+                    'lang' => (string) ($payload['lang'] ?? ''),
+                    'ui_action' => (string) ($payload['ui_action'] ?? 'NONE'),
+                    'quick_replies' => is_array($payload['quick_replies'] ?? null) ? $payload['quick_replies'] : [],
+                    'cards' => is_array($payload['cards'] ?? null) ? $payload['cards'] : [],
+                ];
             }
-            if (isset($decoded['data']['reply']) && is_string($decoded['data']['reply'])) {
-                return trim($decoded['data']['reply']);
-            }
+            return trim($replyText);
         } catch (Throwable $e) {
             error_log('automationPortalChatRequest: ' . $e->getMessage());
         }

@@ -99,7 +99,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const body = $input.first().json;\nconst msg = String(body.msg || body.message || '').trim();\nconst lower = msg.toLowerCase();\nlet reply = `You asked: \"${msg.slice(0, 400)}\"\\n\\n`;\nif (/^(hi|hello|namaste)/i.test(msg)) {\n  reply = 'Hello from n8n! I can help with student login, fees, mock test, and (for staff) recent student update reports. Try: \"student update report\".';\n} else if (/n8n|webhook/.test(lower)) {\n  reply = 'n8n hooks:\\n• student-updates webhook → email on each edit\\n• portal-chat webhook → this chat\\n• Configure in portal API & Automation.';\n} else if (/login|register|fee|mock/.test(lower)) {\n  reply = 'Use the homepage links: Student Portal, Payment portal, Mock test — or open NIELIT Assistant chips on the chat widget.';\n} else {\n  reply += 'Try \"student update report\" (staff), or ask about login, registration, fees, mock test.';\n}\nreturn [{ json: { reply } }];"
+        "jsCode": "const body = $input.first().json;\nconst msg = String(body.msg || body.message || '').trim();\nconst lower = msg.toLowerCase();\nconst ctx = body.context || {};\nconst lang = String(ctx.active_lang || 'en');\nlet reply = `You asked: \"${msg.slice(0, 400)}\"\\n\\n`;\nlet avatar_state = 'happy';\nlet ui_action = 'NONE';\nlet quick_replies = ['How does this site work?', 'Ongoing courses & centers', 'Register for a course'];\nif (/^(hi|hello|namaste|namaskar)/i.test(msg)) {\n  avatar_state = 'wave';\n  reply = 'Namaste from Saarthi (via n8n)! I can share the 4-step portal roadmap, check live courses & campus locations, help you register, or show staff student update reports.';\n} else if (/roadmap|how.*site.*work/i.test(lower)) {\n  avatar_state = 'guide';\n  ui_action = 'SHOW_ROADMAP';\n  reply = '4-Step NIELIT Portal Roadmap: 1) Explore Courses -> 2) Check Batch & Seat Status -> 3) Register Online or via Saarthi -> 4) Download Admission Form PDF.';\n} else if (/n8n|webhook/.test(lower)) {\n  avatar_state = 'guide';\n  reply = 'n8n hooks:\\n• student-updates webhook → email on each edit\\n• portal-chat webhook → Saarthi chat\\n• Configure in portal API & Automation.';\n} else if (/login|register|fee|mock|course/.test(lower)) {\n  avatar_state = 'guide';\n  reply = 'Use Saarthi quick chips to browse live courses & campuses, register in chat, or open Student Portal, Payment portal, and Mock Test links.';\n} else {\n  reply += 'Try asking about ongoing courses, campus locations, portal roadmap, or student update report (for staff).';\n}\nreturn [{ json: { reply, avatar_state, lang, ui_action, quick_replies } }];"
       },
       "id": "pc-code-general",
       "name": "General Reply",
@@ -110,7 +110,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ { reply: $json.reply } }}",
+        "responseBody": "={{ { reply: $json.reply, avatar_state: $json.avatar_state || 'happy', lang: $json.lang || 'en', ui_action: $json.ui_action || 'NONE', quick_replies: $json.quick_replies || [] } }}",
         "options": { "responseCode": 200 }
       },
       "id": "pc-respond-ok",
