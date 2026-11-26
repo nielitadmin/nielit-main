@@ -1066,6 +1066,29 @@ if (!function_exists('saarthi_format_saved_fields_line')) {
     }
 }
 
+if (!function_exists('saarthi_step1_course_keyword')) {
+    /**
+     * Extract a pure course keyword for Step 1 without mistaking a campus chip ("Bhubaneswar") for a course name.
+     *
+     * @param array{keyword?: string, location?: string} $intent
+     */
+    function saarthi_step1_course_keyword(string $message, array $intent): string
+    {
+        if (!empty($intent['keyword'])) {
+            return trim((string) $intent['keyword']);
+        }
+        $raw = trim((string) explode('—', $message)[0]);
+        $cleaned = preg_replace(
+            '/\b(bhubaneswar|bbsr|vss\s*nagar|ocac|campus\s*(?:1|i|2|ii)?|baleshwar|balasore|raipur|cuttack|centre|center|location|courses?|programs?|open|ongoing|available|show|list|only|in|at|for|please)\b|ଭୁବନେଶ୍ୱର|ବାଲେଶ୍ୱର|ରାୟପୁର|କଟକ|भुवनेश्वर|बालासोर|रायपुर|कटक/iu',
+            ' ',
+            $raw
+        );
+        $cleaned = trim((string) preg_replace('/[,;|:\-]+/', ' ', (string) $cleaned));
+        $cleaned = trim((string) preg_replace('/\s+/', ' ', (string) $cleaned));
+        return mb_strlen($cleaned) >= 2 ? $cleaned : '';
+    }
+}
+
 if (!function_exists('saarthi_merge_step4_exam_input')) {
     /**
      * Incrementally parse & merge Step 4 examination details without overwriting exam_passed when entering Board/Stream next.
@@ -1521,10 +1544,20 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             if ($intent['location'] !== '') {
                 $reg['center_location'] = $intent['location'];
             }
-            $kw = $intent['keyword'] !== '' ? $intent['keyword'] : trim(explode('—', $message)[0]);
+            $kw = saarthi_step1_course_keyword($message, $intent);
             $search = saarthi_search_courses($conn, $kw, $reg['center_location'], 'ongoing');
-            if (!empty($search['exact_match']) && !empty($search['courses'][0])) {
-                $picked = $search['courses'][0];
+            $matchedCourses = $search['courses'] ?? [];
+            $canAutoPick = false;
+            if ($kw !== '' && !empty($search['exact_match']) && !empty($matchedCourses[0])) {
+                $firstCourseName = saarthi_lower((string) ($matchedCourses[0]['course_name'] ?? ''));
+                $firstCourseCode = saarthi_lower((string) ($matchedCourses[0]['course_code'] ?? ''));
+                $kwLower = saarthi_lower($kw);
+                $canAutoPick = count($matchedCourses) === 1
+                    || strpos($firstCourseName, $kwLower) !== false
+                    || ($firstCourseCode !== '' && $firstCourseCode === $kwLower);
+            }
+            if ($canAutoPick) {
+                $picked = $matchedCourses[0];
                 $reg['course_id'] = (int) $picked['id'];
                 $reg['course_name'] = (string) $picked['course_name'];
                 if ($reg['center_location'] === '') {
@@ -1553,21 +1586,21 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             $step1Chips = $lang === 'hi'
                 ? ['Bhubaneswar', 'Baleshwar', 'Raipur', 'रद्द करें']
                 : ($lang === 'or' ? ['Bhubaneswar', 'Baleshwar', 'Raipur', 'ବାତିଲ୍ କରନ୍ତୁ'] : ['Bhubaneswar', 'Baleshwar', 'Raipur', 'Cancel']);
-            $locNote = $reg['center_location'] !== '' ? " ({$reg['center_location']})" : '';
+            $locNote = $reg['center_location'] !== '' ? " in **{$reg['center_location']}**" : '';
             $reply = saarthi_localized_text(
                 $lang,
-                "Here are the available open courses{$locNote}. Please tap **Register via Vani** on any course card or type the exact course name:",
-                "यहाँ उपलब्ध कोर्स{$locNote} दिए गए हैं। कृपया किसी भी कार्ड पर **Register via Vani** दबाएं या कोर्स का नाम लिखें:",
-                "ଏଠାରେ ଉପଲବ୍ଧ କୋର୍ସ{$locNote} ଦିଆଯାଇଛି। ଦୟାକରି ଯେକୌଣସି କାର୍ଡରେ **Register via Vani** କ୍ଲିକ୍ କରନ୍ତୁ କିମ୍ବା କୋର୍ସର ନାମ ଲେଖନ୍ତୁ:"
+                "Here are the open courses{$locNote}. Tap **Register via Vani** on the course you want, or type its exact name:",
+                "यहाँ उपलब्ध कोर्स{$locNote} दिए गए हैं। अपनी पसंद के कोर्स कार्ड पर **Register via Vani** दबाएं या उसका नाम लिखें:",
+                "ଏଠାରେ ଉପଲବ୍ଧ କୋର୍ସ{$locNote} ଦିଆଯାଇଛି। ଆପଣ ଚାହୁଁଥିବା କୋର୍ସ କାର୍ଡରେ **Register via Vani** କ୍ଲିକ୍ କରନ୍ତୁ କିମ୍ବା ନାମ ଲେଖନ୍ତୁ:"
             );
             return [
                 'reply' => $reply,
                 'mode' => 'local',
-                'avatar_state' => 'thinking',
+                'avatar_state' => 'guide',
                 'lang' => $lang,
                 'ui_action' => 'OPEN_REGISTRATION',
                 'quick_replies' => $step1Chips,
-                'cards' => !empty($search['courses']) ? ['courses' => array_slice($search['courses'], 0, 4)] : [],
+                'cards' => !empty($matchedCourses) ? ['courses' => array_slice($matchedCourses, 0, 5)] : [],
             ];
         }
 
