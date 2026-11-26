@@ -36,7 +36,7 @@ if (!function_exists('ensurePortalAutomationChatColumns')) {
             'chat_webhook_url' => 'VARCHAR(500) NULL DEFAULT NULL AFTER chat_webhook_enabled',
             'ai_provider' => "VARCHAR(30) NOT NULL DEFAULT 'auto' AFTER chat_webhook_url",
             'gemini_api_key' => 'VARCHAR(255) NULL DEFAULT NULL AFTER ai_provider',
-            'gemini_model' => "VARCHAR(80) NOT NULL DEFAULT 'gemini-2.0-flash' AFTER gemini_api_key",
+            'gemini_model' => "VARCHAR(80) NOT NULL DEFAULT 'gemini-2.5-flash' AFTER gemini_api_key",
             'openai_api_key' => 'VARCHAR(255) NULL DEFAULT NULL AFTER gemini_model',
             'openai_model' => "VARCHAR(80) NOT NULL DEFAULT 'gpt-4o-mini' AFTER openai_api_key",
         ];
@@ -106,7 +106,7 @@ if (!function_exists('getPortalAutomationSettings')) {
                 'chat_webhook_url' => '',
                 'ai_provider' => 'auto',
                 'gemini_api_key' => '',
-                'gemini_model' => 'gemini-2.0-flash',
+                'gemini_model' => 'gemini-2.5-flash',
                 'openai_api_key' => '',
                 'openai_model' => 'gpt-4o-mini',
                 'alert_email' => automationDefaultAlertEmail(),
@@ -145,7 +145,7 @@ if (!function_exists('savePortalAutomationSettings')) {
         if (!in_array($aiProvider, ['auto', 'gemini', 'openai', 'n8n', 'local'], true)) {
             $aiProvider = 'auto';
         }
-        $geminiModel = trim((string) ($data['gemini_model'] ?? 'gemini-2.0-flash')) ?: 'gemini-2.0-flash';
+        $geminiModel = trim((string) ($data['gemini_model'] ?? 'gemini-2.5-flash')) ?: 'gemini-2.5-flash';
         $openaiModel = trim((string) ($data['openai_model'] ?? 'gpt-4o-mini')) ?: 'gpt-4o-mini';
 
         // Preserve stored key when blank unless explicit clear flag is passed
