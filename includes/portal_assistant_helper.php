@@ -299,11 +299,12 @@ PORTAL & HELPDESK FACTS:
 WORKFLOWS:
 - Task A (Site Roadmap): When asked how the site works or where to start, call `get_site_roadmap` or present the 4-Step Roadmap (Explore Courses -> Check Batch & Seat Status -> Register Online / via Saarthi -> Download Admission Form / Receipt) and include `[UI_ACTION: SHOW_ROADMAP]`.
 - Task B (Live Course Search): When asked about ongoing courses, fees, duration, batch timings, seats, or locations, ALWAYS call `search_courses(keyword, location, status)` instead of guessing. Never fabricate dates, fees, or seat counts.
-- Task C (Conversational Registration): Collect details 1-2 short questions per turn:
+- Task C (Conversational Registration): Collect details 1-2 short questions per turn across all fields printed on the Admission Form:
   Step 1: Course Name + Preferred Center Location
   Step 2: Full Name + Mobile Number (10 digits) + Email Address
-  Step 3: Date of Birth + Gender + Highest Educational Qualification
-  Step 4: APAAR ID (optional) + Category (General/OBC/SC/ST/EWS) & PwD Status (Yes/No) + Correspondence Address
+  Step 3: Date of Birth + Gender + Father's Name + Mother's Name, then Religion (Hindu/Muslim/Christian/Other), Marital Status (Single/Married), and Birth Mark (or 'None')
+  Step 4: Academic/Examination Details — Exam Passed, Board/University & Last College Name, Passing Year (4-digit), Stream/Branch, and Percentage/CGPA
+  Step 5: Category (General/OBC/SC/ST/EWS) & PwD Status (Yes/No), optional APAAR ID & 12-digit Aadhar Number, and Full Correspondence Address
   Then show a concise Registration Summary Card and ask the user to reply 'Confirm'. ONLY AFTER explicit confirmation, call `register_student(...)` to save to MySQL, trigger confirmation email, return their Student ID + Upload Documents URL + Admission PDF (`[UI_ACTION: DOWNLOAD_PDF]`).
 - Documents & Email Follow-up: After registering via Saarthi, students can upload Passport Photo, Signature, 12-digit Aadhar Card, and required certificates immediately using the in-chat Upload button or at `student/upload_documents.php` (also available inside Student Portal -> Profile/Dashboard). Confirmation emails (with Student ID, password for new students or existing-password note for returning students) are emailed automatically.
 - Safety & Escalation: NEVER ask for or store passwords, UPI PINs, OTPs, or card details. For payment failures or certificate corrections, give the official helpdesk email/phone and offer `log_support_callback`.
@@ -494,7 +495,7 @@ if (!function_exists('saarthi_gemini_reply')) {
                 ],
                 [
                     'name' => 'register_student',
-                    'description' => 'Save a confirmed student course registration into MySQL. ONLY call AFTER showing a summary card and receiving explicit user confirmation.',
+                    'description' => 'Save a confirmed student course registration into MySQL including family profile and academic examination details. ONLY call AFTER showing a summary card and receiving explicit user confirmation.',
                     'parameters' => [
                         'type' => 'OBJECT',
                         'properties' => [
@@ -505,13 +506,24 @@ if (!function_exists('saarthi_gemini_reply')) {
                             'email' => ['type' => 'STRING'],
                             'dob' => ['type' => 'STRING', 'description' => 'YYYY-MM-DD'],
                             'gender' => ['type' => 'STRING'],
-                            'qualification' => ['type' => 'STRING'],
+                            'father_name' => ['type' => 'STRING'],
+                            'mother_name' => ['type' => 'STRING'],
+                            'religion' => ['type' => 'STRING'],
+                            'marital_status' => ['type' => 'STRING'],
+                            'distinguishing_marks' => ['type' => 'STRING'],
+                            'qualification' => ['type' => 'STRING', 'description' => 'Highest exam passed e.g. B.Tech, 12th, 10th'],
+                            'board_university' => ['type' => 'STRING'],
+                            'year_of_passing' => ['type' => 'STRING', 'description' => '4-digit year e.g. 2023'],
+                            'stream' => ['type' => 'STRING'],
+                            'percentage' => ['type' => 'STRING'],
+                            'college_name' => ['type' => 'STRING'],
+                            'aadhar' => ['type' => 'STRING'],
                             'apaar_id' => ['type' => 'STRING'],
                             'category' => ['type' => 'STRING'],
                             'pwd_status' => ['type' => 'STRING'],
                             'address' => ['type' => 'STRING'],
                         ],
-                        'required' => ['course_name', 'name', 'mobile', 'email', 'dob', 'gender', 'qualification', 'address'],
+                        'required' => ['course_name', 'name', 'mobile', 'email', 'dob', 'gender', 'father_name', 'mother_name', 'qualification', 'board_university', 'year_of_passing', 'percentage', 'address'],
                     ],
                 ],
                 [
@@ -662,7 +674,7 @@ if (!function_exists('portal_assistant_openai_reply')) {
                 'type' => 'function',
                 'function' => [
                     'name' => 'register_student',
-                    'description' => 'Register a confirmed student in MySQL. Only call after explicit user confirmation.',
+                    'description' => 'Register a confirmed student in MySQL including family details and examination history. Only call after explicit user confirmation.',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
@@ -673,13 +685,24 @@ if (!function_exists('portal_assistant_openai_reply')) {
                             'email' => ['type' => 'string'],
                             'dob' => ['type' => 'string'],
                             'gender' => ['type' => 'string'],
+                            'father_name' => ['type' => 'string'],
+                            'mother_name' => ['type' => 'string'],
+                            'religion' => ['type' => 'string'],
+                            'marital_status' => ['type' => 'string'],
+                            'distinguishing_marks' => ['type' => 'string'],
                             'qualification' => ['type' => 'string'],
+                            'board_university' => ['type' => 'string'],
+                            'year_of_passing' => ['type' => 'string'],
+                            'stream' => ['type' => 'string'],
+                            'percentage' => ['type' => 'string'],
+                            'college_name' => ['type' => 'string'],
+                            'aadhar' => ['type' => 'string'],
                             'apaar_id' => ['type' => 'string'],
                             'category' => ['type' => 'string'],
                             'pwd_status' => ['type' => 'string'],
                             'address' => ['type' => 'string'],
                         ],
-                        'required' => ['course_name', 'name', 'mobile', 'email', 'dob', 'gender', 'qualification', 'address'],
+                        'required' => ['course_name', 'name', 'mobile', 'email', 'dob', 'gender', 'father_name', 'mother_name', 'qualification', 'board_university', 'year_of_passing', 'percentage', 'address'],
                     ],
                 ],
             ],
@@ -916,9 +939,195 @@ if (!function_exists('saarthi_registration_intent')) {
     }
 }
 
+if (!function_exists('saarthi_parse_step3_personal_input')) {
+    /**
+     * Extract DOB, gender, father's name, mother's name, religion, marital status, and birth mark from user text.
+     *
+     * @param array<string, mixed> $draft
+     * @return array<string, mixed>
+     */
+    function saarthi_parse_step3_personal_input(string $message, array $draft = []): array
+    {
+        $work = trim($message);
+
+        if (preg_match('/\b(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{4})\b/', $work, $dm)) {
+            $parsedDob = saarthi_parse_date_input(str_replace('.', '-', $dm[1]));
+            if ($parsedDob !== null) {
+                $draft['dob'] = $parsedDob;
+                $work = str_replace($dm[0], ' ', $work);
+            }
+        }
+
+        if (preg_match('/\b(female|woman|girl|mahila)\b|महिला|ମହିଳା/iu', $work, $gm)) {
+            $draft['gender'] = 'Female';
+            $work = str_ireplace($gm[0], ' ', $work);
+        } elseif (preg_match('/\b(male|man|boy|purush)\b|पुरुष|ପୁରୁଷ/iu', $work, $gm)) {
+            $draft['gender'] = 'Male';
+            $work = str_ireplace($gm[0], ' ', $work);
+        } elseif (preg_match('/\b(other|non[\s\-]?binary)\b/iu', $work, $gm)) {
+            $draft['gender'] = 'Other';
+            $work = str_ireplace($gm[0], ' ', $work);
+        }
+
+        if (preg_match('/\b(hindu|hinduism)\b|हिन्दू|हिंदू|ହିନ୍ଦୁ/iu', $work, $rm)) {
+            $draft['religion'] = 'Hindu';
+            $work = str_ireplace($rm[0], ' ', $work);
+        } elseif (preg_match('/\b(muslim|islam)\b|मुस्लिम|ମୁସଲିମ୍/iu', $work, $rm)) {
+            $draft['religion'] = 'Muslim';
+            $work = str_ireplace($rm[0], ' ', $work);
+        } elseif (preg_match('/\b(christian|christ)\b|ईसाई|ଖ୍ରୀଷ୍ଟିଆନ୍/iu', $work, $rm)) {
+            $draft['religion'] = 'Christian';
+            $work = str_ireplace($rm[0], ' ', $work);
+        } elseif (preg_match('/\breligion\b\s*[:=\-]?\s*(other|sikh|jain|buddhist)\b/iu', $work, $rm)) {
+            $draft['religion'] = 'Other';
+            $work = str_ireplace($rm[0], ' ', $work);
+        }
+
+        if (preg_match('/\b(married)\b|विवाहित|ବିବାହିତ/iu', $work, $mm)) {
+            $draft['marital_status'] = 'Married';
+            $work = str_ireplace($mm[0], ' ', $work);
+        } elseif (preg_match('/\b(single|unmarried)\b|अविवाहित|ଅବିବାହିତ/iu', $work, $mm)) {
+            $draft['marital_status'] = 'Single';
+            $work = str_ireplace($mm[0], ' ', $work);
+        }
+
+        if (preg_match('/\b(?:birth\s*mark|identification\s*mark|distinguishing\s*mark(?:s)?|mark)\b\s*[:=\-]?\s*([^,\n;|]+)/iu', $work, $bm)) {
+            $bmVal = trim($bm[1]);
+            if ($bmVal !== '') {
+                $draft['distinguishing_marks'] = preg_match('/^(none|nil|no|na|n\/a|-)$/i', $bmVal) ? 'None' : $bmVal;
+                $work = str_ireplace($bm[0], ' ', $work);
+            }
+        } elseif (preg_match('/\b(no\s*birth\s*mark|no\s*mark|none|nil)\b/i', $work, $bm)) {
+            $draft['distinguishing_marks'] = 'None';
+            $work = str_ireplace($bm[0], ' ', $work);
+        }
+
+        // Extract labeled father / mother names (supports "Father: X", "Father Name - X", Hindi/Odia labels)
+        if (preg_match('/(?:father(?:\'?s)?\s*(?:name)?|पिता(?:\s*का\s*नाम)?|ପିତା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $fm)) {
+            $fn = trim($fm[1]);
+            if ($fn !== '' && mb_strlen($fn) >= 2 && !preg_match('/^\d+$/', $fn)) {
+                $draft['father_name'] = $fn;
+                $work = str_replace($fm[0], ' ', $work);
+            }
+        }
+        if (preg_match('/(?:mother(?:\'?s)?\s*(?:name)?|माता(?:\s*का\s*नाम)?|ମାତା(?:\s*ଙ୍କ\s*ନାମ)?|ମା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $mm2)) {
+            $mn = trim($mm2[1]);
+            if ($mn !== '' && mb_strlen($mn) >= 2 && !preg_match('/^\d+$/', $mn)) {
+                $draft['mother_name'] = $mn;
+                $work = str_replace($mm2[0], ' ', $work);
+            }
+        }
+
+        // Unlabeled comma/semicolon chunks fill missing father_name -> mother_name -> distinguishing_marks (if in 3b)
+        $cleanWork = trim((string) preg_replace('/\b(dob|date of birth|gender|religion|marital\s*status)\b[:\s\-]*/iu', ' ', $work));
+        $segs = preg_split('/\s*[,;\|\n]+\s*/', $cleanWork) ?: [];
+        foreach ($segs as $seg) {
+            $sClean = trim((string) preg_replace('/\s+/', ' ', $seg));
+            if ($sClean === '' || mb_strlen($sClean) < 2 || preg_match('/^\d+$/', $sClean)) {
+                continue;
+            }
+            if (($draft['substep'] ?? '') === '3b') {
+                if (($draft['distinguishing_marks'] ?? '') === '') {
+                    $draft['distinguishing_marks'] = preg_match('/^(none|nil|no|na|n\/a|-)$/i', $sClean) ? 'None' : $sClean;
+                }
+                continue;
+            }
+            if (($draft['father_name'] ?? '') === '') {
+                $draft['father_name'] = $sClean;
+            } elseif (($draft['mother_name'] ?? '') === '') {
+                $draft['mother_name'] = $sClean;
+            }
+        }
+
+        return $draft;
+    }
+}
+
+if (!function_exists('saarthi_build_registration_summary_response')) {
+    /**
+     * Build the localized confirmation summary payload for an active Saarthi registration draft.
+     *
+     * @param array<string, mixed> $draft
+     * @return array<string, mixed>
+     */
+    function saarthi_build_registration_summary_response(array &$draft, string $lang): array
+    {
+        if (($draft['apaar_id'] ?? '') === 'SKIPPED') {
+            $draft['apaar_id'] = '';
+        }
+        if (($draft['aadhar'] ?? '') === 'SKIPPED') {
+            $draft['aadhar'] = '';
+        }
+        if (empty($draft['category'])) {
+            $draft['category'] = 'General';
+        }
+        if (empty($draft['pwd_status'])) {
+            $draft['pwd_status'] = 'No';
+        }
+        if (empty($draft['religion'])) {
+            $draft['religion'] = 'Hindu';
+        }
+        if (empty($draft['marital_status'])) {
+            $draft['marital_status'] = 'Single';
+        }
+        if (empty($draft['distinguishing_marks'])) {
+            $draft['distinguishing_marks'] = 'None';
+        }
+
+        $draft['awaiting_confirm'] = true;
+        $draft['editing'] = false;
+        $_SESSION['saarthi_reg'] = $draft;
+
+        $summary = [
+            'course_name' => $draft['course_name'] ?? '',
+            'center_location' => $draft['center_location'] ?? '',
+            'name' => $draft['name'] ?? '',
+            'father_name' => $draft['father_name'] ?? '',
+            'mother_name' => $draft['mother_name'] ?? '',
+            'mobile' => $draft['mobile'] ?? '',
+            'email' => $draft['email'] ?? '',
+            'dob' => $draft['dob'] ?? '',
+            'gender' => $draft['gender'] ?? '',
+            'religion' => $draft['religion'] ?? '',
+            'marital_status' => $draft['marital_status'] ?? '',
+            'distinguishing_marks' => $draft['distinguishing_marks'] ?? 'None',
+            'qualification' => $draft['qualification'] ?? '',
+            'board_university' => $draft['board_university'] ?? '',
+            'year_of_passing' => $draft['year_of_passing'] ?? '',
+            'stream' => $draft['stream'] ?? '',
+            'percentage' => $draft['percentage'] ?? '',
+            'college_name' => $draft['college_name'] ?? '',
+            'aadhar' => !empty($draft['aadhar']) ? $draft['aadhar'] : 'Pending',
+            'apaar_id' => !empty($draft['apaar_id']) ? $draft['apaar_id'] : 'N/A',
+            'category' => $draft['category'] ?? 'General',
+            'pwd_status' => $draft['pwd_status'] ?? 'No',
+            'address' => $draft['address'] ?? '',
+        ];
+
+        $reply = saarthi_localized_text(
+            $lang,
+            'Here is your **Registration Summary**. Please review your details and reply **"Confirm"** (or click the Confirm button below) to submit and generate your Admission PDF.',
+            'यहाँ आपका **रजिस्ट्रेशन सारांश (Summary)** है। कृपया विवरण जांचें और एडमिशन PDF बनाने के लिए **"Confirm"** लिखें या नीचे Confirm बटन दबाएं।',
+            'ଏଠାରେ ଆପଣଙ୍କର **ପଞ୍ଜୀକରଣ ସାରାଂଶ (Summary)** ଅଛି। ଦୟାକରି ତଥ୍ୟ ଯାଞ୍ଚ କରି ଆଡମିଶନ୍ PDF ପାଇଁ **"Confirm"** ଲେଖନ୍ତୁ କିମ୍ବା ତଳ ବଟନ୍ କ୍ଲିକ୍ କରନ୍ତୁ।'
+        );
+
+        return [
+            'reply' => $reply,
+            'mode' => 'local',
+            'avatar_state' => 'happy',
+            'lang' => $lang,
+            'ui_action' => 'NONE',
+            'quick_replies' => $lang === 'hi'
+                ? ['Confirm', 'Edit details', 'रद्द करें']
+                : ($lang === 'or' ? ['Confirm', 'Edit details', 'ବାତିଲ୍ କରନ୍ତୁ'] : ['Confirm', 'Edit details', 'Cancel']),
+            'cards' => ['registration_summary' => $summary],
+        ];
+    }
+}
+
 if (!function_exists('saarthi_handle_registration_flow')) {
     /**
-     * Stateful 4-step conversational registration state machine (supports EN/HI/OR + prefilled course buttons).
+     * Stateful 5-step conversational registration state machine (supports EN/HI/OR + full Admission Form fields).
      *
      * @return array<string, mixed>|null
      */
@@ -962,6 +1171,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             // Pure language switch command during active registration: keep fields intact & repeat current prompt
             if (preg_match('/^(odia\s*(re\s*kuha|kuha|re)?|hindi\s*(mein|me)\s*(batao|bolo)?|switch\s*to\s*english|english\s*please|ଓଡ଼ିଆ|हिन्दी|हिंदी)[\s!.?]*$/iu', $mLower)) {
                 $curStep = (int) ($reg['step'] ?? 1);
+                $sub = (string) ($reg['substep'] ?? '');
                 if (!empty($reg['awaiting_confirm'])) {
                     $promptTxt = saarthi_localized_text(
                         $lang,
@@ -972,30 +1182,44 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 } elseif ($curStep === 2) {
                     $promptTxt = saarthi_localized_text(
                         $lang,
-                        "Switched to **English**! Continuing **Step 2 of 4:** Please share your **Full Name**, **10-digit Mobile Number**, and **Email Address**.",
-                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 2/4:** कृपया अपना **पूरा नाम**, **10-अंकों का मोबाइल नंबर**, और **ईमेल पता** लिखें।",
-                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୨/୪:** ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ନାମ**, **୧୦-ଅଙ୍କ ମୋବାଇଲ୍ ନମ୍ବର**, ଏବଂ **ଇମେଲ୍** ଦିଅନ୍ତୁ।"
+                        "Switched to **English**! Continuing **Step 2 of 5:** Please share your **Full Name**, **10-digit Mobile Number**, and **Email Address**.",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 2/5:** कृपया अपना **पूरा नाम**, **10-अंकों का मोबाइल नंबर**, और **ईमेल पता** लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୨/୫:** ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ନାମ**, **୧୦-ଅଙ୍କ ମୋବାଇଲ୍ ନମ୍ବର**, ଏବଂ **ଇମେଲ୍** ଦିଅନ୍ତୁ।"
+                    );
+                } elseif ($curStep === 3 && $sub === '3b') {
+                    $promptTxt = saarthi_localized_text(
+                        $lang,
+                        "Switched to **English**! Continuing **Step 3b:** Please share your **Religion** (Hindu / Muslim / Christian / Other), **Marital Status** (Single / Married), and **Birth Mark** (or \"None\").",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 3b:** कृपया अपना **धर्म** (Hindu/Muslim/Christian/Other), **वैवाहिक स्थिति** (Single/Married), और **पहचान चिह्न** (या \"None\") लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୩b:** ଦୟାକରି ଆପଣଙ୍କ **ଧର୍ମ** (Hindu/Muslim/Christian/Other), **ବୈବାହିକ ସ୍ଥିତି** (Single/Married), ଏବଂ **ଜନ୍ମ ଚିହ୍ନ** (କିମ୍ବା \"None\") ଲେଖନ୍ତୁ।"
                     );
                 } elseif ($curStep === 3) {
                     $promptTxt = saarthi_localized_text(
                         $lang,
-                        "Switched to **English**! Continuing **Step 3 of 4:** Please share your **Date of Birth** (DD-MM-YYYY), **Gender**, and **Highest Qualification**.",
-                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 3/4:** कृपया **जन्म तिथि** (DD-MM-YYYY), **लिंग**, और **उच्चतम योग्यता** लिखें।",
-                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୩/୪:** ଦୟାକରି **ଜନ୍ମ ତାରିଖ** (DD-MM-YYYY), **ଲିଙ୍ଗ**, ଏବଂ **ଶିକ୍ଷାଗତ ଯୋଗ୍ୟତା** ଦିଅନ୍ତୁ।"
+                        "Switched to **English**! Continuing **Step 3 of 5:** Please share your **Date of Birth** (DD-MM-YYYY), **Gender**, **Father's Name**, and **Mother's Name**.",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 3/5:** कृपया **जन्म तिथि** (DD-MM-YYYY), **लिंग**, **पिता का नाम**, और **माता का नाम** लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୩/୫:** ଦୟାକରି **ଜନ୍ମ ତାରିଖ** (DD-MM-YYYY), **ଲିଙ୍ଗ**, **ପିତାଙ୍କ ନାମ**, ଏବଂ **ମାତାଙ୍କ ନାମ** ଦିଅନ୍ତୁ।"
                     );
                 } elseif ($curStep === 4) {
                     $promptTxt = saarthi_localized_text(
                         $lang,
-                        "Switched to **English**! Continuing **Step 4 of 4:** Please share your **APAAR ID** (or \"Skip\"), **Category / PwD**, and **Correspondence Address**.",
-                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 4/4:** कृपया **APAAR ID** (या \"Skip\"), **श्रेणी / PwD**, और **पूरा पता** लिखें।",
-                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୪/୪:** ଦୟାକରି **APAAR ID** (କିମ୍ବା \"Skip\"), **ବର୍ଗ / PwD**, ଏବଂ **ଠିକଣା** ଦିଅନ୍ତୁ।"
+                        "Switched to **English**! Continuing **Step 4 of 5 (Examination Details):** Please share **Exam Passed**, **Board / University**, **Passing Year**, **Stream**, and **% / CGPA**.",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 4/5 (शैक्षणिक विवरण):** कृपया **परीक्षा**, **बोर्ड / विश्वविद्यालय**, **उत्तीर्ण वर्ष**, **संकाय (Stream)**, और **% / CGPA** लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୪/୫ (ଶିକ୍ଷାଗତ ତଥ୍ୟ):** ଦୟାକରି **ପରୀକ୍ଷା**, **ବୋର୍ଡ / ବିଶ୍ୱବିଦ୍ୟାଳୟ**, **ପାସ୍ ବର୍ଷ**, **ଷ୍ଟ୍ରିମ୍**, ଏବଂ **% / CGPA** ଦିଅନ୍ତୁ।"
+                    );
+                } elseif ($curStep === 5) {
+                    $promptTxt = saarthi_localized_text(
+                        $lang,
+                        "Switched to **English**! Continuing **Step 5 of 5:** Please share your **Category / PwD**, optional **Aadhar / APAAR**, and **Full Correspondence Address**.",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 5/5:** कृपया **श्रेणी / PwD**, वैकल्पिक **आधार / APAAR**, और **पूरा पता** लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୫/୫:** ଦୟାକରି **ବର୍ଗ / PwD**, ଇଚ୍ଛାଧୀନ **ଆଧାର / APAAR**, ଏବଂ **ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା** ଦିଅନ୍ତୁ।"
                     );
                 } else {
                     $promptTxt = saarthi_localized_text(
                         $lang,
-                        "Switched to **English**! Continuing **Step 1 of 4:** Which **Course** and **Campus Location** would you like to join?",
-                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 1/4:** आप किस **कोर्स** और **कैंपस लोकेशन** में प्रवेश लेना चाहते हैं?",
-                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୧/୪:** ଆପଣ କେଉଁ **କୋର୍ସ** ଏବଂ **କ୍ୟାମ୍ପସ୍** ରେ ପଞ୍ଜୀକରଣ କରିବାକୁ ଚାହୁଁଛନ୍ତି?"
+                        "Switched to **English**! Continuing **Step 1 of 5:** Which **Course** and **Campus Location** would you like to join?",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 1/5:** आप किस **कोर्स** और **कैंपस लोकेशन** में प्रवेश लेना चाहते हैं?",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୧/୫:** ଆପଣ କେଉଁ **କୋର୍ସ** ଏବଂ **କ୍ୟାମ୍ପସ୍** ରେ ପଞ୍ଜୀକରଣ କରିବାକୁ ଚାହୁଁଛନ୍ତି?"
                     );
                 }
                 return [
@@ -1021,6 +1245,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             $reg = [
                 'active' => true,
                 'step' => 1,
+                'substep' => '',
                 'course_id' => 0,
                 'course_name' => '',
                 'center_location' => '',
@@ -1029,12 +1254,25 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 'email' => '',
                 'dob' => '',
                 'gender' => '',
+                'father_name' => '',
+                'mother_name' => '',
+                'religion' => '',
+                'marital_status' => '',
+                'distinguishing_marks' => '',
                 'qualification' => '',
+                'board_university' => '',
+                'year_of_passing' => '',
+                'stream' => '',
+                'percentage' => '',
+                'college_name' => '',
+                'exams' => [],
+                'aadhar' => '',
                 'apaar_id' => '',
                 'category' => '',
                 'pwd_status' => '',
                 'address' => '',
                 'awaiting_confirm' => false,
+                'editing' => false,
             ];
             if ($prefilledCourseId > 0) {
                 $cStmt = $conn->prepare('SELECT id, course_name, training_center FROM courses WHERE id = ? LIMIT 1');
@@ -1073,9 +1311,9 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             if ((int) $reg['step'] === 2) {
                 $reply = saarthi_localized_text(
                     $lang,
-                    "Great choice! Let's register you for **{$reg['course_name']}** ({$reg['center_location']}).\n\nStep 2 of 4: Please share your **Full Name**, **10-digit Mobile Number**, and **Email Address**.",
-                    "बहुत बढ़िया! आइए **{$reg['course_name']}** ({$reg['center_location']}) के लिए आपका रजिस्ट्रेशन पूरा करें।\n\nचरण 2/4: कृपया अपना **पूरा नाम**, **10-अंकों का मोबाइल नंबर**, और **ईमेल पता** लिखें।",
-                    "ବହୁତ ବଢ଼ିଆ! ଆସନ୍ତୁ **{$reg['course_name']}** ({$reg['center_location']}) ପାଇଁ ଆପଣଙ୍କ ପଞ୍ଜୀକରଣ ଆରମ୍ଭ କରିବା।\n\nସୋପାନ ୨/୪: ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ନାମ**, **୧୦-ଅଙ୍କ ବିଶିଷ୍ଟ ମୋବାଇଲ୍ ନମ୍ବର**, ଏବଂ **ଇମେଲ୍ ଠିକଣା** ଦିଅନ୍ତୁ।"
+                    "Great choice! Let's register you for **{$reg['course_name']}** ({$reg['center_location']}).\n\n**Step 2 of 5:** Please share your **Full Name**, **10-digit Mobile Number**, and **Email Address**.",
+                    "बहुत बढ़िया! आइए **{$reg['course_name']}** ({$reg['center_location']}) के लिए आपका रजिस्ट्रेशन पूरा करें।\n\n**चरण 2/5:** कृपया अपना **पूरा नाम**, **10-अंकों का मोबाइल नंबर**, और **ईमेल पता** लिखें।",
+                    "ବହୁତ ବଢ଼ିଆ! ଆସନ୍ତୁ **{$reg['course_name']}** ({$reg['center_location']}) ପାଇଁ ଆପଣଙ୍କ ପଞ୍ଜୀକରଣ ଆରମ୍ଭ କରିବା।\n\n**ସୋପାନ ୨/୫:** ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ନାମ**, **୧୦-ଅଙ୍କ ବିଶିଷ୍ଟ ମୋବାଇଲ୍ ନମ୍ବର**, ଏବଂ **ଇମେଲ୍ ଠିକଣା** ଦିଅନ୍ତୁ।"
                 );
                 return [
                     'reply' => $reply,
@@ -1099,9 +1337,9 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             }
             $reply = saarthi_localized_text(
                 $lang,
-                "I'd love to help you register! Let's do this in 4 quick steps.\n\n**Step 1 of 4:** Which **Course Name** and **Preferred Campus Location** (e.g., Bhubaneswar, Baleshwar, Raipur) would you like to join?",
-                "मैं आपका रजिस्ट्रेशन करने के लिए तैयार हूँ! यह प्रक्रिया 4 आसान चरणों में होगी।\n\n**चरण 1/4:** आप किस **कोर्स** और **कैंपस लोकेशन** (जैसे Bhubaneswar, Baleshwar, Raipur) में प्रवेश लेना चाहते हैं?",
-                "ମୁଁ ଆପଣଙ୍କର ପଞ୍ଜୀକରଣରେ ସାହାଯ୍ୟ କରିବାକୁ ପ୍ରସ୍ତୁତ! ଏହା ୪ଟି ସହଜ ସୋପାନରେ ହେବ।\n\n**ସୋପାନ ୧/୪:** ଆପଣ କେଉଁ **କୋର୍ସ** ଏବଂ **କ୍ୟାମ୍ପସ୍ ସ୍ଥାନ** (ଯଥା Bhubaneswar, Baleshwar, Raipur) ରେ ନାମ ଲେଖାଇବାକୁ ଚାହୁଁଛନ୍ତି?"
+                "I'd love to help you register! Let's do this in 5 quick steps.\n\n**Step 1 of 5:** Which **Course Name** and **Preferred Campus Location** (e.g., Bhubaneswar, Baleshwar, Raipur) would you like to join?",
+                "मैं आपका रजिस्ट्रेशन करने के लिए तैयार हूँ! यह प्रक्रिया 5 आसान चरणों में होगी।\n\n**चरण 1/5:** आप किस **कोर्स** और **कैंपस लोकेशन** (जैसे Bhubaneswar, Baleshwar, Raipur) में प्रवेश लेना चाहते हैं?",
+                "ମୁଁ ଆପଣଙ୍କର ପଞ୍ଜୀକରଣରେ ସାହାଯ୍ୟ କରିବାକୁ ପ୍ରସ୍ତୁତ! ଏହା ୫ଟି ସହଜ ସୋପାନରେ ହେବ।\n\n**ସୋପାନ ୧/୫:** ଆପଣ କେଉଁ **କୋର୍ସ** ଏବଂ **କ୍ୟାମ୍ପସ୍ ସ୍ଥାନ** (ଯଥା Bhubaneswar, Baleshwar, Raipur) ରେ ନାମ ଲେଖାଇବାକୁ ଚାହୁଁଛନ୍ତି?"
             );
             return [
                 'reply' => $reply,
@@ -1216,9 +1454,9 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 $_SESSION['saarthi_reg'] = $reg;
                 $reply = saarthi_localized_text(
                     $lang,
-                    "Selected **{$reg['course_name']}** at **{$reg['center_location']}**.\n\n**Step 2 of 4:** Please share your **Full Name**, **10-digit Mobile Number**, and **Email Address**.",
-                    "चयनित कोर्स: **{$reg['course_name']}** (**{$reg['center_location']}**).\n\n**चरण 2/4:** कृपया अपना **पूरा नाम**, **10-अंकों का मोबाइल नंबर**, और **ईमेल पता** बताएं।",
-                    "ଚୟନିତ କୋର୍ସ: **{$reg['course_name']}** (**{$reg['center_location']}**).\n\n**ସୋପାନ ୨/୪:** ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ନାମ**, **୧୦-ଅଙ୍କ ମୋବାଇଲ୍ ନମ୍ବର**, ଏବଂ **ଇମେଲ୍ ଠିକଣା** ଦିଅନ୍ତୁ।"
+                    "Selected **{$reg['course_name']}** at **{$reg['center_location']}**.\n\n**Step 2 of 5:** Please share your **Full Name**, **10-digit Mobile Number**, and **Email Address**.",
+                    "चयनित कोर्स: **{$reg['course_name']}** (**{$reg['center_location']}**).\n\n**चरण 2/5:** कृपया अपना **पूरा नाम**, **10-अंकों का मोबाइल नंबर**, और **ईमेल पता** बताएं।",
+                    "ଚୟନିତ କୋର୍ସ: **{$reg['course_name']}** (**{$reg['center_location']}**).\n\n**ସୋପାନ ୨/୫:** ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ନାମ**, **୧୦-ଅଙ୍କ ମୋବାଇଲ୍ ନମ୍ବର**, ଏବଂ **ଇମେଲ୍ ଠିକଣା** ଦିଅନ୍ତୁ।"
                 );
                 return [
                     'reply' => $reply,
@@ -1300,65 +1538,24 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 ];
             }
 
-            $buildSummaryResponse = static function (array &$draft) use ($lang): array {
-                if ($draft['apaar_id'] === 'SKIPPED') {
-                    $draft['apaar_id'] = '';
-                }
-                if ($draft['category'] === '') {
-                    $draft['category'] = 'General';
-                }
-                if ($draft['pwd_status'] === '') {
-                    $draft['pwd_status'] = 'No';
-                }
-                $draft['awaiting_confirm'] = true;
-                $draft['editing'] = false;
-                $_SESSION['saarthi_reg'] = $draft;
-
-                $summary = [
-                    'course_name' => $draft['course_name'],
-                    'center_location' => $draft['center_location'],
-                    'name' => $draft['name'],
-                    'mobile' => $draft['mobile'],
-                    'email' => $draft['email'],
-                    'dob' => $draft['dob'],
-                    'gender' => $draft['gender'],
-                    'qualification' => $draft['qualification'],
-                    'apaar_id' => $draft['apaar_id'] ?: 'N/A',
-                    'category' => $draft['category'],
-                    'pwd_status' => $draft['pwd_status'],
-                    'address' => $draft['address'],
-                ];
-                $reply = saarthi_localized_text(
-                    $lang,
-                    'Here is your **Registration Summary**. Please review your details and reply **"Confirm"** (or click the Confirm button below) to submit and generate your Admission PDF.',
-                    'यहाँ आपका **रजिस्ट्रेशन सारांश (Summary)** है। कृपया विवरण जांचें और एडमिशन PDF बनाने के लिए **"Confirm"** लिखें या नीचे Confirm बटन दबाएं।',
-                    'ଏଠାରେ ଆପଣଙ୍କର **ପଞ୍ଜୀକରଣ ସାରାଂଶ (Summary)** ଅଛି। ଦୟାକରି ତଥ୍ୟ ଯାଞ୍ଚ କରି ଆଡମିଶନ୍ PDF ପାଇଁ **"Confirm"** ଲେଖନ୍ତୁ କିମ୍ବା ତଳ ବଟନ୍ କ୍ଲିକ୍ କରନ୍ତୁ।'
-                );
-                return [
-                    'reply' => $reply,
-                    'mode' => 'local',
-                    'avatar_state' => 'happy',
-                    'lang' => $lang,
-                    'ui_action' => 'NONE',
-                    'quick_replies' => $lang === 'hi'
-                        ? ['Confirm', 'Edit details', 'रद्द करें']
-                        : ($lang === 'or' ? ['Confirm', 'Edit details', 'ବାତିଲ୍ କରନ୍ତୁ'] : ['Confirm', 'Edit details', 'Cancel']),
-                    'cards' => ['registration_summary' => $summary],
-                ];
-            };
-
-            if (!empty($reg['editing']) && $reg['dob'] !== '' && $reg['gender'] !== '' && $reg['qualification'] !== '' && $reg['address'] !== '') {
-                return $buildSummaryResponse($reg);
+            if (!empty($reg['editing'])
+                && $reg['dob'] !== '' && $reg['gender'] !== ''
+                && $reg['father_name'] !== '' && $reg['mother_name'] !== ''
+                && $reg['qualification'] !== '' && $reg['year_of_passing'] !== ''
+                && $reg['address'] !== ''
+            ) {
+                return saarthi_build_registration_summary_response($reg, $lang);
             }
 
             $reg['step'] = 3;
+            $reg['substep'] = '3a';
             $_SESSION['saarthi_reg'] = $reg;
             return [
                 'reply' => saarthi_localized_text(
                     $lang,
-                    "Thanks, **{$reg['name']}**!\n\n**Step 3 of 4:** Please enter your **Date of Birth** (DD-MM-YYYY), **Gender** (Male/Female/Other), and **Highest Educational Qualification** (e.g., 12th, Diploma, B.Tech, Graduation).",
-                    "धन्यवाद, **{$reg['name']}**!\n\n**चरण 3/4:** कृपया अपनी **जन्म तिथि** (DD-MM-YYYY), **लिंग** (Male/Female/Other), और **उच्चतम शैक्षणिक योग्यता** (जैसे 12वीं, डिप्लोमा, ग्रेजुएशन) बताएं।",
-                    "ଧନ୍ୟବାଦ, **{$reg['name']}**!\n\n**ସୋପାନ ୩/୪:** ଦୟାକରି ଆପଣଙ୍କର **ଜନ୍ମ ତାରିଖ** (DD-MM-YYYY), **ଲିଙ୍ଗ** (Male/Female/Other), ଏବଂ **ସର୍ବୋଚ୍ଚ ଶିକ୍ଷାଗତ ଯୋଗ୍ୟତା** (ଯଥା +2, ଡିପ୍ଲୋମା, ଗ୍ରାଜୁଏସନ୍) ଦିଅନ୍ତୁ।"
+                    "Thanks, **{$reg['name']}**!\n\n**Step 3 of 5 (Personal & Family Details):** Please enter:\n• **Date of Birth** (DD-MM-YYYY) & **Gender** (Male/Female/Other)\n• **Father's Name** & **Mother's Name**\n*Example: `28-01-2001, Male, Father: Ramesh Sahu, Mother: Sunita Sahu`*",
+                    "धन्यवाद, **{$reg['name']}**!\n\n**चरण 3/5 (व्यक्तिगत एवं पारिवारिक विवरण):** कृपया लिखें:\n• **जन्म तिथि** (DD-MM-YYYY) और **लिंग** (Male/Female/Other)\n• **पिता का नाम** और **माता का नाम**\n*उदाहरण: `28-01-2001, Male, Father: Ramesh Sahu, Mother: Sunita Sahu`*",
+                    "ଧନ୍ୟବାଦ, **{$reg['name']}**!\n\n**ସୋପାନ ୩/୫ (ବ୍ୟକ୍ତିଗତ ଓ ପାରିବାରିକ ତଥ୍ୟ):** ଦୟାକରି ଦିଅନ୍ତୁ:\n• **ଜନ୍ମ ତାରିଖ** (DD-MM-YYYY) ଏବଂ **ଲିଙ୍ଗ** (Male/Female/Other)\n• **ପିତାଙ୍କ ନାମ** ଏବଂ **ମାତାଙ୍କ ନାମ**\n*ଉଦାହରଣ: `28-01-2001, Male, Father: Ramesh Sahu, Mother: Sunita Sahu`*"
                 ),
                 'mode' => 'local',
                 'avatar_state' => 'guide',
@@ -1369,51 +1566,142 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             ];
         }
 
-        // Step 3: DOB, Gender, Qualification
+        // Step 3: Personal & Family Profile (3a: DOB, Gender, Father's Name, Mother's Name -> 3b: Religion, Marital Status, Birth Mark)
         if ((int) $reg['step'] === 3) {
-            if (preg_match('/\b(\d{4}[-\/]\d{1,2}[-\/]\d{1,2}|\d{1,2}[-\/\.]\d{1,2}[-\/\.]\d{4})\b/', $message, $dm)) {
-                $parsedDob = saarthi_parse_date_input(str_replace('.', '-', $dm[1]));
-                if ($parsedDob !== null) {
-                    $reg['dob'] = $parsedDob;
-                    $message = str_replace($dm[0], ' ', $message);
+            $reg = saarthi_parse_step3_personal_input($message, $reg);
+            $sub = (string) ($reg['substep'] ?? '3a');
+
+            if ($sub !== '3b') {
+                $missing3a = [];
+                if (empty($reg['dob'])) {
+                    $missing3a[] = saarthi_localized_text($lang, 'Date of Birth (DD-MM-YYYY)', 'जन्म तिथि (DD-MM-YYYY)', 'ଜନ୍ମ ତାରିଖ (DD-MM-YYYY)');
+                }
+                if (empty($reg['gender'])) {
+                    $missing3a[] = saarthi_localized_text($lang, 'Gender (Male/Female/Other)', 'लिंग (Male/Female/Other)', 'ଲିଙ୍ଗ (Male/Female/Other)');
+                }
+                if (empty($reg['father_name'])) {
+                    $missing3a[] = saarthi_localized_text($lang, "Father's Name", 'पिता का नाम', 'ପିତାଙ୍କ ନାମ');
+                }
+                if (empty($reg['mother_name'])) {
+                    $missing3a[] = saarthi_localized_text($lang, "Mother's Name", 'माता का नाम', 'ମାତାଙ୍କ ନାମ');
+                }
+                if ($missing3a !== []) {
+                    $_SESSION['saarthi_reg'] = $reg;
+                    $needStr = implode(', ', $missing3a);
+                    return [
+                        'reply' => saarthi_localized_text(
+                            $lang,
+                            "Got it! Please also share: **{$needStr}**.\n*Tip: Format like `Father: Ramesh Sahu, Mother: Sunita Sahu` works great.*",
+                            "समझ गया! कृपया यह भी बताएं: **{$needStr}**।\n*सुझाव: `Father: Ramesh Sahu, Mother: Sunita Sahu` जैसा लिख सकते हैं।*",
+                            "ବୁଝିଗଲି! ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needStr}**।"
+                        ),
+                        'mode' => 'local',
+                        'avatar_state' => 'guide',
+                        'lang' => $lang,
+                        'ui_action' => 'NONE',
+                        'quick_replies' => [$lang === 'hi' ? 'रद्द करें' : ($lang === 'or' ? 'ବାତିଲ୍ କରନ୍ତୁ' : 'Cancel')],
+                        'cards' => [],
+                    ];
+                }
+
+                if (empty($reg['religion']) || empty($reg['marital_status'])) {
+                    $reg['substep'] = '3b';
+                    $_SESSION['saarthi_reg'] = $reg;
+                    return [
+                        'reply' => saarthi_localized_text(
+                            $lang,
+                            "**Quick Personal Profile (Step 3b):** Please tap or type your **Religion** (Hindu / Muslim / Christian / Other), **Marital Status** (Single / Married), and any **Birth Mark** (or \"None\").",
+                            "**व्यक्तिगत विवरण (चरण 3b):** कृपया अपना **धर्म** (Hindu / Muslim / Christian / Other), **वैवाहिक स्थिति** (Single / Married), और कोई **पहचान चिह्न (Birth Mark)** (या \"None\") चुनें या लिखें।",
+                            "**ବ୍ୟକ୍ତିଗତ ତଥ୍ୟ (ସୋପାନ ୩b):** ଦୟାକରି ଆପଣଙ୍କ **ଧର୍ମ** (Hindu / Muslim / Christian / Other), **ବୈବାହିକ ସ୍ଥିତି** (Single / Married), ଏବଂ **ଜନ୍ମ ଚିହ୍ନ** (କିମ୍ବା \"None\") ବାଛନ୍ତୁ କିମ୍ବା ଲେଖନ୍ତୁ।"
+                        ),
+                        'mode' => 'local',
+                        'avatar_state' => 'guide',
+                        'lang' => $lang,
+                        'ui_action' => 'NONE',
+                        'quick_replies' => ['Hindu, Single, None', 'Hindu, Married, None', 'Muslim, Single, None', 'Christian, Single, None'],
+                        'cards' => [],
+                    ];
+                }
+            } else {
+                if (empty($reg['religion'])) {
+                    $reg['religion'] = 'Hindu';
+                }
+                if (empty($reg['marital_status'])) {
+                    $reg['marital_status'] = 'Single';
+                }
+                if (empty($reg['distinguishing_marks'])) {
+                    $reg['distinguishing_marks'] = 'None';
                 }
             }
-            if (preg_match('/\b(female|woman|girl|mahila)\b|महिला|ମହିଳା/iu', $message, $gm)) {
-                $reg['gender'] = 'Female';
-                $message = str_ireplace($gm[0], ' ', $message);
-            } elseif (preg_match('/\b(male|man|boy|purush)\b|पुरुष|ପୁରୁଷ/iu', $message, $gm)) {
-                $reg['gender'] = 'Male';
-                $message = str_ireplace($gm[0], ' ', $message);
-            } elseif (preg_match('/\b(other|non[\s\-]?binary)\b/iu', $message, $gm)) {
-                $reg['gender'] = 'Other';
-                $message = str_ireplace($gm[0], ' ', $message);
-            }
-            $qualCand = trim((string) preg_replace('/\b(dob|date of birth|gender|qualification|highest|education)\b[:\s]*/i', ' ', $message));
-            $qualCand = trim((string) preg_replace('/[,;|]+/', ' ', $qualCand));
-            $qualCand = trim((string) preg_replace('/\s+/', ' ', $qualCand));
-            if ($qualCand !== '' && mb_strlen($qualCand) >= 2 && !preg_match('/^\d{1,4}$/', $qualCand)) {
-                $reg['qualification'] = $qualCand;
+
+            $reg['step'] = 4;
+            $reg['substep'] = '';
+            $_SESSION['saarthi_reg'] = $reg;
+            return [
+                'reply' => saarthi_localized_text(
+                    $lang,
+                    "**Step 4 of 5 (Academic & Examination Details):** Please share your examination history:\n• **Exam Passed** (e.g., B.Tech, Graduation, Diploma, 12th, 10th)\n• **University / Board & Last College** (e.g., BPUT / CET Bhubaneswar)\n• **Passing Year** (e.g., 2023), **Stream** (e.g., CSE / Science), and **% or CGPA** (e.g., 82%)\n*Tip: Separate multiple exams with `;` — e.g. `10th, CBSE, 2017, General, 80%; B.Tech, BPUT, 2023, CSE, 82%`*",
+                    "**चरण 4/5 (शैक्षणिक एवं परीक्षा विवरण):** कृपया अपनी परीक्षा का विवरण लिखें:\n• **परीक्षा** (जैसे B.Tech, Graduation, Diploma, 12th, 10th)\n• **बोर्ड / विश्वविद्यालय और कॉलेज** (जैसे BPUT / CET Bhubaneswar)\n• **उत्तीर्ण वर्ष** (जैसे 2023), **संकाय (Stream)** (जैसे CSE / Science), और **% या CGPA** (जैसे 82%)\n*सुझाव: आप `;` से कई परीक्षाएं लिख सकते हैं — जैसे `10th, CBSE, 2017, General, 80%; B.Tech, BPUT, 2023, CSE, 82%`*",
+                    "**ସୋପାନ ୪/୫ (ଶିକ୍ଷାଗତ ଓ ପରୀକ୍ଷା ତଥ୍ୟ):** ଦୟାକରି ଆପଣଙ୍କ ପରୀକ୍ଷା ବିବରଣୀ ଦିଅନ୍ତୁ:\n• **ପରୀକ୍ଷା** (ଯଥା B.Tech, Graduation, Diploma, 12th, 10th)\n• **ବୋର୍ଡ / ବିଶ୍ୱବିଦ୍ୟାଳୟ ଓ କଲେଜ୍** (ଯଥା BPUT / CET Bhubaneswar)\n• **ପାସ୍ ବର୍ଷ** (ଯଥା 2023), **ଷ୍ଟ୍ରିମ୍** (ଯଥା CSE / Science), ଏବଂ **% କିମ୍ବା CGPA** (ଯଥା 82%)\n*ଟିପ୍ସ: `;` ଦେଇ ଏକାଧିକ ପରୀକ୍ଷା ଲେଖିପାରିବେ — ଯଥା `10th, CBSE, 2017, General, 80%; B.Tech, BPUT, 2023, CSE, 82%`*"
+                ),
+                'mode' => 'local',
+                'avatar_state' => 'guide',
+                'lang' => $lang,
+                'ui_action' => 'NONE',
+                'quick_replies' => [$lang === 'hi' ? 'रद्द करें' : ($lang === 'or' ? 'ବାତିଲ୍ କରନ୍ତୁ' : 'Cancel')],
+                'cards' => [],
+            ];
+        }
+
+        // Step 4: Examination & Academic Qualification History
+        if ((int) $reg['step'] === 4) {
+            $parsedExams = saarthi_parse_exam_entries($message);
+            if ($parsedExams !== []) {
+                if (empty($reg['exams'])) {
+                    $reg['exams'] = $parsedExams;
+                } else {
+                    // Merge incremental follow-up answers into the primary exam row
+                    $first = $parsedExams[0];
+                    foreach (['exam_passed', 'institute_name', 'year_of_passing', 'stream', 'percentage'] as $k) {
+                        if (!empty($first[$k])) {
+                            $reg['exams'][0][$k] = $first[$k];
+                            if ($k === 'exam_passed') {
+                                $reg['exams'][0]['exam_name'] = $first[$k];
+                            }
+                        }
+                    }
+                    if (count($parsedExams) > 1) {
+                        for ($pi = 1; $pi < count($parsedExams); $pi++) {
+                            $reg['exams'][] = $parsedExams[$pi];
+                        }
+                    }
+                }
             }
 
-            $missing = [];
-            if ($reg['dob'] === '') {
-                $missing[] = saarthi_localized_text($lang, 'Date of Birth (DD-MM-YYYY)', 'जन्म तिथि (DD-MM-YYYY)', 'ଜନ୍ମ ତାରିଖ (DD-MM-YYYY)');
+            $primary = $reg['exams'][count($reg['exams'] ?: [[]]) - 1] ?? [];
+            $missingEdu = [];
+            if (empty($primary['exam_passed'])) {
+                $missingEdu[] = saarthi_localized_text($lang, 'Exam Passed (e.g. 12th/B.Tech)', 'परीक्षा नाम', 'ପରୀକ୍ଷା ନାମ');
             }
-            if ($reg['gender'] === '') {
-                $missing[] = saarthi_localized_text($lang, 'Gender (Male/Female/Other)', 'लिंग (Male/Female/Other)', 'ଲିଙ୍ଗ (Male/Female/Other)');
+            if (empty($primary['institute_name'])) {
+                $missingEdu[] = saarthi_localized_text($lang, 'University / Board / College', 'बोर्ड / विश्वविद्यालय', 'ବୋର୍ଡ / ବିଶ୍ୱବିଦ୍ୟାଳୟ');
             }
-            if ($reg['qualification'] === '') {
-                $missing[] = saarthi_localized_text($lang, 'Highest Qualification', 'शैक्षणिक योग्यता', 'ଶିକ୍ଷାଗତ ଯୋଗ୍ୟତା');
+            if (empty($primary['year_of_passing'])) {
+                $missingEdu[] = saarthi_localized_text($lang, 'Passing Year (4 digits e.g. 2023)', 'उत्तीर्ण वर्ष (जैसे 2023)', 'ପାସ୍ ବର୍ଷ (ଯଥା 2023)');
             }
-            if ($missing !== []) {
+            if (empty($primary['percentage'])) {
+                $missingEdu[] = saarthi_localized_text($lang, 'Percentage or CGPA (e.g. 82%)', 'प्रतिशत या CGPA', 'ଶତକଡ଼ା ବା CGPA');
+            }
+
+            if ($missingEdu !== []) {
                 $_SESSION['saarthi_reg'] = $reg;
-                $needStr = implode(', ', $missing);
+                $needEdu = implode(', ', $missingEdu);
                 return [
                     'reply' => saarthi_localized_text(
                         $lang,
-                        "Got it! Please also share: **{$needStr}**.",
-                        "समझ गया! कृपया यह भी बताएं: **{$needStr}**।",
-                        "ବୁଝିଗଲି! ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needStr}**।"
+                        "Almost done with Examination Details! Please also share: **{$needEdu}**.\n*(Optional: you can also include Stream like Science / CSE / General)*",
+                        "परीक्षा विवरण लगभग पूरा है! कृपया यह भी बताएं: **{$needEdu}**।",
+                        "ପରୀକ୍ଷା ତଥ୍ୟ ପ୍ରାୟ ସରିଲାଣି! ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needEdu}**।"
                     ),
                     'mode' => 'local',
                     'avatar_state' => 'guide',
@@ -1424,32 +1712,58 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 ];
             }
 
-            $reg['step'] = 4;
+            // Mirror primary (highest/latest) exam onto summary keys
+            if (empty($primary['stream'])) {
+                $primary['stream'] = 'General';
+                $reg['exams'][count($reg['exams']) - 1]['stream'] = 'General';
+            }
+            $reg['qualification'] = (string) $primary['exam_passed'];
+            $reg['board_university'] = (string) $primary['institute_name'];
+            $reg['college_name'] = (string) $primary['institute_name'];
+            $reg['year_of_passing'] = (string) $primary['year_of_passing'];
+            $reg['stream'] = (string) $primary['stream'];
+            $reg['percentage'] = (string) $primary['percentage'];
+            $reg['step'] = 5;
             $_SESSION['saarthi_reg'] = $reg;
+
             return [
                 'reply' => saarthi_localized_text(
                     $lang,
-                    "**Step 4 of 4 (Final Step):** Please share:\n• **APAAR ID** (optional — write \"Skip\" if you don't have one)\n• **Category** (General / OBC / SC / ST / EWS) & **PwD Status** (Yes / No)\n• **Full Correspondence Address** (with PIN code if available)",
-                    "**चरण 4/4 (अंतिम चरण):** कृपया ये विवरण दें:\n• **APAAR ID** (वैकल्पिक — न हो तो \"Skip\" लिखें)\n• **श्रेणी** (General / OBC / SC / ST / EWS) और **PwD स्थिति** (Yes / No)\n• **पूरा पत्राचार पता** (पिन कोड सहित)",
-                    "**ସୋପାନ ୪/୪ (ଶେଷ ସୋପାନ):** ଦୟାକରି ଏହି ତଥ୍ୟ ଦିଅନ୍ତୁ:\n• **APAAR ID** (ଇଚ୍ଛାଧୀନ — ନଥିଲେ \"Skip\" ଲେଖନ୍ତୁ)\n• **ବର୍ଗ** (General / OBC / SC / ST / EWS) ଏବଂ **PwD ସ୍ଥିତି** (Yes / No)\n• **ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା** (PIN କୋଡ୍ ସହିତ)"
+                    "**Step 5 of 5 (Final Step):** Please share:\n• **Category** (General / OBC / SC / ST / EWS) & **PwD Status** (Yes / No)\n• **Aadhar Number** (12 digits, or \"Skip\") & optional **APAAR ID**\n• **Full Correspondence Address** (with PIN code)",
+                    "**चरण 5/5 (अंतिम चरण):** कृपया ये विवरण दें:\n• **श्रेणी** (General / OBC / SC / ST / EWS) और **PwD स्थिति** (Yes / No)\n• **आधार नंबर** (12 अंक, या \"Skip\") और वैकल्पिक **APAAR ID**\n• **पूरा पत्राचार पता** (पिन कोड सहित)",
+                    "**ସୋପାନ ୫/୫ (ଶେଷ ସୋପାନ):** ଦୟାକରି ଏହି ତଥ୍ୟ ଦିଅନ୍ତୁ:\n• **ବର୍ଗ** (General / OBC / SC / ST / EWS) ଏବଂ **PwD ସ୍ଥିତି** (Yes / No)\n• **ଆଧାର ନମ୍ବର** (୧୨ ଅଙ୍କ, କିମ୍ବା \"Skip\") ଓ ଇଚ୍ଛାଧୀନ **APAAR ID**\n• **ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା** (PIN କୋଡ୍ ସହିତ)"
                 ),
                 'mode' => 'local',
                 'avatar_state' => 'guide',
                 'lang' => $lang,
                 'ui_action' => 'NONE',
-                'quick_replies' => ['General, PwD No, Skip APAAR', 'OBC, PwD No, Skip APAAR', 'SC/ST, PwD No, Skip APAAR'],
+                'quick_replies' => ['General, PwD No, Skip', 'OBC, PwD No, Skip', 'SC/ST, PwD No, Skip'],
                 'cards' => [],
             ];
         }
 
-        // Step 4: APAAR ID (optional), Category, PwD, Correspondence Address
-        if ((int) $reg['step'] === 4) {
+        // Step 5: Category, PwD, optional Aadhar / APAAR, Correspondence Address
+        if ((int) $reg['step'] === 5) {
             $work = $message;
-            if (preg_match('/\b(\d{12})\b/', $work, $ap)) {
+            if (preg_match('/(?:aadhar|aadhaar)\s*(?:no|number|id)?\s*[:=\-]?\s*(\d{12})\b/i', $work, $am)) {
+                $reg['aadhar'] = $am[1];
+                $work = str_replace($am[0], ' ', $work);
+            }
+            if (preg_match('/(?:apaar)\s*(?:id|no|number)?\s*[:=\-]?\s*(\d{12})\b/i', $work, $ap)) {
                 $reg['apaar_id'] = $ap[1];
                 $work = str_replace($ap[0], ' ', $work);
-            } elseif (preg_match('/\b(skip\s*apaar|no\s*apaar|apaar\s*na|skip)\b/i', $work, $sk)) {
-                $reg['apaar_id'] = 'SKIPPED';
+            }
+            if (preg_match('/\b(\d{12})\b/', $work, $num12)) {
+                if (preg_match('/aadhar|aadhaar/i', $message) || $reg['aadhar'] === '') {
+                    $reg['aadhar'] = $num12[1];
+                } else {
+                    $reg['apaar_id'] = $num12[1];
+                }
+                $work = str_replace($num12[0], ' ', $work);
+            } elseif (preg_match('/\b(skip\s*apaar|no\s*apaar|apaar\s*na|skip\s*aadhar|skip)\b/i', $work, $sk)) {
+                if ($reg['apaar_id'] === '') {
+                    $reg['apaar_id'] = 'SKIPPED';
+                }
                 $work = str_ireplace($sk[0], ' ', $work);
             }
 
@@ -1478,7 +1792,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 $work = str_ireplace($pm[0], ' ', $work);
             }
 
-            $addrCand = trim((string) preg_replace('/\b(apaar(\s*id)?|category|correspondence\s+address|address|adress)\b[:\s\-]*/i', ' ', $work));
+            $addrCand = trim((string) preg_replace('/\b(aadhar|aadhaar|apaar(\s*id)?|category|correspondence\s+address|address|adress)\b[:\s\-]*/i', ' ', $work));
             $addrCand = trim((string) preg_replace('/^[,\s;\-]+|[,\s;\-]+$/', '', $addrCand));
             $addrCand = trim((string) preg_replace('/\s+/', ' ', $addrCand));
             if ($addrCand !== '' && mb_strlen($addrCand) >= 5 && !preg_match('/^(yes|no|general|obc|sc|st|ews)$/i', $addrCand)) {
@@ -1510,45 +1824,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 ];
             }
 
-            if ($reg['apaar_id'] === 'SKIPPED') {
-                $reg['apaar_id'] = '';
-            }
-            $reg['awaiting_confirm'] = true;
-            $_SESSION['saarthi_reg'] = $reg;
-
-            $summary = [
-                'course_name' => $reg['course_name'],
-                'center_location' => $reg['center_location'],
-                'name' => $reg['name'],
-                'mobile' => $reg['mobile'],
-                'email' => $reg['email'],
-                'dob' => $reg['dob'],
-                'gender' => $reg['gender'],
-                'qualification' => $reg['qualification'],
-                'apaar_id' => $reg['apaar_id'] ?: 'N/A',
-                'category' => $reg['category'],
-                'pwd_status' => $reg['pwd_status'],
-                'address' => $reg['address'],
-            ];
-
-            $reply = saarthi_localized_text(
-                $lang,
-                'Here is your **Registration Summary**. Please review your details and reply **"Confirm"** (or click the Confirm button below) to submit and generate your Admission PDF.',
-                'यहाँ आपका **रजिस्ट्रेशन सारांश (Summary)** है। कृपया विवरण जांचें और एडमिशन PDF बनाने के लिए **"Confirm"** लिखें या नीचे Confirm बटन दबाएं।',
-                'ଏଠାରେ ଆପଣଙ୍କର **ପଞ୍ଜୀକରଣ ସାରାଂଶ (Summary)** ଅଛି। ଦୟାକରି ତଥ୍ୟ ଯାଞ୍ଚ କରି ଆଡମିଶନ୍ PDF ପାଇଁ **"Confirm"** ଲେଖନ୍ତୁ କିମ୍ବା ତଳ ବଟନ୍ କ୍ଲିକ୍ କରନ୍ତୁ।'
-            );
-
-            return [
-                'reply' => $reply,
-                'mode' => 'local',
-                'avatar_state' => 'happy',
-                'lang' => $lang,
-                'ui_action' => 'NONE',
-                'quick_replies' => $lang === 'hi'
-                    ? ['Confirm', 'Edit details', 'रद्द करें']
-                    : ($lang === 'or' ? ['Confirm', 'Edit details', 'ବାତିଲ୍ କରନ୍ତୁ'] : ['Confirm', 'Edit details', 'Cancel']),
-                'cards' => ['registration_summary' => $summary],
-            ];
+            return saarthi_build_registration_summary_response($reg, $lang);
         }
 
         return null;
@@ -1924,7 +2200,7 @@ if (!function_exists('saarthi_history_has_registration_prompt')) {
             if (($item['role'] ?? '') === 'assistant' || ($item['role'] ?? '') === 'model') {
                 $txt = (string) ($item['content'] ?? '');
                 return (bool) preg_match(
-                    '/Step\s*[1-4]\s*of\s*4|चरण\s*[1-4]\/4|ସୋପାନ\s*[୧-୪1-4]\/[୪4]|Full Name.*Mobile Number.*Email|Confirm.*Registration Summary/iu',
+                    '/Step\s*[1-5][a-z]?\s*of\s*[45]|Step\s*3b|चरण\s*[1-5][a-z]?\/[45]|ସୋପାନ\s*[୧-୫1-5][a-z]?\/[୪୫45]|Full Name.*Mobile Number.*Email|Confirm.*Registration Summary/iu',
                     $txt
                 );
             }

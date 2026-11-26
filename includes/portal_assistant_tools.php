@@ -663,6 +663,103 @@ if (!function_exists('saarthi_sanitize_enum_value')) {
     }
 }
 
+if (!function_exists('saarthi_normalize_exam_year')) {
+    function saarthi_normalize_exam_year($rawYear): string
+    {
+        $digits = preg_replace('/\D/', '', (string) $rawYear);
+        if (strlen($digits) === 4) {
+            $yr = (int) $digits;
+            $maxYr = (int) date('Y') + 2;
+            if ($yr >= 1950 && $yr <= $maxYr) {
+                return (string) $yr;
+            }
+        }
+        return '';
+    }
+}
+
+if (!function_exists('saarthi_parse_exam_entries')) {
+    /**
+     * Parse one or more academic/examination entries from free text or semicolon/newline rows.
+     *
+     * @return list<array{exam_passed: string, exam_name: string, institute_name: string, year_of_passing: string, stream: string, percentage: string}>
+     */
+    function saarthi_parse_exam_entries(string $raw): array
+    {
+        $chunks = preg_split('/[;\r\n]+/', trim($raw)) ?: [];
+        $rows = [];
+        foreach ($chunks as $chunk) {
+            $line = trim($chunk);
+            if ($line === '') {
+                continue;
+            }
+            $work = $line;
+
+            $year = '';
+            if (preg_match('/\b(19[5-9]\d|20[0-3]\d)\b/', $work, $ym)) {
+                $year = saarthi_normalize_exam_year($ym[1]);
+                $work = str_replace($ym[0], ' ', $work);
+            }
+
+            $pct = '';
+            if (preg_match('/\b(\d{1,3}(?:\.\d{1,2})?\s*%|(?:\d(?:\.\d{1,2})?|10(?:\.0+)?)\s*cgpa\b)/i', $work, $pm)) {
+                $pct = trim((string) preg_replace('/\s+/', ' ', $pm[1]));
+                $work = str_replace($pm[0], ' ', $work);
+            } elseif (preg_match('/(?:^|[,\s:|\/])(\d{1,2}(?:\.\d{1,2})?|100)(?=\s*$|[,\s])/', $work, $pm2)) {
+                $numVal = (float) $pm2[1];
+                if ($numVal > 0 && $numVal <= 100 && !preg_match('/\b(?:10th|12th|10|12)\b/i', trim($pm2[1]))) {
+                    $pct = trim($pm2[1]) . ($numVal <= 10.0 && strpos($pm2[1], '.') !== false ? ' CGPA' : '%');
+                    $work = preg_replace('/' . preg_quote($pm2[1], '/') . '(?=\s*$|[,\s])/', ' ', $work, 1);
+                }
+            }
+
+            // Clean labeled tokens while preserving remaining parts
+            $partsRaw = preg_split('/\s*,\s*/', trim((string) preg_replace('/\s+/', ' ', (string) $work))) ?: [];
+            $parts = [];
+            foreach ($partsRaw as $p) {
+                $pClean = trim((string) preg_replace('/\b(exam(\s*passed)?|qualification|board|university|institute|college|year(\s*of\s*passing)?|passing\s*year|stream|branch|percentage|marks|cgpa)\b\s*[:=\-]?\s*/i', '', $p));
+                $pClean = trim($pClean, " \t\n\r\0\x0B,-:|");
+                if ($pClean !== '') {
+                    $parts[] = $pClean;
+                }
+            }
+
+            $examPassed = $parts[0] ?? '';
+            $institute = $parts[1] ?? '';
+            $stream = $parts[2] ?? '';
+
+            // Handle single space-separated string like "12th CHSE Science" or "B.Tech BPUT CSE"
+            if (count($parts) === 1 && $examPassed !== '') {
+                if (preg_match('/^(10th|12th|\+2|matric(?:ulation)?|ssc|hsc|diploma|iti|b\.?\s*tech|b\.?\s*e|bca|b\.?\s*sc|b\.?\s*com|b\.?\s*a|m\.?\s*tech|mca|m\.?\s*sc|graduation|post\s*graduation|graduate)\b[\s,\-]*(.*)$/i', $examPassed, $em)) {
+                    $examPassed = trim($em[1]);
+                    $tail = trim($em[2]);
+                    if ($tail !== '') {
+                        $tokens = preg_split('/\s+/', $tail) ?: [];
+                        if (count($tokens) >= 2 && $stream === '') {
+                            $stream = (string) array_pop($tokens);
+                            $institute = trim(implode(' ', $tokens));
+                        } elseif (count($tokens) === 1) {
+                            $institute = $tokens[0];
+                        }
+                    }
+                }
+            }
+
+            if ($examPassed !== '' || $institute !== '' || $year !== '' || $pct !== '') {
+                $rows[] = [
+                    'exam_passed' => $examPassed,
+                    'exam_name' => $examPassed,
+                    'institute_name' => $institute,
+                    'year_of_passing' => $year,
+                    'stream' => $stream,
+                    'percentage' => $pct,
+                ];
+            }
+        }
+        return $rows;
+    }
+}
+
 if (!function_exists('saarthi_register_student')) {
     /**
      * Save a confirmed conversational registration to MySQL and issue a session-scoped Admission PDF download token.
@@ -680,6 +777,8 @@ if (!function_exists('saarthi_register_student')) {
 
         // 1. Validate required fields
         $name = trim((string) ($details['name'] ?? $details['full_name'] ?? ''));
+        $fatherName = trim((string) ($details['father_name'] ?? ''));
+        $motherName = trim((string) ($details['mother_name'] ?? ''));
         $mobile = preg_replace('/\D/', '', (string) ($details['mobile'] ?? $details['phone'] ?? ''));
         if (strlen($mobile) > 10) {
             $mobile = substr($mobile, -10);
@@ -688,7 +787,36 @@ if (!function_exists('saarthi_register_student')) {
         $dobRaw = trim((string) ($details['dob'] ?? ''));
         $dob = saarthi_parse_date_input($dobRaw);
         $genderRaw = trim((string) ($details['gender'] ?? 'Male'));
-        $qualification = trim((string) ($details['qualification'] ?? $details['highest_qualification'] ?? ''));
+        $religionRaw = trim((string) ($details['religion'] ?? 'Hindu'));
+        $maritalRaw = trim((string) ($details['marital_status'] ?? 'Single'));
+        $birthMark = trim((string) ($details['distinguishing_marks'] ?? $details['birth_mark'] ?? ''));
+        if ($birthMark === '') {
+            $birthMark = 'None';
+        }
+        $qualification = trim((string) ($details['qualification'] ?? $details['exam_passed'] ?? $details['highest_qualification'] ?? ''));
+        $boardUniversity = trim((string) ($details['board_university'] ?? $details['institute_name'] ?? ''));
+        $passingYear = saarthi_normalize_exam_year($details['year_of_passing'] ?? '');
+        $stream = trim((string) ($details['stream'] ?? ''));
+        $percentage = trim((string) ($details['percentage'] ?? ''));
+        $collegeName = trim((string) ($details['college_name'] ?? ''));
+        if ($collegeName === '' && $boardUniversity !== '') {
+            $collegeName = $boardUniversity;
+        }
+        $examRowsInput = is_array($details['exams'] ?? null) ? $details['exams'] : [];
+        if ($examRowsInput === [] && $qualification !== '') {
+            $examRowsInput[] = [
+                'exam_passed' => $qualification,
+                'exam_name' => $qualification,
+                'institute_name' => $boardUniversity,
+                'year_of_passing' => $passingYear,
+                'stream' => $stream,
+                'percentage' => $percentage,
+            ];
+        }
+        $aadharRaw = preg_replace('/\D/', '', (string) ($details['aadhar'] ?? ''));
+        if (strlen($aadharRaw) !== 12) {
+            $aadharRaw = '';
+        }
         $apaarId = trim((string) ($details['apaar_id'] ?? ''));
         if (preg_match('/^(none|na|n\/a|skip|no|nil|-)$/i', $apaarId)) {
             $apaarId = '';
@@ -714,7 +842,7 @@ if (!function_exists('saarthi_register_student')) {
         if ($dob === null) {
             $errors[] = 'A valid Date of Birth is required (e.g., 15-05-2002 or 2002-05-15).';
         }
-        if ($qualification === '') {
+        if ($qualification === '' && $examRowsInput === []) {
             $errors[] = 'Highest educational qualification is required.';
         }
         if ($address === '') {
@@ -850,8 +978,19 @@ if (!function_exists('saarthi_register_student')) {
             $catPref = 'EWS';
         }
         $category = saarthi_sanitize_enum_value($conn, 'students', 'category', $catPref, 'General');
-        $religion = saarthi_sanitize_enum_value($conn, 'students', 'religion', 'Other', 'Other');
-        $marital = saarthi_sanitize_enum_value($conn, 'students', 'marital_status', 'Single', 'Single');
+
+        $relPref = 'Other';
+        if (preg_match('/hindu/i', $religionRaw)) {
+            $relPref = 'Hindu';
+        } elseif (preg_match('/muslim|islam/i', $religionRaw)) {
+            $relPref = 'Muslim';
+        } elseif (preg_match('/christ/i', $religionRaw)) {
+            $relPref = 'Christian';
+        }
+        $religion = saarthi_sanitize_enum_value($conn, 'students', 'religion', $relPref, 'Other');
+
+        $marPref = preg_match('/marr/i', $maritalRaw) ? 'Married' : 'Single';
+        $marital = saarthi_sanitize_enum_value($conn, 'students', 'marital_status', $marPref, 'Single');
 
         // Extract pincode & city from correspondence address when present
         $pincode = '';
@@ -887,23 +1026,49 @@ if (!function_exists('saarthi_register_student')) {
             $hashedPassword = password_hash($plainPassword, PASSWORD_DEFAULT);
         }
 
-        $eduJson = json_encode([
+        $eduPayload = [
+            'exam_passed' => [],
+            'exam_name' => [],
+            'year_of_passing' => [],
+            'institute_name' => [],
+            'stream' => [],
+            'percentage' => [],
             'saarthi_chat' => true,
-            'highest_qualification' => $qualification,
-            'documents_pending' => true,
-        ], JSON_UNESCAPED_UNICODE);
+            'documents_pending' => ($aadharRaw === ''),
+        ];
+        foreach ($examRowsInput as $er) {
+            if (!is_array($er)) {
+                continue;
+            }
+            $ep = trim((string) ($er['exam_passed'] ?? $qualification));
+            if ($ep === '') {
+                continue;
+            }
+            $eduPayload['exam_passed'][] = $ep;
+            $eduPayload['exam_name'][] = trim((string) ($er['exam_name'] ?? $ep));
+            $eduPayload['year_of_passing'][] = saarthi_normalize_exam_year($er['year_of_passing'] ?? $passingYear) ?: date('Y');
+            $eduPayload['institute_name'][] = trim((string) ($er['institute_name'] ?? $boardUniversity));
+            $eduPayload['stream'][] = trim((string) ($er['stream'] ?? $stream ?: 'General'));
+            $eduPayload['percentage'][] = trim((string) ($er['percentage'] ?? $percentage));
+        }
+        $eduJson = json_encode($eduPayload, JSON_UNESCAPED_UNICODE);
+
+        // Reuse aadhar if returning student already has valid 12-digit aadhar and none submitted
+        if ($aadharRaw === '' && $isReturning && !empty($existingAccount['aadhar']) && preg_match('/^\d{12}$/', (string) $existingAccount['aadhar'])) {
+            $aadharRaw = (string) $existingAccount['aadhar'];
+        }
 
         $cols = [
             'course' => ['s', $courseName],
             'course_id' => ['i', $courseId],
             'training_center' => ['s', $trainingCenter],
             'name' => ['s', $name],
-            'father_name' => ['s', ''],
-            'mother_name' => ['s', ''],
+            'father_name' => ['s', $fatherName],
+            'mother_name' => ['s', $motherName],
             'dob' => ['s', $dob],
             'age' => ['i', $age],
             'mobile' => ['s', $mobile],
-            'aadhar' => ['s', ''],
+            'aadhar' => ['s', $aadharRaw],
             'gender' => ['s', $gender],
             'religion' => ['s', $religion],
             'marital_status' => ['s', $marital],
@@ -927,6 +1092,12 @@ if (!function_exists('saarthi_register_student')) {
         }
         if (saarthi_column_exists($conn, 'students', 'pwd_status')) {
             $cols['pwd_status'] = ['s', $pwdStatus];
+        }
+        if (saarthi_column_exists($conn, 'students', 'distinguishing_marks')) {
+            $cols['distinguishing_marks'] = ['s', $birthMark];
+        }
+        if ($collegeName !== '' && saarthi_column_exists($conn, 'students', 'college_name')) {
+            $cols['college_name'] = ['s', $collegeName];
         }
 
         $colNames = [];
@@ -960,16 +1131,46 @@ if (!function_exists('saarthi_register_student')) {
             syncNielitRegistrationNoDefault($conn, $recordId, null);
         }
 
-        // Ensure education_details row exists for PDF Academic Qualification table
+        // Upsert clean education_details rows (deduplicated by student_id + exam_passed; valid 4-digit year so PDF never shows Year=0)
         if (saarthi_table_exists($conn, 'education_details')) {
-            $eduStmt = $conn->prepare(
-                "INSERT INTO education_details (student_id, exam_passed, exam_name, year_of_passing, institute_name, stream, percentage)
-                 VALUES (?, ?, ?, '', '', '', '')"
-            );
-            if ($eduStmt) {
-                $eduStmt->bind_param('sss', $studentId, $qualification, $qualification);
-                $eduStmt->execute();
-                $eduStmt->close();
+            foreach ($eduPayload['exam_passed'] as $idx => $epVal) {
+                $enVal = $eduPayload['exam_name'][$idx] ?? $epVal;
+                $yrVal = $eduPayload['year_of_passing'][$idx] ?? date('Y');
+                $instVal = $eduPayload['institute_name'][$idx] ?? '';
+                $strVal = $eduPayload['stream'][$idx] ?? '';
+                $pctVal = $eduPayload['percentage'][$idx] ?? '';
+
+                $existEdu = $conn->prepare(
+                    'SELECT id FROM education_details WHERE student_id = ? AND LOWER(TRIM(exam_passed)) = LOWER(TRIM(?)) LIMIT 1'
+                );
+                $existingEduId = 0;
+                if ($existEdu) {
+                    $existEdu->bind_param('ss', $studentId, $epVal);
+                    $existEdu->execute();
+                    $eRow = $existEdu->get_result()->fetch_assoc();
+                    $existingEduId = !empty($eRow['id']) ? (int) $eRow['id'] : 0;
+                    $existEdu->close();
+                }
+
+                if ($existingEduId > 0) {
+                    $eduUpd = $conn->prepare(
+                        'UPDATE education_details SET exam_name = ?, year_of_passing = ?, institute_name = ?, stream = ?, percentage = ? WHERE id = ? LIMIT 1'
+                    );
+                    if ($eduUpd) {
+                        $eduUpd->bind_param('sssssi', $enVal, $yrVal, $instVal, $strVal, $pctVal, $existingEduId);
+                        $eduUpd->execute();
+                        $eduUpd->close();
+                    }
+                } else {
+                    $eduStmt = $conn->prepare(
+                        'INSERT INTO education_details (student_id, exam_passed, exam_name, year_of_passing, institute_name, stream, percentage) VALUES (?, ?, ?, ?, ?, ?, ?)'
+                    );
+                    if ($eduStmt) {
+                        $eduStmt->bind_param('sssssss', $studentId, $epVal, $enVal, $yrVal, $instVal, $strVal, $pctVal);
+                        $eduStmt->execute();
+                        $eduStmt->close();
+                    }
+                }
             }
         }
 
@@ -982,10 +1183,10 @@ if (!function_exists('saarthi_register_student')) {
             }
             $accountId = !empty($existingAccount['id']) ? (int) $existingAccount['id'] : null;
             if (!$accountId) {
-                $placeholderAadhar = 'NOAADHAR/' . preg_replace('/[^A-Za-z0-9\/]/', '', $studentId);
+                $accAadhar = $aadharRaw !== '' ? $aadharRaw : ('NOAADHAR/' . preg_replace('/[^A-Za-z0-9\/]/', '', $studentId));
                 $accountId = createStudentAccount($conn, [
                     'student_id' => $studentId,
-                    'aadhar' => $placeholderAadhar,
+                    'aadhar' => $accAadhar,
                     'name' => $name,
                     'email' => $email,
                     'mobile' => $mobile,
@@ -994,8 +1195,15 @@ if (!function_exists('saarthi_register_student')) {
                     'gender' => $gender,
                 ]);
                 if (!$accountId && function_exists('findExistingStudentAccount')) {
-                    $refetch = findExistingStudentAccount($conn, '', $mobile, $email);
+                    $refetch = findExistingStudentAccount($conn, $aadharRaw, $mobile, $email);
                     $accountId = !empty($refetch['id']) ? (int) $refetch['id'] : null;
+                }
+            } elseif ($aadharRaw !== '') {
+                $upAcc = @$conn->prepare("UPDATE student_accounts SET aadhar = ? WHERE id = ? AND (aadhar IS NULL OR aadhar = '' OR aadhar LIKE 'NOAADHAR%')");
+                if ($upAcc) {
+                    $upAcc->bind_param('si', $aadharRaw, $accountId);
+                    $upAcc->execute();
+                    $upAcc->close();
                 }
             }
             if ($accountId) {
@@ -1032,7 +1240,7 @@ if (!function_exists('saarthi_register_student')) {
         }
 
         require_once __DIR__ . '/student_document_upload_helper.php';
-        $freshStudent = ['id' => $recordId, 'student_id' => $studentId, 'course_id' => $courseId, 'aadhar' => ''];
+        $freshStudent = ['id' => $recordId, 'student_id' => $studentId, 'course_id' => $courseId, 'aadhar' => $aadharRaw];
         $docChecklist = studentDocumentChecklist($conn, $freshStudent);
         $pdfUrl = saarthi_issue_pdf_token($recordId, $studentId);
         $uploadTok = saarthiIssueUploadToken($recordId, $studentId);
@@ -1047,7 +1255,7 @@ if (!function_exists('saarthi_register_student')) {
             'center_location' => $trainingCenter,
             'email' => $email,
             'email_queued' => $emailQueued,
-            'aadhar' => '',
+            'aadhar' => $aadharRaw,
             'download_pdf_url' => $pdfUrl,
             'upload_token' => $uploadTok,
             'upload_api_url' => saarthiBuildUploadApiUrl($recordId, $studentId, $uploadTok),

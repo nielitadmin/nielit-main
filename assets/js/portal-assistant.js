@@ -281,15 +281,24 @@
       var sCard = createEl('div', 'saarthi-summary-card');
       sCard.appendChild(createEl('div', 'saarthi-card-title', 'Registration Summary'));
       var grid = createEl('div', 'saarthi-summary-grid');
+      var examDisplay = s.qualification || '';
+      if (s.board_university || s.year_of_passing) {
+        examDisplay += (examDisplay ? ' · ' : '') + (s.board_university || '') + (s.year_of_passing ? ' (' + s.year_of_passing + ')' : '');
+      }
+      var streamDisplay = [s.stream || '', s.percentage || ''].filter(Boolean).join(' · ') || '—';
       var fields = [
         ['Course', s.course_name],
         ['Campus', s.center_location],
         ['Name', s.name],
+        ['Father / Mother', (s.father_name || '—') + ' / ' + (s.mother_name || '—')],
         ['Mobile', s.mobile],
         ['Email', s.email],
         ['DOB / Gender', (s.dob || '') + ' · ' + (s.gender || '')],
-        ['Qualification', s.qualification],
-        ['APAAR ID', s.apaar_id || 'N/A'],
+        ['Religion / Marital', (s.religion || 'Hindu') + ' · ' + (s.marital_status || 'Single')],
+        ['Birth Mark', s.distinguishing_marks || 'None'],
+        ['Examination', examDisplay || '—'],
+        ['Stream / %', streamDisplay],
+        ['Aadhar / APAAR', (s.aadhar || 'Pending') + ' / ' + (s.apaar_id || 'N/A')],
         ['Category / PwD', (s.category || 'General') + ' / PwD: ' + (s.pwd_status || 'No')],
         ['Address', s.address]
       ];
