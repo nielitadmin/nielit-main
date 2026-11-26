@@ -1116,7 +1116,26 @@ if (!function_exists('saarthi_merge_step4_exam_input')) {
         }
 
         $first = $parsedExams[0];
-        $cur =& $reg['exams'][0];
+        $lastIndex = count($reg['exams']) - 1;
+        $cur =& $reg['exams'][$lastIndex];
+
+        // A new qualification starts a new row once the previous row is complete.
+        // This lets users add exams one at a time without replacing earlier ones.
+        $candidateLevel = trim((string) ($first['exam_passed'] ?? ''));
+        $looksLikeExamLevel = (bool) preg_match(
+            '/^(10th|12th|\+2|matric|ssc|hsc|diploma|iti|b\.?\s*tech|b\.?\s*e|bca|b\.?\s*sc|b\.?\s*com|b\.?\s*a|m\.?\s*tech|mca|m\.?\s*sc|graduation|post\s*graduation|graduate)\b/i',
+            $candidateLevel
+        );
+        if (
+            $looksLikeExamLevel
+            && !empty($cur['exam_passed'])
+            && !empty($cur['institute_name'])
+            && !empty($cur['year_of_passing'])
+            && !empty($cur['percentage'])
+        ) {
+            $reg['exams'][] = $first;
+            return $reg;
+        }
 
         if (!empty($first['year_of_passing'])) {
             $cur['year_of_passing'] = $first['year_of_passing'];
@@ -1132,9 +1151,8 @@ if (!function_exists('saarthi_merge_step4_exam_input')) {
         }
 
         // Single text token handling when primary exam is already known: route to next missing slot (Board -> Stream)
-        $cand = trim((string) ($first['exam_passed'] ?? ''));
+        $cand = $candidateLevel;
         if ($cand !== '') {
-            $looksLikeExamLevel = (bool) preg_match('/^(10th|12th|\+2|matric|ssc|hsc|diploma|iti|b\.?\s*tech|b\.?\s*e|bca|b\.?\s*sc|b\.?\s*com|b\.?\s*a|m\.?\s*tech|mca|m\.?\s*sc|graduation|post\s*graduation|graduate)\b/i', $cand);
             if (empty($cur['exam_passed']) || $looksLikeExamLevel) {
                 $cur['exam_passed'] = $cand;
                 $cur['exam_name'] = $cand;
@@ -1147,6 +1165,16 @@ if (!function_exists('saarthi_merge_step4_exam_input')) {
         unset($cur);
 
         return $reg;
+    }
+}
+
+if (!function_exists('saarthi_step4_is_done_command')) {
+    function saarthi_step4_is_done_command(string $message): bool
+    {
+        return (bool) preg_match(
+            '/^\s*(done|no\s*more|next|proceed|continue|step\s*5|finish|finalize|ok|that[\'\s]*s\s*all|that[\'\s]*s\s*it|only\s*(one|this)|just\s*(one|this)|ek\s*hi|bas|yahi\s*hai|ଏତିକି|ଯଥେଷ୍ଟ)(?:\s*\([^)]*\))?\s*$/iu',
+            $message
+        );
     }
 }
 
@@ -1814,7 +1842,28 @@ if (!function_exists('saarthi_handle_registration_flow')) {
 
         // Step 4: Examination & Academic Qualification History
         if ((int) $reg['step'] === 4) {
-            $reg = saarthi_merge_step4_exam_input($reg, $message);
+            if (preg_match('/^\s*(?:add\s+)?(?:12th|\+2|intermediate)\s+details\s*$/iu', $message)) {
+                $_SESSION['saarthi_reg'] = $reg;
+                return [
+                    'reply' => saarthi_localized_text(
+                        $lang,
+                        'Please enter your 12th details in this format: `12th, Board, Passing Year, Stream, Percentage or CGPA` (for example: `12th, CBSE, 2019, Science, 85%`).',
+                        'कृपया 12वीं का विवरण इस प्रारूप में लिखें: `12th, Board, Passing Year, Stream, Percentage or CGPA` (उदाहरण: `12th, CBSE, 2019, Science, 85%`)।',
+                        'ଦୟାକରି 12th ବିବରଣୀ ଏହି ଫର୍ମାଟ୍‌ରେ ଲେଖନ୍ତୁ: `12th, Board, Passing Year, Stream, Percentage or CGPA` (ଉଦାହରଣ: `12th, CBSE, 2019, Science, 85%`)।'
+                    ),
+                    'mode' => 'local',
+                    'avatar_state' => 'guide',
+                    'lang' => $lang,
+                    'ui_action' => 'NONE',
+                    'quick_replies' => [],
+                    'cards' => [],
+                ];
+            }
+
+            $isDone = saarthi_step4_is_done_command($message);
+            if (!$isDone) {
+                $reg = saarthi_merge_step4_exam_input($reg, $message);
+            }
 
             $primary = $reg['exams'][count($reg['exams'] ?: [[]]) - 1] ?? [];
             $missingEdu = [];
@@ -1867,11 +1916,6 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             // User can type "Done", "No more", "Next", "Proceed", or just the
             // next exam line.  If the message looks like "done / no more / next /
             // proceed / step 5", flush and advance to Step 5.
-            $isDone = (bool) preg_match(
-                '/^\s*(done|no\s*more|next|proceed|continue|step\s*5|finish|finalize|ok|that[\'\s]*s\s*all|that[\'\s]*s\s*it|only\s*(one|this)|just\s*(one|this)|ek\s*hi|bas|yahi\s*hai|ଏତିକି|ଯଥେଷ୍ଟ)\s*$/iu',
-                $message
-            );
-
             // Build a readable exam list to show back to the user
             $examLines = [];
             foreach ($reg['exams'] as $ex) {
