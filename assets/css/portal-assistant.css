@@ -194,7 +194,12 @@
 
 .portal-assistant-header {
     padding: 12px 14px 10px;
-    background: linear-gradient(135deg, var(--navy, #0a1628) 0%, var(--blue, #1a56db) 100%);
+    background-color: var(--navy, #0a1628);
+    background-image:
+        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.13) 1px, transparent 1.4px),
+        radial-gradient(ellipse at 86% 0%, rgba(255, 255, 255, 0.18), transparent 42%),
+        linear-gradient(135deg, var(--navy, #0a1628) 0%, var(--blue, #1a56db) 100%);
+    background-size: 18px 18px, auto, auto;
     color: #fff;
     border-bottom: 2px solid var(--gold, #f59e0b);
 }
