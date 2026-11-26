@@ -456,7 +456,7 @@ if (!function_exists('saarthi_gemini_reply')) {
         if (empty($config['use_gemini']) || $apiKey === '' || !function_exists('curl_init')) {
             return null;
         }
-        $model = trim((string) ($config['gemini_model'] ?? 'gemini-2.0-flash')) ?: 'gemini-2.0-flash';
+        $model = trim((string) ($config['gemini_model'] ?? 'gemini-2.5-flash')) ?: 'gemini-2.5-flash';
         $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode($model) . ':generateContent?key=' . rawurlencode($apiKey);
 
         $contents = [];
@@ -1005,14 +1005,14 @@ if (!function_exists('saarthi_parse_step3_personal_input')) {
         // Extract labeled father / mother names (supports "Father: X", "Father's name is X", Hindi/Odia labels)
         if (preg_match('/(?:father(?:\'?s)?\s*(?:name)?|पिता(?:\s*का\s*नाम)?|ପିତା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*(?:is\s+)?([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $fm)) {
             $fn = trim($fm[1]);
-            if ($fn !== '' && mb_strlen($fn) >= 2 && !preg_match('/^\d+$/', $fn)) {
+            if ($fn !== '' && mb_strlen($fn) >= 2 && !preg_match('/^\d+$/', $fn) && !preg_match('/^\d{1,4}[-\/.]\d{1,2}[-\/.]\d{2,4}$/', $fn) && !preg_match('/^(male|female|other|m|f|o)$/i', $fn)) {
                 $draft['father_name'] = $fn;
                 $work = str_replace($fm[0], ' ', $work);
             }
         }
         if (preg_match('/(?:mother(?:\'?s)?\s*(?:name)?|माता(?:\s*का\s*नाम)?|ମାତା(?:\s*ଙ୍କ\s*ନାମ)?|ମା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*(?:is\s+)?([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $mm2)) {
             $mn = trim($mm2[1]);
-            if ($mn !== '' && mb_strlen($mn) >= 2 && !preg_match('/^\d+$/', $mn)) {
+            if ($mn !== '' && mb_strlen($mn) >= 2 && !preg_match('/^\d+$/', $mn) && !preg_match('/^\d{1,4}[-\/.]\d{1,2}[-\/.]\d{2,4}$/', $mn) && !preg_match('/^(male|female|other|m|f|o)$/i', $mn)) {
                 $draft['mother_name'] = $mn;
                 $work = str_replace($mm2[0], ' ', $work);
             }
@@ -1023,7 +1023,7 @@ if (!function_exists('saarthi_parse_step3_personal_input')) {
         $segs = preg_split('/\s*[,;\|\n]+\s*/', $cleanWork) ?: [];
         foreach ($segs as $seg) {
             $sClean = trim((string) preg_replace('/\s+/', ' ', $seg));
-            if ($sClean === '' || mb_strlen($sClean) < 2 || preg_match('/^\d+$/', $sClean)) {
+            if ($sClean === '' || mb_strlen($sClean) < 2 || preg_match('/^\d+$/', $sClean) || preg_match('/^\d{1,4}[-\/.]\d{1,2}[-\/.]\d{2,4}$/', $sClean) || preg_match('/^(male|female|other|m|f|o)$/i', $sClean)) {
                 continue;
             }
             if (($draft['substep'] ?? '') === '3b') {
