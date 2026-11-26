@@ -1002,15 +1002,15 @@ if (!function_exists('saarthi_parse_step3_personal_input')) {
             $work = str_ireplace($bm[0], ' ', $work);
         }
 
-        // Extract labeled father / mother names (supports "Father: X", "Father Name - X", Hindi/Odia labels)
-        if (preg_match('/(?:father(?:\'?s)?\s*(?:name)?|पिता(?:\s*का\s*नाम)?|ପିତା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $fm)) {
+        // Extract labeled father / mother names (supports "Father: X", "Father's name is X", Hindi/Odia labels)
+        if (preg_match('/(?:father(?:\'?s)?\s*(?:name)?|पिता(?:\s*का\s*नाम)?|ପିତା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*(?:is\s+)?([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $fm)) {
             $fn = trim($fm[1]);
             if ($fn !== '' && mb_strlen($fn) >= 2 && !preg_match('/^\d+$/', $fn)) {
                 $draft['father_name'] = $fn;
                 $work = str_replace($fm[0], ' ', $work);
             }
         }
-        if (preg_match('/(?:mother(?:\'?s)?\s*(?:name)?|माता(?:\s*का\s*नाम)?|ମାତା(?:\s*ଙ୍କ\s*ନାମ)?|ମା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $mm2)) {
+        if (preg_match('/(?:mother(?:\'?s)?\s*(?:name)?|माता(?:\s*का\s*नाम)?|ମାତା(?:\s*ଙ୍କ\s*ନାମ)?|ମା(?:\s*ଙ୍କ\s*ନାମ)?)\s*[:=\-]?\s*(?:is\s+)?([^,\n;|]+)(?=,|;|\n|\||$)/iu', $work, $mm2)) {
             $mn = trim($mm2[1]);
             if ($mn !== '' && mb_strlen($mn) >= 2 && !preg_match('/^\d+$/', $mn)) {
                 $draft['mother_name'] = $mn;
@@ -1019,7 +1019,7 @@ if (!function_exists('saarthi_parse_step3_personal_input')) {
         }
 
         // Unlabeled comma/semicolon chunks fill missing father_name -> mother_name -> distinguishing_marks (if in 3b)
-        $cleanWork = trim((string) preg_replace('/\b(dob|date of birth|gender|religion|marital\s*status)\b[:\s\-]*/iu', ' ', $work));
+        $cleanWork = trim((string) preg_replace('/\b(dob|date of birth|gender|religion|marital\s*status|my|is|am|here|it|mera|hai|mora)\b[:\s\-]*/iu', ' ', $work));
         $segs = preg_split('/\s*[,;\|\n]+\s*/', $cleanWork) ?: [];
         foreach ($segs as $seg) {
             $sClean = trim((string) preg_replace('/\s+/', ' ', $seg));
@@ -1040,6 +1040,90 @@ if (!function_exists('saarthi_parse_step3_personal_input')) {
         }
 
         return $draft;
+    }
+}
+
+if (!function_exists('saarthi_format_saved_fields_line')) {
+    /**
+     * Format already-collected fields into a reassuring live tracker line for progressive chat turns.
+     *
+     * @param list<array{0: string, 1: string}> $savedPairs
+     */
+    function saarthi_format_saved_fields_line(string $lang, array $savedPairs): string
+    {
+        $items = [];
+        foreach ($savedPairs as [$k, $v]) {
+            $vTrim = trim((string) $v);
+            if ($vTrim !== '') {
+                $items[] = "**{$k}:** `{$vTrim}` ✓";
+            }
+        }
+        if ($items === []) {
+            return '';
+        }
+        $prefix = saarthi_localized_text($lang, 'Got it — saved so far:', 'अब तक सहेजा गया विवरण:', 'ଏପର୍ଯ୍ୟନ୍ତ ସେଭ୍ ହୋଇଥିବା ତଥ୍ୟ:');
+        return $prefix . "\n" . implode(' · ', $items) . "\n\n";
+    }
+}
+
+if (!function_exists('saarthi_merge_step4_exam_input')) {
+    /**
+     * Incrementally parse & merge Step 4 examination details without overwriting exam_passed when entering Board/Stream next.
+     *
+     * @param array<string, mixed> $reg
+     * @return array<string, mixed>
+     */
+    function saarthi_merge_step4_exam_input(array $reg, string $message): array
+    {
+        $parsedExams = saarthi_parse_exam_entries($message);
+        if ($parsedExams === []) {
+            return $reg;
+        }
+        if (empty($reg['exams'])) {
+            $reg['exams'] = $parsedExams;
+            return $reg;
+        }
+
+        // Handle multi-row semicolon entry appending/replacing cleanly
+        if (count($parsedExams) > 1) {
+            foreach ($parsedExams as $pe) {
+                $reg['exams'][] = $pe;
+            }
+            return $reg;
+        }
+
+        $first = $parsedExams[0];
+        $cur =& $reg['exams'][0];
+
+        if (!empty($first['year_of_passing'])) {
+            $cur['year_of_passing'] = $first['year_of_passing'];
+        }
+        if (!empty($first['percentage'])) {
+            $cur['percentage'] = $first['percentage'];
+        }
+        if (!empty($first['institute_name'])) {
+            $cur['institute_name'] = $first['institute_name'];
+        }
+        if (!empty($first['stream'])) {
+            $cur['stream'] = $first['stream'];
+        }
+
+        // Single text token handling when primary exam is already known: route to next missing slot (Board -> Stream)
+        $cand = trim((string) ($first['exam_passed'] ?? ''));
+        if ($cand !== '') {
+            $looksLikeExamLevel = (bool) preg_match('/^(10th|12th|\+2|matric|ssc|hsc|diploma|iti|b\.?\s*tech|b\.?\s*e|bca|b\.?\s*sc|b\.?\s*com|b\.?\s*a|m\.?\s*tech|mca|m\.?\s*sc|graduation|post\s*graduation|graduate)\b/i', $cand);
+            if (empty($cur['exam_passed']) || $looksLikeExamLevel) {
+                $cur['exam_passed'] = $cand;
+                $cur['exam_name'] = $cand;
+            } elseif (empty($cur['institute_name'])) {
+                $cur['institute_name'] = $cand;
+            } elseif (empty($cur['stream'])) {
+                $cur['stream'] = $cand;
+            }
+        }
+        unset($cur);
+
+        return $reg;
     }
 }
 
@@ -1489,6 +1573,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
 
         // Step 2: Full Name, Mobile Number, Email Address
         if ((int) $reg['step'] === 2) {
+            $hadNameLabel = (bool) preg_match('/\b(my\s+name\s+is|name\s*[:=]|mera\s+naam)\b/i', $message);
             if (preg_match('/[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}/i', $message, $em)) {
                 $reg['email'] = trim($em[0]);
                 $message = str_replace($em[0], ' ', $message);
@@ -1500,11 +1585,13 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 $reg['mobile'] = $mm[1];
                 $message = str_replace($mm[0], ' ', $message);
             }
-            $nameCand = trim((string) preg_replace('/\b(my name is|name|mobile|phone|email|mera naam)\b[:\s]*/i', ' ', $message));
+            $nameCand = trim((string) preg_replace('/\b(my name is|name|mobile|phone|email|number|no|mera naam|my|is|am|here|it|hai)\b[:\s\-]*/i', ' ', $message));
             $nameCand = trim((string) preg_replace('/[,;|\-]+/', ' ', $nameCand));
             $nameCand = trim((string) preg_replace('/\s+/', ' ', $nameCand));
             if ($nameCand !== '' && mb_strlen($nameCand) >= 2 && !preg_match('/^\d+$/', $nameCand)) {
-                $reg['name'] = $nameCand;
+                if ($reg['name'] === '' || $hadNameLabel || !preg_match('/\b(my|here|this)\b/i', $message)) {
+                    $reg['name'] = $nameCand;
+                }
             }
 
             $missing = [];
@@ -1520,13 +1607,18 @@ if (!function_exists('saarthi_handle_registration_flow')) {
 
             if ($missing !== []) {
                 $_SESSION['saarthi_reg'] = $reg;
+                $savedLine = saarthi_format_saved_fields_line($lang, [
+                    [saarthi_localized_text($lang, 'Name', 'नाम', 'ନାମ'), (string) $reg['name']],
+                    [saarthi_localized_text($lang, 'Mobile', 'मोबाइल', 'ମୋବାଇଲ୍'), (string) $reg['mobile']],
+                    [saarthi_localized_text($lang, 'Email', 'ईमेल', 'ଇମେଲ୍'), (string) $reg['email']],
+                ]);
                 $needStr = implode(', ', $missing);
                 return [
-                    'reply' => saarthi_localized_text(
+                    'reply' => $savedLine . saarthi_localized_text(
                         $lang,
-                        "Almost got Step 2! Please also provide: **{$needStr}**.",
-                        "चरण 2 लगभग पूरा है! कृपया **{$needStr}** भी बताएं।",
-                        "ସୋପାନ ୨ ପ୍ରାୟ ସରିଲାଣି! ଦୟାକରି **{$needStr}** ମଧ୍ୟ ଦିଅନ୍ତୁ।"
+                        "Please also enter: **{$needStr}**.",
+                        "कृपया यह भी बताएं: **{$needStr}**।",
+                        "ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needStr}**।"
                     ),
                     'mode' => 'local',
                     'avatar_state' => 'guide',
@@ -1586,13 +1678,19 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 }
                 if ($missing3a !== []) {
                     $_SESSION['saarthi_reg'] = $reg;
+                    $saved3a = saarthi_format_saved_fields_line($lang, [
+                        [saarthi_localized_text($lang, 'DOB', 'जन्म तिथि', 'ଜନ୍ମ ତାରିଖ'), (string) ($reg['dob'] ?? '')],
+                        [saarthi_localized_text($lang, 'Gender', 'लिंग', 'ଲିଙ୍ଗ'), (string) ($reg['gender'] ?? '')],
+                        [saarthi_localized_text($lang, "Father", 'पिता', 'ପିତା'), (string) ($reg['father_name'] ?? '')],
+                        [saarthi_localized_text($lang, "Mother", 'माता', 'ମାତା'), (string) ($reg['mother_name'] ?? '')],
+                    ]);
                     $needStr = implode(', ', $missing3a);
                     return [
-                        'reply' => saarthi_localized_text(
+                        'reply' => $saved3a . saarthi_localized_text(
                             $lang,
-                            "Got it! Please also share: **{$needStr}**.\n*Tip: Format like `Father: Ramesh Sahu, Mother: Sunita Sahu` works great.*",
-                            "समझ गया! कृपया यह भी बताएं: **{$needStr}**।\n*सुझाव: `Father: Ramesh Sahu, Mother: Sunita Sahu` जैसा लिख सकते हैं।*",
-                            "ବୁଝିଗଲି! ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needStr}**।"
+                            "Please also share: **{$needStr}**.\n*Tip: `Father: Ramesh Sahu, Mother: Sunita Sahu` works great.*",
+                            "कृपया यह भी बताएं: **{$needStr}**।\n*सुझाव: `Father: Ramesh Sahu, Mother: Sunita Sahu` जैसा लिख सकते हैं।*",
+                            "ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needStr}**।"
                         ),
                         'mode' => 'local',
                         'avatar_state' => 'guide',
@@ -1606,8 +1704,14 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 if (empty($reg['religion']) || empty($reg['marital_status'])) {
                     $reg['substep'] = '3b';
                     $_SESSION['saarthi_reg'] = $reg;
+                    $saved3aAll = saarthi_format_saved_fields_line($lang, [
+                        [saarthi_localized_text($lang, 'DOB', 'जन्म तिथि', 'ଜନ୍ମ ତାରିଖ'), (string) ($reg['dob'] ?? '')],
+                        [saarthi_localized_text($lang, 'Gender', 'लिंग', 'ଲିଙ୍ଗ'), (string) ($reg['gender'] ?? '')],
+                        [saarthi_localized_text($lang, "Father", 'पिता', 'ପିତା'), (string) ($reg['father_name'] ?? '')],
+                        [saarthi_localized_text($lang, "Mother", 'माता', 'ମାତା'), (string) ($reg['mother_name'] ?? '')],
+                    ]);
                     return [
-                        'reply' => saarthi_localized_text(
+                        'reply' => $saved3aAll . saarthi_localized_text(
                             $lang,
                             "**Quick Personal Profile (Step 3b):** Please tap or type your **Religion** (Hindu / Muslim / Christian / Other), **Marital Status** (Single / Married), and any **Birth Mark** (or \"None\").",
                             "**व्यक्तिगत विवरण (चरण 3b):** कृपया अपना **धर्म** (Hindu / Muslim / Christian / Other), **वैवाहिक स्थिति** (Single / Married), और कोई **पहचान चिह्न (Birth Mark)** (या \"None\") चुनें या लिखें।",
@@ -1622,11 +1726,34 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                     ];
                 }
             } else {
-                if (empty($reg['religion'])) {
-                    $reg['religion'] = 'Hindu';
-                }
-                if (empty($reg['marital_status'])) {
-                    $reg['marital_status'] = 'Single';
+                if (empty($reg['religion']) || empty($reg['marital_status'])) {
+                    $_SESSION['saarthi_reg'] = $reg;
+                    $saved3b = saarthi_format_saved_fields_line($lang, [
+                        [saarthi_localized_text($lang, 'Religion', 'धर्म', 'ଧର୍ମ'), (string) ($reg['religion'] ?? '')],
+                        [saarthi_localized_text($lang, 'Marital Status', 'वैवाहिक स्थिति', 'ବୈବାହିକ ସ୍ଥିତି'), (string) ($reg['marital_status'] ?? '')],
+                        [saarthi_localized_text($lang, 'Birth Mark', 'पहचान चिह्न', 'ଜନ୍ମ ଚିହ୍ନ'), (string) ($reg['distinguishing_marks'] ?? '')],
+                    ]);
+                    $need3b = [];
+                    if (empty($reg['religion'])) {
+                        $need3b[] = 'Religion (Hindu/Muslim/Christian/Other)';
+                    }
+                    if (empty($reg['marital_status'])) {
+                        $need3b[] = 'Marital Status (Single/Married)';
+                    }
+                    return [
+                        'reply' => $saved3b . saarthi_localized_text(
+                            $lang,
+                            'Please also share: **' . implode(', ', $need3b) . '** (and Birth Mark if any).',
+                            'कृपया यह भी बताएं: **' . implode(', ', $need3b) . '**।',
+                            'ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **' . implode(', ', $need3b) . '**।'
+                        ),
+                        'mode' => 'local',
+                        'avatar_state' => 'guide',
+                        'lang' => $lang,
+                        'ui_action' => 'NONE',
+                        'quick_replies' => !empty($reg['religion']) ? ['Single, None', 'Married, None'] : ['Hindu, Single, None', 'Hindu, Married, None'],
+                        'cards' => [],
+                    ];
                 }
                 if (empty($reg['distinguishing_marks'])) {
                     $reg['distinguishing_marks'] = 'None';
@@ -1654,28 +1781,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
 
         // Step 4: Examination & Academic Qualification History
         if ((int) $reg['step'] === 4) {
-            $parsedExams = saarthi_parse_exam_entries($message);
-            if ($parsedExams !== []) {
-                if (empty($reg['exams'])) {
-                    $reg['exams'] = $parsedExams;
-                } else {
-                    // Merge incremental follow-up answers into the primary exam row
-                    $first = $parsedExams[0];
-                    foreach (['exam_passed', 'institute_name', 'year_of_passing', 'stream', 'percentage'] as $k) {
-                        if (!empty($first[$k])) {
-                            $reg['exams'][0][$k] = $first[$k];
-                            if ($k === 'exam_passed') {
-                                $reg['exams'][0]['exam_name'] = $first[$k];
-                            }
-                        }
-                    }
-                    if (count($parsedExams) > 1) {
-                        for ($pi = 1; $pi < count($parsedExams); $pi++) {
-                            $reg['exams'][] = $parsedExams[$pi];
-                        }
-                    }
-                }
-            }
+            $reg = saarthi_merge_step4_exam_input($reg, $message);
 
             $primary = $reg['exams'][count($reg['exams'] ?: [[]]) - 1] ?? [];
             $missingEdu = [];
@@ -1694,13 +1800,20 @@ if (!function_exists('saarthi_handle_registration_flow')) {
 
             if ($missingEdu !== []) {
                 $_SESSION['saarthi_reg'] = $reg;
+                $savedEdu = saarthi_format_saved_fields_line($lang, [
+                    [saarthi_localized_text($lang, 'Exam', 'परीक्षा', 'ପରୀକ୍ଷା'), (string) ($primary['exam_passed'] ?? '')],
+                    [saarthi_localized_text($lang, 'Board/Univ', 'बोर्ड/विवि', 'ବୋର୍ଡ/ବିଶ୍ୱବିଦ୍ୟାଳୟ'), (string) ($primary['institute_name'] ?? '')],
+                    [saarthi_localized_text($lang, 'Year', 'वर्ष', 'ବର୍ଷ'), (string) ($primary['year_of_passing'] ?? '')],
+                    [saarthi_localized_text($lang, 'Stream', 'संकाय', 'ଷ୍ଟ୍ରିମ୍'), (string) ($primary['stream'] ?? '')],
+                    [saarthi_localized_text($lang, 'Marks', 'अंक', 'ମାର୍କ'), (string) ($primary['percentage'] ?? '')],
+                ]);
                 $needEdu = implode(', ', $missingEdu);
                 return [
-                    'reply' => saarthi_localized_text(
+                    'reply' => $savedEdu . saarthi_localized_text(
                         $lang,
-                        "Almost done with Examination Details! Please also share: **{$needEdu}**.\n*(Optional: you can also include Stream like Science / CSE / General)*",
-                        "परीक्षा विवरण लगभग पूरा है! कृपया यह भी बताएं: **{$needEdu}**।",
-                        "ପରୀକ୍ଷା ତଥ୍ୟ ପ୍ରାୟ ସରିଲାଣି! ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needEdu}**।"
+                        "Please also enter: **{$needEdu}**.\n*(Optional: include Stream like Science / CSE / General)*",
+                        "कृपया यह भी बताएं: **{$needEdu}**।\n*(वैकल्पिक: संकाय जैसे Science / CSE / General लिखें)*",
+                        "ଦୟାକରି ଏହା ମଧ୍ୟ ଦିଅନ୍ତୁ: **{$needEdu}**।"
                     ),
                     'mode' => 'local',
                     'avatar_state' => 'guide',
@@ -1807,12 +1920,18 @@ if (!function_exists('saarthi_handle_registration_flow')) {
 
             if ($reg['address'] === '') {
                 $_SESSION['saarthi_reg'] = $reg;
+                $savedStep5 = saarthi_format_saved_fields_line($lang, [
+                    [saarthi_localized_text($lang, 'Category', 'श्रेणी', 'ବର୍ଗ'), (string) $reg['category']],
+                    ['PwD', (string) $reg['pwd_status']],
+                    ['Aadhar', (string) ($reg['aadhar'] ?: '')],
+                    ['APAAR ID', ($reg['apaar_id'] && $reg['apaar_id'] !== 'SKIPPED') ? (string) $reg['apaar_id'] : ''],
+                ]);
                 return [
-                    'reply' => saarthi_localized_text(
+                    'reply' => $savedStep5 . saarthi_localized_text(
                         $lang,
-                        'Got your category details! Please type your **Full Correspondence Address** (locality, city, state, PIN code) so I can prepare your summary.',
-                        'श्रेणी विवरण सहेज लिया गया है! कृपया अपना **पूरा पत्राचार पता** (शहर, राज्य और पिन कोड सहित) लिखें।',
-                        'ଆପଣଙ୍କ ବର୍ଗ ତଥ୍ୟ ସେଭ୍ ହୋଇଗଲା! ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା** (ସହର, ରାଜ୍ୟ ଏବଂ PIN କୋଡ୍ ସହିତ) ଲେଖନ୍ତୁ।'
+                        'Please enter your **Full Correspondence Address** (locality, city, state, PIN code) so I can prepare your summary.',
+                        'कृपया अपना **पूरा पत्राचार पता** (शहर, राज्य और पिन कोड सहित) लिखें।',
+                        'ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ଠିକଣା** (ସହର, ରାଜ୍ୟ ଏବଂ PIN କୋଡ୍ ସହିତ) ଲେଖନ୍ତୁ।'
                     ),
                     'mode' => 'local',
                     'avatar_state' => 'guide',
