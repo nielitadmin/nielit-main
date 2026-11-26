@@ -533,6 +533,46 @@
     return div;
   }
 
+  function appendLoadingSkeleton() {
+    var labels = {
+      en: 'Saarthi is thinking',
+      hi: 'सारथी सोच रहा है',
+      or: 'ସାରଥୀ ଚିନ୍ତା କରୁଛି'
+    };
+    var labelText = labels[activeLang] || labels.en;
+
+    var box = createEl('div', 'portal-assistant-msg portal-assistant-msg--bot portal-assistant-msg--typing');
+    box.setAttribute('role', 'status');
+    box.setAttribute('aria-live', 'polite');
+    box.setAttribute('aria-label', labelText);
+
+    var head = createEl('div', 'saarthi-skeleton-head');
+    head.appendChild(createEl('span', 'saarthi-skeleton-orb'));
+    head.appendChild(createEl('span', 'saarthi-skeleton-label', labelText));
+
+    var dots = createEl('span', 'saarthi-typing-dots');
+    dots.appendChild(document.createElement('span'));
+    dots.appendChild(document.createElement('span'));
+    dots.appendChild(document.createElement('span'));
+    head.appendChild(dots);
+    box.appendChild(head);
+
+    var lines = createEl('div', 'saarthi-skeleton-lines');
+    lines.appendChild(createEl('div', 'saarthi-skeleton-bar is-lg'));
+    lines.appendChild(createEl('div', 'saarthi-skeleton-bar is-md'));
+    lines.appendChild(createEl('div', 'saarthi-skeleton-bar is-sm'));
+    box.appendChild(lines);
+
+    var pills = createEl('div', 'saarthi-skeleton-pills');
+    pills.appendChild(createEl('div', 'saarthi-skeleton-pill is-a'));
+    pills.appendChild(createEl('div', 'saarthi-skeleton-pill is-b'));
+    box.appendChild(pills);
+
+    messagesEl.appendChild(box);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return box;
+  }
+
   function executeUiAction(uiAction) {
     if (!uiAction || uiAction === 'NONE') return;
     if (uiAction === 'SCROLL_COURSES') {
@@ -566,8 +606,7 @@
     var submitBtn = form.querySelector('button[type="submit"]');
     if (submitBtn) submitBtn.disabled = true;
     setAvatarState('thinking');
-    var typing = appendMessage('…', 'bot', null, true);
-    typing.classList.add('portal-assistant-msg--typing');
+    var typing = appendLoadingSkeleton();
 
     fetch(apiUrl, {
       method: 'POST',
@@ -635,6 +674,7 @@
         sessionStorage.removeItem(STORAGE_KEY);
       } catch (e) {}
       setAvatarState('thinking');
+      var resetSkel = appendLoadingSkeleton();
       fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -643,12 +683,14 @@
       })
         .then(function (r) { return r.json(); })
         .then(function (d) {
+          resetSkel.remove();
           if (d && d.lang) setLang(d.lang);
           setAvatarState((d && d.avatar_state) || 'wave');
           appendMessage((d && d.reply) || WELCOME_TEXT[activeLang], 'bot', {}, false);
           renderChips((d && d.quick_replies) || DEFAULT_CHIPS[activeLang]);
         })
         .catch(function () {
+          resetSkel.remove();
           setAvatarState('wave');
           appendMessage(WELCOME_TEXT[activeLang], 'bot', {}, false);
           renderChips(DEFAULT_CHIPS[activeLang]);

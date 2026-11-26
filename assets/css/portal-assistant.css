@@ -300,6 +300,7 @@
     color: #1e293b;
     border-bottom-left-radius: 4px;
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    animation: saarthiMsgReveal 0.22s ease-out;
 }
 
 .portal-assistant-msg--user {
@@ -310,8 +311,112 @@
 }
 
 .portal-assistant-msg--typing {
-    opacity: 0.78;
-    font-style: italic;
+    width: 84%;
+    background: #ffffff;
+    border: 1px solid rgba(26, 86, 219, 0.16);
+    padding: 11px 13px;
+}
+
+.saarthi-skeleton-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 9px;
+}
+
+.saarthi-skeleton-orb {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1a56db, #f59e0b);
+    flex-shrink: 0;
+    animation: saarthiOrbPulse 1.3s ease-in-out infinite;
+}
+
+.saarthi-skeleton-label {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #475569;
+    letter-spacing: 0.01em;
+}
+
+.saarthi-typing-dots {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 2px;
+}
+
+.saarthi-typing-dots span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #1a56db;
+    opacity: 0.4;
+    animation: saarthiDotBounce 1.2s ease-in-out infinite;
+}
+
+.saarthi-typing-dots span:nth-child(2) {
+    animation-delay: 0.18s;
+}
+
+.saarthi-typing-dots span:nth-child(3) {
+    animation-delay: 0.36s;
+}
+
+.saarthi-skeleton-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.saarthi-skeleton-bar {
+    height: 9px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #e2e8f0 0%, #f8fafc 50%, #e2e8f0 100%);
+    background-size: 220% 100%;
+    animation: saarthiSkeletonShimmer 1.35s linear infinite;
+}
+
+.saarthi-skeleton-bar.is-lg { width: 92%; }
+.saarthi-skeleton-bar.is-md { width: 76%; }
+.saarthi-skeleton-bar.is-sm { width: 54%; }
+
+.saarthi-skeleton-pills {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.saarthi-skeleton-pill {
+    height: 20px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #e2e8f0 0%, #f1f5f9 50%, #e2e8f0 100%);
+    background-size: 220% 100%;
+    animation: saarthiSkeletonShimmer 1.35s linear infinite;
+}
+
+.saarthi-skeleton-pill.is-a { width: 72px; }
+.saarthi-skeleton-pill.is-b { width: 94px; }
+
+@keyframes saarthiSkeletonShimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+@keyframes saarthiDotBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+    30% { transform: translateY(-3px); opacity: 1; }
+}
+
+@keyframes saarthiOrbPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(26, 86, 219, 0.35); }
+    50% { transform: scale(1.18); box-shadow: 0 0 0 5px rgba(26, 86, 219, 0); }
+}
+
+@keyframes saarthiMsgReveal {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .saarthi-msg-body code {
@@ -674,6 +779,25 @@ html[data-mode="night"] .portal-assistant-msg--bot {
     background: #13243c;
     color: #e5eefb;
     border-color: rgba(148, 163, 184, 0.2);
+}
+
+html[data-mode="night"] .portal-assistant-msg--typing {
+    background: #13243c;
+    border-color: rgba(96, 165, 250, 0.28);
+}
+
+html[data-mode="night"] .saarthi-skeleton-label {
+    color: #93c5fd;
+}
+
+html[data-mode="night"] .saarthi-typing-dots span {
+    background: #60a5fa;
+}
+
+html[data-mode="night"] .saarthi-skeleton-bar,
+html[data-mode="night"] .saarthi-skeleton-pill {
+    background: linear-gradient(90deg, #1b2f4d 0%, #2a4670 50%, #1b2f4d 100%);
+    background-size: 220% 100%;
 }
 
 html[data-mode="night"] .saarthi-roadmap-card,
