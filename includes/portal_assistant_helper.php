@@ -304,7 +304,8 @@ WORKFLOWS:
   Step 2: Full Name + Mobile Number (10 digits) + Email Address
   Step 3: Date of Birth + Gender + Highest Educational Qualification
   Step 4: APAAR ID (optional) + Category (General/OBC/SC/ST/EWS) & PwD Status (Yes/No) + Correspondence Address
-  Then show a concise Registration Summary Card and ask the user to reply 'Confirm'. ONLY AFTER explicit confirmation, call `register_student(...)` to save to MySQL, return their Student ID, and trigger `[UI_ACTION: DOWNLOAD_PDF]`.
+  Then show a concise Registration Summary Card and ask the user to reply 'Confirm'. ONLY AFTER explicit confirmation, call `register_student(...)` to save to MySQL, trigger confirmation email, return their Student ID + Upload Documents URL + Admission PDF (`[UI_ACTION: DOWNLOAD_PDF]`).
+- Documents & Email Follow-up: After registering via Saarthi, students can upload Passport Photo, Signature, 12-digit Aadhar Card, and required certificates immediately using the in-chat Upload button or at `student/upload_documents.php` (also available inside Student Portal -> Profile/Dashboard). Confirmation emails (with Student ID, password for new students or existing-password note for returning students) are emailed automatically.
 - Safety & Escalation: NEVER ask for or store passwords, UPI PINs, OTPs, or card details. For payment failures or certificate corrections, give the official helpdesk email/phone and offer `log_support_callback`.
 
 RESPONSE FORMAT:
@@ -933,7 +934,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
         $reg = $_SESSION['saarthi_reg'] ?? null;
         $mLower = saarthi_lower(trim($message));
 
-        // Allow user to abort registration cleanly at any time
+        // Allow user to abort, pause, or switch language cleanly at any step without mutating fields
         if (is_array($reg) && !empty($reg['active'])) {
             if (preg_match('/^(cancel|stop|exit|quit|abort|reset|nahi|radd)\b|रद्द|ବାତିଲ୍|ବନ୍ଦ/iu', $mLower)) {
                 unset($_SESSION['saarthi_reg']);
@@ -957,6 +958,55 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             if (preg_match('/\b(roadmap|how does this site work|mock\s*test|student\s*login)\b/iu', $mLower)) {
                 unset($_SESSION['saarthi_reg']);
                 return null;
+            }
+            // Pure language switch command during active registration: keep fields intact & repeat current prompt
+            if (preg_match('/^(odia\s*(re\s*kuha|kuha|re)?|hindi\s*(mein|me)\s*(batao|bolo)?|switch\s*to\s*english|english\s*please|ଓଡ଼ିଆ|हिन्दी|हिंदी)[\s!.?]*$/iu', $mLower)) {
+                $curStep = (int) ($reg['step'] ?? 1);
+                if (!empty($reg['awaiting_confirm'])) {
+                    $promptTxt = saarthi_localized_text(
+                        $lang,
+                        'Switched to **English**! Review your summary above and reply **"Confirm"** (or click the Confirm button) to submit.',
+                        'भाषा **हिन्दी** में बदल दी गई है! ऊपर अपना सारांश जांचें और सबमिट करने के लिए **"Confirm"** लिखें।',
+                        '**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! ଉପରେ ଆପଣଙ୍କ ତଥ୍ୟ ଯାଞ୍ଚ କରି **"Confirm"** ଲେଖନ୍ତୁ।'
+                    );
+                } elseif ($curStep === 2) {
+                    $promptTxt = saarthi_localized_text(
+                        $lang,
+                        "Switched to **English**! Continuing **Step 2 of 4:** Please share your **Full Name**, **10-digit Mobile Number**, and **Email Address**.",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 2/4:** कृपया अपना **पूरा नाम**, **10-अंकों का मोबाइल नंबर**, और **ईमेल पता** लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୨/୪:** ଦୟାକରି ଆପଣଙ୍କର **ସମ୍ପୂର୍ଣ୍ଣ ନାମ**, **୧୦-ଅଙ୍କ ମୋବାଇଲ୍ ନମ୍ବର**, ଏବଂ **ଇମେଲ୍** ଦିଅନ୍ତୁ।"
+                    );
+                } elseif ($curStep === 3) {
+                    $promptTxt = saarthi_localized_text(
+                        $lang,
+                        "Switched to **English**! Continuing **Step 3 of 4:** Please share your **Date of Birth** (DD-MM-YYYY), **Gender**, and **Highest Qualification**.",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 3/4:** कृपया **जन्म तिथि** (DD-MM-YYYY), **लिंग**, और **उच्चतम योग्यता** लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୩/୪:** ଦୟାକରି **ଜନ୍ମ ତାରିଖ** (DD-MM-YYYY), **ଲିଙ୍ଗ**, ଏବଂ **ଶିକ୍ଷାଗତ ଯୋଗ୍ୟତା** ଦିଅନ୍ତୁ।"
+                    );
+                } elseif ($curStep === 4) {
+                    $promptTxt = saarthi_localized_text(
+                        $lang,
+                        "Switched to **English**! Continuing **Step 4 of 4:** Please share your **APAAR ID** (or \"Skip\"), **Category / PwD**, and **Correspondence Address**.",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 4/4:** कृपया **APAAR ID** (या \"Skip\"), **श्रेणी / PwD**, और **पूरा पता** लिखें।",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୪/୪:** ଦୟାକରି **APAAR ID** (କିମ୍ବା \"Skip\"), **ବର୍ଗ / PwD**, ଏବଂ **ଠିକଣା** ଦିଅନ୍ତୁ।"
+                    );
+                } else {
+                    $promptTxt = saarthi_localized_text(
+                        $lang,
+                        "Switched to **English**! Continuing **Step 1 of 4:** Which **Course** and **Campus Location** would you like to join?",
+                        "भाषा **हिन्दी** में बदल दी गई है! **चरण 1/4:** आप किस **कोर्स** और **कैंपस लोकेशन** में प्रवेश लेना चाहते हैं?",
+                        "**ଓଡ଼ିଆ** କୁ ପରିବର୍ତ୍ତନ ହୋଇଛି! **ସୋପାନ ୧/୪:** ଆପଣ କେଉଁ **କୋର୍ସ** ଏବଂ **କ୍ୟାମ୍ପସ୍** ରେ ପଞ୍ଜୀକରଣ କରିବାକୁ ଚାହୁଁଛନ୍ତି?"
+                    );
+                }
+                return [
+                    'reply' => $promptTxt,
+                    'mode' => 'local',
+                    'avatar_state' => 'wave',
+                    'lang' => $lang,
+                    'ui_action' => 'NONE',
+                    'quick_replies' => [$lang === 'hi' ? 'रद्द करें' : ($lang === 'or' ? 'ବାତିଲ୍ କରନ୍ତୁ' : 'Cancel')],
+                    'cards' => [],
+                ];
             }
         }
 
@@ -1093,14 +1143,24 @@ if (!function_exists('saarthi_handle_registration_flow')) {
 
                 $sid = (string) ($saved['student_id'] ?? '');
                 $cName = (string) ($saved['course_name'] ?? $reg['course_name']);
+                $recEmail = (string) ($saved['email'] ?? $reg['email'] ?? '');
                 $hasPdf = !empty($saved['download_pdf_url']);
+                $emailNoteEn = !empty($saved['is_returning'])
+                    ? "Confirmation email queued to **{$recEmail}** (use your existing Student Portal password to log in)."
+                    : "Confirmation email with your Student ID & login credentials is being sent to **{$recEmail}** (check Inbox/Spam).";
+                $emailNoteHi = !empty($saved['is_returning'])
+                    ? "पुष्टिकरण ईमेल **{$recEmail}** पर भेजा गया है (लॉगिन के लिए अपना मौजूदा पासवर्ड उपयोग करें)।"
+                    : "आपके Student ID और लॉगिन पासवर्ड के साथ पुष्टिकरण ईमेल **{$recEmail}** पर भेजा जा रहा है (Inbox/Spam जांचें)।";
+                $emailNoteOr = !empty($saved['is_returning'])
+                    ? "ନିଶ୍ଚିତକରଣ ଇମେଲ୍ **{$recEmail}** କୁ ପଠାଯାଇଛି (ଆପଣଙ୍କ ପୂର୍ବ ପାସ୍‌ୱାର୍ଡ୍ ବ୍ୟବହାର କରି ଲଗଇନ୍ କରନ୍ତୁ)।"
+                    : "ଆପଣଙ୍କ Student ID ଓ ଲଗଇନ୍ ତଥ୍ୟ ସହିତ ଇମେଲ୍ **{$recEmail}** କୁ ପଠାଯାଉଛି (Inbox/Spam ଯାଞ୍ଚ କରନ୍ତୁ)।";
                 $reply = !empty($saved['already_registered'])
                     ? (string) ($saved['message'] ?? '')
                     : saarthi_localized_text(
                         $lang,
-                        "Congratulations! Your registration for **{$cName}** is submitted.\n**Student / Registration ID:** `{$sid}`\nStatus: Pending document verification. You can download your pre-filled Admission Form PDF right below!",
-                        "बधाई हो! **{$cName}** के लिए आपका रजिस्ट्रेशन सफल रहा।\n**Student / Registration ID:** `{$sid}`\nस्थिति: दस्तावेज़ सत्यापन शेष है। आप नीचे अपना भरा हुआ एडमिशन फॉर्म PDF डाउनलोड कर सकते हैं!",
-                        "ଅଭିନନ୍ଦନ! **{$cName}** ପାଇଁ ଆପଣଙ୍କର ପଞ୍ଜୀକରଣ ସଫଳ ହୋଇଛି।\n**Student / Registration ID:** `{$sid}`\nସ୍ଥିତି: ଡକ୍ୟୁମେଣ୍ଟ୍ ଯାଞ୍ଚ ବାକି ଅଛି। ଆପଣ ତଳୁ ଆପଣଙ୍କର ଆଡମିଶନ୍ ଫର୍ମ PDF ଡାଉନଲୋଡ୍ କରିପାରିବେ!"
+                        "Congratulations! Your registration for **{$cName}** is submitted.\n**Student / Registration ID:** `{$sid}`\n{$emailNoteEn}\n\nStatus: Pending document verification. You can **upload your Photo, Signature, Aadhar & Certificates right below** and download your Admission Form PDF!",
+                        "बधाई हो! **{$cName}** के लिए आपका रजिस्ट्रेशन सफल रहा।\n**Student / Registration ID:** `{$sid}`\n{$emailNoteHi}\n\nस्थिति: दस्तावेज़ सत्यापन शेष है। आप नीचे ही अपनी **फोटो, हस्ताक्षर, आधार और प्रमाणपत्र अपलोड** कर सकते हैं और एडमिशन फॉर्म PDF डाउनलोड कर सकते हैं!",
+                        "ଅଭିନନ୍ଦନ! **{$cName}** ପାଇଁ ଆପଣଙ୍କର ପଞ୍ଜୀକରଣ ସଫଳ ହୋଇଛି।\n**Student / Registration ID:** `{$sid}`\n{$emailNoteOr}\n\nସ୍ଥିତି: ଡକ୍ୟୁମେଣ୍ଟ୍ ଯାଞ୍ଚ ବାକି ଅଛି। ଆପଣ ତଳେ ସିଧାସଳଖ **ଫଟୋ, ସ୍ୱାକ୍ଷର, ଆଧାର ଓ ସାର୍ଟିଫିକେଟ୍ ଅପଲୋଡ୍** କରିପାରିବେ ଏବଂ ଆଡମିଶନ୍ PDF ଡାଉନଲୋଡ୍ କରିପାରିବେ!"
                     );
 
                 return [
@@ -1118,6 +1178,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
             if (preg_match('/\b(edit|change|restart)\b|बदल|ସମ୍ପାଦନ/iu', $mLower)) {
                 $reg['step'] = 2;
                 $reg['awaiting_confirm'] = false;
+                $reg['editing'] = true;
                 $_SESSION['saarthi_reg'] = $reg;
                 return [
                     'reply' => saarthi_localized_text(
@@ -1237,6 +1298,57 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                     'quick_replies' => [$lang === 'hi' ? 'रद्द करें' : ($lang === 'or' ? 'ବାତିଲ୍ କରନ୍ତୁ' : 'Cancel')],
                     'cards' => [],
                 ];
+            }
+
+            $buildSummaryResponse = static function (array &$draft) use ($lang): array {
+                if ($draft['apaar_id'] === 'SKIPPED') {
+                    $draft['apaar_id'] = '';
+                }
+                if ($draft['category'] === '') {
+                    $draft['category'] = 'General';
+                }
+                if ($draft['pwd_status'] === '') {
+                    $draft['pwd_status'] = 'No';
+                }
+                $draft['awaiting_confirm'] = true;
+                $draft['editing'] = false;
+                $_SESSION['saarthi_reg'] = $draft;
+
+                $summary = [
+                    'course_name' => $draft['course_name'],
+                    'center_location' => $draft['center_location'],
+                    'name' => $draft['name'],
+                    'mobile' => $draft['mobile'],
+                    'email' => $draft['email'],
+                    'dob' => $draft['dob'],
+                    'gender' => $draft['gender'],
+                    'qualification' => $draft['qualification'],
+                    'apaar_id' => $draft['apaar_id'] ?: 'N/A',
+                    'category' => $draft['category'],
+                    'pwd_status' => $draft['pwd_status'],
+                    'address' => $draft['address'],
+                ];
+                $reply = saarthi_localized_text(
+                    $lang,
+                    'Here is your **Registration Summary**. Please review your details and reply **"Confirm"** (or click the Confirm button below) to submit and generate your Admission PDF.',
+                    'यहाँ आपका **रजिस्ट्रेशन सारांश (Summary)** है। कृपया विवरण जांचें और एडमिशन PDF बनाने के लिए **"Confirm"** लिखें या नीचे Confirm बटन दबाएं।',
+                    'ଏଠାରେ ଆପଣଙ୍କର **ପଞ୍ଜୀକରଣ ସାରାଂଶ (Summary)** ଅଛି। ଦୟାକରି ତଥ୍ୟ ଯାଞ୍ଚ କରି ଆଡମିଶନ୍ PDF ପାଇଁ **"Confirm"** ଲେଖନ୍ତୁ କିମ୍ବା ତଳ ବଟନ୍ କ୍ଲିକ୍ କରନ୍ତୁ।'
+                );
+                return [
+                    'reply' => $reply,
+                    'mode' => 'local',
+                    'avatar_state' => 'happy',
+                    'lang' => $lang,
+                    'ui_action' => 'NONE',
+                    'quick_replies' => $lang === 'hi'
+                        ? ['Confirm', 'Edit details', 'रद्द करें']
+                        : ($lang === 'or' ? ['Confirm', 'Edit details', 'ବାତିଲ୍ କରନ୍ତୁ'] : ['Confirm', 'Edit details', 'Cancel']),
+                    'cards' => ['registration_summary' => $summary],
+                ];
+            };
+
+            if (!empty($reg['editing']) && $reg['dob'] !== '' && $reg['gender'] !== '' && $reg['qualification'] !== '' && $reg['address'] !== '') {
+                return $buildSummaryResponse($reg);
             }
 
             $reg['step'] = 3;
@@ -1366,7 +1478,7 @@ if (!function_exists('saarthi_handle_registration_flow')) {
                 $work = str_ireplace($pm[0], ' ', $work);
             }
 
-            $addrCand = trim((string) preg_replace('/\b(apaar(\s*id)?|category|address)\b[:\s]*/i', ' ', $work));
+            $addrCand = trim((string) preg_replace('/\b(apaar(\s*id)?|category|correspondence\s+address|address|adress)\b[:\s\-]*/i', ' ', $work));
             $addrCand = trim((string) preg_replace('/^[,\s;\-]+|[,\s;\-]+$/', '', $addrCand));
             $addrCand = trim((string) preg_replace('/\s+/', ' ', $addrCand));
             if ($addrCand !== '' && mb_strlen($addrCand) >= 5 && !preg_match('/^(yes|no|general|obc|sc|st|ews)$/i', $addrCand)) {
@@ -1632,6 +1744,63 @@ if (!function_exists('saarthi_local_reply_structured')) {
                     ? ['रजिस्ट्रेशन करें', 'कोर्स पेज पर जाएं', 'पोर्टल रोडमैप']
                     : ($lang === 'or' ? ['ପଞ୍ଜୀକରଣ କରନ୍ତୁ', 'କୋର୍ସ ପୃଷ୍ଠାକୁ ଯାଆନ୍ତୁ', 'ରୋଡ୍‌ମ୍ୟାପ୍'] : ['Register for a course', 'Show courses section', 'How does this site work?']),
                 'cards' => ['courses' => $courses],
+            ];
+        }
+
+        // Document upload FAQ / direct Student Portal uploader link
+        if (preg_match('/\b(upload|pending\s*doc|aadhar\s*card|passport\s*photo|signature|marksheet|documents?)\b|दस्तावेज़|फोटो|ଆଧାର|ଫଟୋ|ସ୍ୱାକ୍ଷର/iu', $m)) {
+            $uploadUrl = function_exists('app_url') ? app_url('student/upload_documents.php') : '/student/upload_documents.php';
+            $loginUrl = $ctx['student_login'] ?? (function_exists('app_url') ? app_url('student/login') : '/student/login.php');
+            if ($conn instanceof mysqli && !empty($_SESSION['student_id'])) {
+                require_once __DIR__ . '/student_document_upload_helper.php';
+                $stuRow = studentDocumentAuthorizeAccess($conn, (int) ($_SESSION['active_record_id'] ?? 0), '');
+                if ($stuRow) {
+                    $recId = (int) $stuRow['id'];
+                    $sid = (string) $stuRow['student_id'];
+                    $tok = saarthiIssueUploadToken($recId, $sid);
+                    return [
+                        'reply' => saarthi_localized_text(
+                            $lang,
+                            "You can upload your **Passport Photo, Signature, Aadhar Card & Certificates** right below or on the Student Portal Upload Page.",
+                            "आप नीचे या स्टूडेंट पोर्टल अपलोड पेज पर अपनी **फोटो, हस्ताक्षर, आधार कार्ड और प्रमाणपत्र** अपलोड कर सकते हैं।",
+                            "ଆପଣ ତଳେ କିମ୍ବା ଷ୍ଟୁଡେଣ୍ଟ ପୋର୍ଟାଲ୍ ଅପଲୋଡ୍ ପୃଷ୍ଠାରେ **ଫଟୋ, ସ୍ୱାକ୍ଷର, ଆଧାର କାର୍ଡ ଓ ସାର୍ଟିଫିକେଟ୍** ଅପଲୋଡ୍ କରିପାରିବେ।"
+                        ),
+                        'mode' => 'local',
+                        'avatar_state' => 'guide',
+                        'lang' => $lang,
+                        'ui_action' => 'NONE',
+                        'quick_replies' => saarthi_default_quick_replies($lang),
+                        'cards' => [
+                            'registration_receipt' => [
+                                'student_id' => $sid,
+                                'record_id' => $recId,
+                                'course_name' => (string) ($stuRow['course'] ?? ''),
+                                'center_location' => (string) ($stuRow['training_center'] ?? ''),
+                                'aadhar' => (string) ($stuRow['aadhar'] ?? ''),
+                                'download_pdf_url' => saarthi_issue_pdf_token($recId, $sid),
+                                'upload_token' => $tok,
+                                'upload_api_url' => saarthiBuildUploadApiUrl($recId, $sid, $tok),
+                                'upload_portal_url' => saarthiBuildUploadPortalUrl($recId, $sid, $tok),
+                                'document_checklist' => studentDocumentChecklist($conn, $stuRow),
+                                'student_login_url' => $loginUrl,
+                            ],
+                        ],
+                    ];
+                }
+            }
+            return [
+                'reply' => saarthi_localized_text(
+                    $lang,
+                    "After submitting your registration in chat, click **Upload Photo, Signature & Aadhar Here** right under your receipt card — or log in to the **Student Portal** ({$loginUrl}) and open **Upload Documents** ({$uploadUrl}).\nOnce uploaded, your **Admission Form PDF** updates automatically with your photo and signature!",
+                    "चैट में रजिस्ट्रेशन के तुरंत बाद रसीद कार्ड के नीचे **Upload Photo, Signature & Aadhar Here** पर क्लिक करें — या **स्टूडेंट पोर्टल** ({$loginUrl}) में लॉगिन करके **Upload Documents** ({$uploadUrl}) खोलें।",
+                    "ଚାଟ୍‌ରେ ପଞ୍ଜୀକରଣ ପରେ ରସିଦ୍ କାର୍ଡ ତଳେ **Upload Photo, Signature & Aadhar Here** କ୍ଲିକ୍ କରନ୍ତୁ — କିମ୍ବା **ଷ୍ଟୁଡେଣ୍ଟ ପୋର୍ଟାଲ୍** ({$loginUrl}) ରେ ଲଗଇନ୍ କରି **Upload Documents** ({$uploadUrl}) ଖୋଲନ୍ତୁ।"
+                ),
+                'mode' => 'local',
+                'avatar_state' => 'guide',
+                'lang' => $lang,
+                'ui_action' => 'NONE',
+                'quick_replies' => saarthi_default_quick_replies($lang),
+                'cards' => [],
             ];
         }
 

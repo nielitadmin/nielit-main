@@ -196,6 +196,7 @@ include 'includes/header.php';
                         <strong>Registration under review</strong>
                         <p class="mb-0 mt-1 small">
                             This is <strong>not</strong> a payment pending message. Your enrollment status is <strong>Pending</strong> while admin verifies your documents.
+                            Missing Photo, Signature, Aadhar, or Certificates? <a href="upload_documents.php?record_id=<?php echo (int) $selected_record_id; ?>" class="fw-semibold">Upload Pending Documents</a>.
                             Course fee payment status is shown separately below and under <a href="fees.php">Fee Details</a>.
                         </p>
                     </div>
@@ -420,6 +421,12 @@ include 'includes/header.php';
                             </a>
                         </div>
                         <div class="col-md-4 mb-3">
+                            <a href="upload_documents.php?record_id=<?php echo (int) $selected_record_id; ?>" class="action-btn">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <span>Upload Documents</span>
+                            </a>
+                        </div>
+                        <div class="col-md-4 mb-3">
                             <a href="download_form.php" class="action-btn">
                                 <i class="fas fa-download"></i>
                                 <span>Download Form</span>
@@ -512,9 +519,20 @@ include 'includes/header.php';
                     <h5 class="mb-0"><i class="fas fa-id-card"></i> Profile Summary</h5>
                 </div>
                 <div class="card-body text-center">
-                    <img src="../<?php echo htmlspecialchars($student['passport_photo']); ?>" 
-                         alt="Profile Photo" 
-                         class="profile-photo mb-3">
+                    <?php if (!empty($student['passport_photo'])): ?>
+                        <img src="../<?php echo htmlspecialchars($student['passport_photo']); ?>" 
+                             alt="Profile Photo" 
+                             class="profile-photo mb-3">
+                    <?php else: ?>
+                        <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-light text-secondary mb-3" style="width:96px;height:96px;border:2px dashed #cbd5e1;">
+                            <i class="fas fa-user fa-2x"></i>
+                        </div>
+                        <div class="mb-2">
+                            <a href="upload_documents.php?record_id=<?php echo (int) $selected_record_id; ?>" class="btn btn-sm btn-warning">
+                                <i class="fas fa-camera me-1"></i> Upload Photo &amp; Docs
+                            </a>
+                        </div>
+                    <?php endif; ?>
                     <h5><?php echo htmlspecialchars($student['name']); ?></h5>
                     <p class="text-muted mb-2"><?php echo htmlspecialchars($student['student_id']); ?></p>
                     <p class="mb-3">

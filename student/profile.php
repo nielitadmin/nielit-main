@@ -35,9 +35,15 @@ include 'includes/header.php';
                 <div class="card-body">
                     <div class="row align-items-center">
                         <div class="col-md-2 text-center">
-                            <img src="../<?php echo htmlspecialchars($student['passport_photo']); ?>" 
-                                 alt="Profile Photo" 
-                                 class="profile-photo-large">
+                            <?php if (!empty($student['passport_photo'])): ?>
+                                <img src="../<?php echo htmlspecialchars($student['passport_photo']); ?>" 
+                                     alt="Profile Photo" 
+                                     class="profile-photo-large">
+                            <?php else: ?>
+                                <div class="d-inline-flex align-items-center justify-content-center rounded-circle bg-white text-secondary" style="width:120px;height:120px;border:4px solid rgba(255,255,255,0.85);">
+                                    <i class="fas fa-user fa-3x"></i>
+                                </div>
+                            <?php endif; ?>
                         </div>
                         <div class="col-md-7">
                             <h3><?php echo htmlspecialchars($student['name']); ?></h3>
@@ -55,6 +61,10 @@ include 'includes/header.php';
                             </p>
                         </div>
                         <div class="col-md-3 text-right">
+                            <a href="upload_documents.php?record_id=<?php echo (int) ($student['id'] ?? 0); ?>" class="btn btn-warning mb-2 fw-semibold">
+                                <i class="fas fa-cloud-upload-alt"></i> Upload Documents
+                            </a>
+                            <br>
                             <a href="download_form.php" class="btn btn-primary mb-2">
                                 <i class="fas fa-download"></i> Download Form
                             </a>
@@ -238,10 +248,17 @@ include 'includes/header.php';
                     <h6 class="mb-0"><i class="fas fa-image"></i> Passport Photo</h6>
                 </div>
                 <div class="card-body text-center">
-                    <img src="../<?php echo htmlspecialchars($student['passport_photo']); ?>" 
-                         alt="Passport Photo" 
-                         class="img-fluid" 
-                         style="max-width: 200px;">
+                    <?php if (!empty($student['passport_photo'])): ?>
+                        <img src="../<?php echo htmlspecialchars($student['passport_photo']); ?>" 
+                             alt="Passport Photo" 
+                             class="img-fluid" 
+                             style="max-width: 200px;">
+                    <?php else: ?>
+                        <p class="text-muted mb-2">Not uploaded yet</p>
+                        <a href="upload_documents.php?record_id=<?php echo (int) ($student['id'] ?? 0); ?>" class="btn btn-sm btn-warning">
+                            <i class="fas fa-upload me-1"></i> Upload Photo
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -252,10 +269,17 @@ include 'includes/header.php';
                     <h6 class="mb-0"><i class="fas fa-signature"></i> Signature</h6>
                 </div>
                 <div class="card-body text-center">
-                    <img src="../<?php echo htmlspecialchars($student['signature']); ?>" 
-                         alt="Signature" 
-                         class="img-fluid" 
-                         style="max-width: 200px;">
+                    <?php if (!empty($student['signature'])): ?>
+                        <img src="../<?php echo htmlspecialchars($student['signature']); ?>" 
+                             alt="Signature" 
+                             class="img-fluid" 
+                             style="max-width: 200px;">
+                    <?php else: ?>
+                        <p class="text-muted mb-2">Not uploaded yet</p>
+                        <a href="upload_documents.php?record_id=<?php echo (int) ($student['id'] ?? 0); ?>" class="btn btn-sm btn-warning">
+                            <i class="fas fa-upload me-1"></i> Upload Signature
+                        </a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

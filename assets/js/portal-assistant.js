@@ -339,14 +339,140 @@
         dlA.rel = 'noopener';
         rActs.appendChild(dlA);
       }
+      if (r.upload_portal_url) {
+        var upLink = createEl('a', 'saarthi-btn saarthi-btn-primary', '📎 Upload Page ↗');
+        upLink.href = r.upload_portal_url;
+        upLink.target = '_blank';
+        upLink.rel = 'noopener';
+        rActs.appendChild(upLink);
+      }
       if (r.student_login_url) {
-        var lA = createEl('a', 'saarthi-btn saarthi-btn-primary', 'Student Portal Login');
+        var lA = createEl('a', 'saarthi-btn', 'Student Portal Login');
         lA.href = r.student_login_url;
         lA.target = '_blank';
         lA.rel = 'noopener';
         rActs.appendChild(lA);
       }
       recCard.appendChild(rActs);
+
+      // Inline document uploader drawer when upload_api_url & checklist are available
+      if (r.upload_api_url && Array.isArray(r.document_checklist) && r.document_checklist.length > 0) {
+        var upBox = createEl('div', 'saarthi-upload-box');
+        var toggleBtn = createEl('button', 'saarthi-btn saarthi-btn-primary saarthi-upload-toggle', '📎 Upload Photo, Signature & Aadhar Here');
+        toggleBtn.type = 'button';
+        var formWrap = createEl('form', 'saarthi-upload-form');
+        formWrap.hidden = true;
+
+        // 12-digit Aadhar field
+        var aadRow = createEl('div', 'saarthi-upload-row');
+        var aadHead = createEl('div', 'saarthi-upload-label');
+        aadHead.appendChild(createEl('span', '', 'Aadhar Number (12 digits)'));
+        aadHead.appendChild(createEl('span', 'saarthi-upload-badge ' + (r.aadhar ? 'is-done' : 'is-req'), r.aadhar ? 'Saved' : 'Recommended'));
+        aadRow.appendChild(aadHead);
+        var aadInput = document.createElement('input');
+        aadInput.type = 'text';
+        aadInput.name = 'aadhar';
+        aadInput.maxLength = 12;
+        aadInput.placeholder = '12-digit Aadhar number';
+        aadInput.value = r.aadhar || '';
+        aadInput.className = 'saarthi-upload-text';
+        aadRow.appendChild(aadInput);
+        formWrap.appendChild(aadRow);
+
+        var fileInputs = [];
+        var badgesByKey = {};
+        r.document_checklist.forEach(function (doc) {
+          if (!doc || !doc.key) return;
+          // Show required docs + core identity docs cleanly in compact chat widget
+          if (!doc.required && ['passport_photo', 'signature', 'aadhar_card', 'graduation_certificate', 'tenth_marksheet'].indexOf(doc.key) === -1) {
+            return;
+          }
+          var dRow = createEl('div', 'saarthi-upload-row');
+          var dHead = createEl('div', 'saarthi-upload-label');
+          dHead.appendChild(createEl('span', '', String(doc.label || doc.key)));
+          var stBadge = createEl('span', 'saarthi-upload-badge ' + (doc.uploaded ? 'is-done' : (doc.required ? 'is-req' : 'is-opt')), doc.uploaded ? '✓ Uploaded' : (doc.required ? 'Required' : 'Optional'));
+          badgesByKey[doc.key] = stBadge;
+          dHead.appendChild(stBadge);
+          dRow.appendChild(dHead);
+
+          var fIn = document.createElement('input');
+          fIn.type = 'file';
+          fIn.name = String(doc.key);
+          fIn.accept = String(doc.accept || '.jpg,.jpeg,.png,.pdf');
+          fIn.className = 'saarthi-upload-file';
+          fileInputs.push(fIn);
+          dRow.appendChild(fIn);
+          formWrap.appendChild(dRow);
+        });
+
+        var statusMsg = createEl('div', 'saarthi-upload-status', '');
+        var submitBtn = createEl('button', 'saarthi-btn saarthi-btn-gold', '⬆ Save Selected Documents');
+        submitBtn.type = 'submit';
+        formWrap.appendChild(statusMsg);
+        formWrap.appendChild(submitBtn);
+
+        toggleBtn.addEventListener('click', function () {
+          formWrap.hidden = !formWrap.hidden;
+          if (!formWrap.hidden && messagesEl) {
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+          }
+        });
+
+        formWrap.addEventListener('submit', function (ev) {
+          ev.preventDefault();
+          var fd = new FormData(formWrap);
+          fd.append('record_id', String(r.record_id || ''));
+          if (r.upload_token) {
+            fd.append('token', String(r.upload_token));
+          }
+          submitBtn.disabled = true;
+          statusMsg.className = 'saarthi-upload-status';
+          statusMsg.textContent = 'Uploading…';
+
+          fetch(r.upload_api_url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: fd,
+          })
+            .then(function (resp) {
+              return resp.json().then(function (j) { return { status: resp.status, body: j }; });
+            })
+            .then(function (res) {
+              var data = res.body || {};
+              statusMsg.textContent = data.message || (res.status < 400 ? 'Uploaded.' : 'Upload failed.');
+              statusMsg.className = 'saarthi-upload-status ' + (data.ok ? 'is-ok' : 'is-err');
+              if (Array.isArray(data.checklist)) {
+                data.checklist.forEach(function (item) {
+                  if (item && badgesByKey[item.key]) {
+                    var b = badgesByKey[item.key];
+                    b.textContent = item.uploaded ? '✓ Uploaded' : (item.required ? 'Required' : 'Optional');
+                    b.className = 'saarthi-upload-badge ' + (item.uploaded ? 'is-done' : (item.required ? 'is-req' : 'is-opt'));
+                  }
+                });
+              }
+              if (data.aadhar) {
+                aadHead.lastChild.textContent = '✓ Saved';
+                aadHead.lastChild.className = 'saarthi-upload-badge is-done';
+              }
+              if (data.download_pdf_url && dlA) {
+                dlA.href = data.download_pdf_url;
+              }
+              fileInputs.forEach(function (fi) { fi.value = ''; });
+            })
+            .catch(function () {
+              statusMsg.textContent = 'Network error during upload. Try "Upload Page ↗" above.';
+              statusMsg.className = 'saarthi-upload-status is-err';
+            })
+            .finally(function () {
+              submitBtn.disabled = false;
+            });
+        });
+
+        upBox.appendChild(toggleBtn);
+        upBox.appendChild(formWrap);
+        recCard.appendChild(upBox);
+      }
+
       wrap.appendChild(recCard);
     }
 

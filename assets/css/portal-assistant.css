@@ -492,6 +492,91 @@
     border-color: rgba(16, 185, 129, 0.4);
 }
 
+.saarthi-upload-box {
+    margin-top: 10px;
+    padding-top: 9px;
+    border-top: 1px dashed rgba(15, 23, 42, 0.14);
+}
+
+.saarthi-upload-toggle {
+    width: 100%;
+    text-align: center;
+}
+
+.saarthi-upload-form {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.saarthi-upload-row {
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    border-radius: 8px;
+    padding: 7px 8px;
+}
+
+.saarthi-upload-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
+}
+
+.saarthi-upload-badge {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 999px;
+}
+
+.saarthi-upload-badge.is-done {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.saarthi-upload-badge.is-req {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.saarthi-upload-badge.is-opt {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.saarthi-upload-text {
+    width: 100%;
+    font-size: 0.75rem;
+    padding: 4px 7px;
+    border: 1px solid rgba(15, 23, 42, 0.2);
+    border-radius: 6px;
+}
+
+.saarthi-upload-file {
+    width: 100%;
+    font-size: 0.71rem;
+    color: #334155;
+}
+
+.saarthi-upload-status {
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.saarthi-upload-status.is-ok {
+    color: #047857;
+}
+
+.saarthi-upload-status.is-err {
+    color: #b91c1c;
+}
+
 /* Quick Chips */
 .portal-assistant-chips {
     display: flex;
@@ -636,6 +721,22 @@ html[data-mode="night"] .portal-assistant-form input {
     background: #13243c;
     color: #e5eefb;
     border-color: rgba(148, 163, 184, 0.25);
+}
+
+html[data-mode="night"] .saarthi-upload-row {
+    background: #13243c;
+    border-color: rgba(148, 163, 184, 0.2);
+}
+
+html[data-mode="night"] .saarthi-upload-label,
+html[data-mode="night"] .saarthi-upload-file {
+    color: #e2e8f0;
+}
+
+html[data-mode="night"] .saarthi-upload-text {
+    background: #0f1b2d;
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.28);
 }
 
 @media (max-width: 480px) {

@@ -767,7 +767,7 @@ if (!function_exists('saarthi_register_student')) {
 
         // Prevent duplicate active/pending enrollment for the same course
         $dupStmt = $conn->prepare(
-            "SELECT id, student_id, status FROM students
+            "SELECT * FROM students
              WHERE course_id = ?
                AND (REPLACE(REPLACE(REPLACE(mobile,' ',''),'-',''),'+91','') LIKE ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)))
                AND LOWER(COALESCE(status,'')) NOT IN ('rejected','cancelled','inactive')
@@ -794,10 +794,17 @@ if (!function_exists('saarthi_register_student')) {
                     'student_login_url' => $loginUrl,
                 ];
                 if ($canDownload) {
+                    require_once __DIR__ . '/student_document_upload_helper.php';
+                    $upTok = saarthiIssueUploadToken((int) $dupRow['id'], $sid);
                     $resp['download_pdf_url'] = saarthi_issue_pdf_token((int) $dupRow['id'], $sid);
-                    $resp['message'] = 'You are already registered for ' . $courseName . ' (Student ID: ' . $sid . '). You can download your Admission Form PDF below.';
+                    $resp['upload_token'] = $upTok;
+                    $resp['upload_api_url'] = saarthiBuildUploadApiUrl((int) $dupRow['id'], $sid, $upTok);
+                    $resp['upload_portal_url'] = saarthiBuildUploadPortalUrl((int) $dupRow['id'], $sid, $upTok);
+                    $resp['aadhar'] = (string) ($dupRow['aadhar'] ?? '');
+                    $resp['document_checklist'] = studentDocumentChecklist($conn, $dupRow);
+                    $resp['message'] = 'You are already registered for ' . $courseName . ' (Student ID: ' . $sid . '). You can download your Admission Form PDF or upload missing documents below.';
                 } else {
-                    $resp['message'] = 'An application already exists for this mobile/email in ' . $courseName . '. Please log in to the Student Portal to check your status or download your Admission Form PDF.';
+                    $resp['message'] = 'An application already exists for this mobile/email in ' . $courseName . '. Please log in to the Student Portal to check your status, upload documents, or download your Admission Form PDF.';
                 }
                 return $resp;
             }
@@ -998,8 +1005,9 @@ if (!function_exists('saarthi_register_student')) {
         }
 
         $emailQueued = false;
-        if (!$isReturning && $plainPassword !== null && $email !== '' && function_exists('dispatchRegistrationEmailAsync')) {
-            $emailQueued = dispatchRegistrationEmailAsync($email, $name, $studentId, $plainPassword, $courseName, $trainingCenter);
+        if ($email !== '' && function_exists('dispatchRegistrationEmailAsync')) {
+            $emailPwArg = (!$isReturning && $plainPassword !== null) ? $plainPassword : '';
+            $emailQueued = dispatchRegistrationEmailAsync($email, $name, $studentId, $emailPwArg, $courseName, $trainingCenter);
         }
 
         if (is_file(__DIR__ . '/activity_logger.php')) {
@@ -1023,7 +1031,11 @@ if (!function_exists('saarthi_register_student')) {
             }
         }
 
+        require_once __DIR__ . '/student_document_upload_helper.php';
+        $freshStudent = ['id' => $recordId, 'student_id' => $studentId, 'course_id' => $courseId, 'aadhar' => ''];
+        $docChecklist = studentDocumentChecklist($conn, $freshStudent);
         $pdfUrl = saarthi_issue_pdf_token($recordId, $studentId);
+        $uploadTok = saarthiIssueUploadToken($recordId, $studentId);
 
         return [
             'ok' => true,
@@ -1033,8 +1045,14 @@ if (!function_exists('saarthi_register_student')) {
             'student_id' => $studentId,
             'course_name' => $courseName,
             'center_location' => $trainingCenter,
+            'email' => $email,
             'email_queued' => $emailQueued,
+            'aadhar' => '',
             'download_pdf_url' => $pdfUrl,
+            'upload_token' => $uploadTok,
+            'upload_api_url' => saarthiBuildUploadApiUrl($recordId, $studentId, $uploadTok),
+            'upload_portal_url' => saarthiBuildUploadPortalUrl($recordId, $studentId, $uploadTok),
+            'document_checklist' => $docChecklist,
             'student_login_url' => function_exists('app_url') ? app_url('student/login') : '/student/login.php',
         ];
     }

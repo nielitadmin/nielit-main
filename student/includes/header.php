@@ -107,6 +107,7 @@ require_once __DIR__ . '/../../includes/institute_branding.php';
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="profile.php"><i class="fas fa-user me-2"></i> My Profile</a></li>
                             <li><a class="dropdown-item" href="edit_profile.php"><i class="fas fa-user-edit me-2"></i> Edit Profile</a></li>
+                            <li><a class="dropdown-item" href="upload_documents.php"><i class="fas fa-cloud-upload-alt me-2"></i> Upload Documents</a></li>
                             <li><a class="dropdown-item" href="certificates.php"><i class="fas fa-certificate me-2"></i> Certificates</a></li>
                             <li><a class="dropdown-item" href="placement.php"><i class="fas fa-briefcase me-2"></i> My Placement</a></li>
                             <li><a class="dropdown-item" href="support.php"><i class="fas fa-headset me-2"></i> Support</a></li>

@@ -128,16 +128,25 @@ function dispatchRegistrationEmailAsync(
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query(['payload' => $encoded]),
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT_MS => 300,
-            CURLOPT_TIMEOUT_MS => 500,
+            CURLOPT_CONNECTTIMEOUT_MS => 1200,
+            CURLOPT_TIMEOUT_MS => 2000,
             CURLOPT_NOSIGNAL => 1,
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => 0,
             CURLOPT_HTTPHEADER => ['X-Registration-Email: 1'],
         ]);
-        @curl_exec($ch);
+        $respBody = @curl_exec($ch);
+        $curlErr = curl_errno($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        return true;
+
+        // If async worker accepted the POST or read it before timeout, return immediately.
+        // Fall back cleanly if loopback cURL failed to connect or returned an HTTP error.
+        $connectedAndAccepted = ($respBody !== false && $httpCode >= 200 && $httpCode < 400)
+            || ($curlErr === 28 && $httpCode === 0); // CURLE_OPERATION_TIMEDOUT after async handoff
+        if ($connectedAndAccepted) {
+            return true;
+        }
     }
 
     register_shutdown_function(static function () use ($job) {
@@ -207,9 +216,16 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
     $current_year = date('Y');
     $login_url = htmlspecialchars(getEmailPublicPageUrl('student/login.php'), ENT_QUOTES, 'UTF-8');
     $fees_url = htmlspecialchars(getEmailPublicPageUrl('student/fees.php'), ENT_QUOTES, 'UTF-8');
+    $upload_url = htmlspecialchars(getEmailPublicPageUrl('student/upload_documents.php'), ENT_QUOTES, 'UTF-8');
     $safe_name = htmlspecialchars((string) $student_name, ENT_QUOTES, 'UTF-8');
     $safe_id = htmlspecialchars((string) $student_id, ENT_QUOTES, 'UTF-8');
-    $safe_password = htmlspecialchars((string) $password, ENT_QUOTES, 'UTF-8');
+    $has_plain_password = trim((string) $password) !== '';
+    $safe_password = $has_plain_password
+        ? htmlspecialchars((string) $password, ENT_QUOTES, 'UTF-8')
+        : 'Use your existing Student Portal password';
+    $intro_line = $has_plain_password
+        ? 'Congratulations! Your registration has been successfully completed. Below are your login credentials:'
+        : 'Your additional course/workshop registration has been successfully submitted under your existing Student ID. Below are your enrollment details:';
     $safe_course = htmlspecialchars((string) $course_name, ENT_QUOTES, 'UTF-8');
     $safe_center = htmlspecialchars((string) $training_center, ENT_QUOTES, 'UTF-8');
 
@@ -246,7 +262,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                             </p>
                             
                             <p style="color: #333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
-                                Congratulations! Your registration has been successfully completed. Below are your login credentials:
+                                {$intro_line}
                             </p>
                             
                             <!-- Credentials Box -->
@@ -266,7 +282,7 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
                                                 <td style="color: #0a1628; font-weight: 700; font-size: 14px;">
                                                     Password:
                                                 </td>
-                                                <td style="color: #333; font-size: 16px; font-weight: 700; font-family: 'Courier New', monospace;">
+                                                <td style="color: #333; font-size: 15px; font-weight: 700; font-family: 'Courier New', monospace;">
                                                     {$safe_password}
                                                 </td>
                                             </tr>
@@ -300,9 +316,10 @@ function getRegistrationEmailTemplate($student_name, $student_id, $password, $co
 
                             <div style="background-color: #e8f5e9; border-left: 4px solid #2e7d32; border-radius: 4px; padding: 18px; margin: 20px 0;">
                                 <p style="color: #1b5e20; font-size: 15px; margin: 0 0 12px 0; line-height: 1.5;">
-                                    <strong>✅ After you log in</strong>, use the student portal to stay updated:
+                                    <strong>✅ After you log in</strong>, use the student portal to complete your onboarding:
                                 </p>
                                 <ul style="color: #333; font-size: 14px; line-height: 1.65; margin: 0; padding-left: 22px;">
+                                    <li style="margin-bottom: 8px;"><strong><a href="{$upload_url}" style="color: #0a1628;">Upload Documents</a></strong> — upload pending Passport Photo, Signature, Aadhar Card &amp; Certificates before verification.</li>
                                     <li style="margin-bottom: 8px;"><strong>Dashboard</strong> — check your application / enrollment status for each course (Pending, Active, etc.).</li>
                                     <li style="margin-bottom: 8px;"><strong><a href="{$fees_url}" style="color: #0a1628;">Fee Details</a></strong> — see fee amounts, pay online if required, and download payment receipts.</li>
                                     <li style="margin-bottom: 0;"><strong>Profile &amp; documents</strong> — view your registration details, announcements, and certificates when they are issued.</li>
@@ -358,24 +375,27 @@ HTML;
 function getRegistrationEmailPlainText($student_name, $student_id, $password, $course_name, $training_center) {
     $login_url = getEmailPublicPageUrl('student/login.php');
     $fees_url = getEmailPublicPageUrl('student/fees.php');
+    $upload_url = getEmailPublicPageUrl('student/upload_documents.php');
+    $pwText = trim((string) $password) !== '' ? (string) $password : 'Use your existing Student Portal password';
 
     return <<<TEXT
 REGISTRATION SUCCESSFUL - NIELIT Bhubaneswar
 
 Dear {$student_name},
 
-Congratulations! Your registration has been successfully completed.
+Congratulations! Your registration has been successfully recorded.
 
-YOUR LOGIN CREDENTIALS:
+YOUR LOGIN DETAILS:
 ========================
 Student ID: {$student_id}
-Password: {$password}
+Password: {$pwText}
 Course: {$course_name}
 Training Center: {$training_center}
 
-IMPORTANT: Please save these credentials securely. You will need them to log in to the student portal.
+IMPORTANT: Please keep your Student ID safely. You will need it to log in to the student portal.
 
 AFTER YOU LOG IN:
+- Upload Documents ({$upload_url}) — upload pending Passport Photo, Signature, Aadhar Card & Certificates before verification.
 - Dashboard — check your application / enrollment status for each course.
 - Fee Details ({$fees_url}) — pay course fees online if required and download receipts.
 - Profile — view your registration details, announcements, and certificates when issued.
